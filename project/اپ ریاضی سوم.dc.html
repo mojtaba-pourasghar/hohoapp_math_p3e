@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#F2EFE6; font-family:'Vazirmatn',system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  a { color:#3AA79A; } a:hover { color:#2E8A7F; }
+  @keyframes wv { 0%,100%{transform:scaleY(.35)} 50%{transform:scaleY(1)} }
+  @keyframes pop { 0%{transform:scale(.88);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  @keyframes load { 0%{width:8%} 100%{width:100%} }
+  @keyframes fly { 0%{left:6%;bottom:46px} 25%{bottom:76px} 50%{left:64%;bottom:44px} 75%{bottom:78px} 100%{left:6%;bottom:46px} }
+  @keyframes face { 0%,47%{transform:scaleX(-1)} 53%,100%{transform:scaleX(1)} }
+  @keyframes flapL { 0%,100%{transform:rotate(-30deg)} 50%{transform:rotate(18deg)} }
+  @keyframes flapR { 0%,100%{transform:rotate(30deg)} 50%{transform:rotate(-18deg)} }
+  @keyframes blink { 0%,92%,100%{transform:scaleY(1)} 96%{transform:scaleY(.1)} }
+  @keyframes flapSlowL { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(2deg)} }
+  @keyframes flapSlowR { 0%,100%{transform:rotate(6deg)} 50%{transform:rotate(-2deg)} }
+  @keyframes drift { 0%{transform:translateX(-46px)} 100%{transform:translateX(46px)} }
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-thumb{background:#CBD6D0;border-radius:9px}
+</style>
+</helmet>
+
+<div style="direction:rtl;min-height:100vh;padding:18px 16px 40px;display:flex;flex-direction:column;align-items:center;gap:14px;color:#2E3B36;font-family:'Vazirmatn',sans-serif">
+
+  <div style="width:100%;max-width:1180px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:12px;background:#E8973A;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px">ر</div>
+      <div style="display:flex;flex-direction:column">
+        <div style="font-weight:800;font-size:15px">هوهو ریاضی — سوم دبستان</div>
+        <div style="font-size:11.5px;color:#7A8A83">{{ taughtLabel }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <sc-for list="{{ devices }}" as="d" hint-placeholder-count="4">
+        <button onClick="{{ d.pick }}" style="border:1.5px solid #DCD6C6;background:{{ d.bg }};color:{{ d.fg }};padding:7px 13px;border-radius:999px;font-family:'Vazirmatn',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer">{{ d.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="width:100%;max-width:1180px;display:flex;gap:6px;flex-wrap:wrap">
+    <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="10">
+      <button onClick="{{ j.pick }}" style="border:1px solid {{ j.bd }};background:{{ j.bg }};color:{{ j.fg }};padding:6px 12px;border-radius:999px;font-family:'Vazirmatn',sans-serif;font-size:12px;font-weight:600;cursor:pointer">{{ j.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="width:100%;max-width:412px;height:846px;max-width:{{ fw }};height:{{ fh }};background:#fff;border:11px solid #222B27;border-radius:42px;overflow:hidden;box-shadow:0 30px 60px -24px rgba(34,43,39,.45);display:flex;flex-direction:column;position:relative">
+
+    <div style="flex:1;overflow:auto;position:relative;display:flex;flex-direction:column;background:#fff;padding-bottom:150px">
+
+      <!-- اسپلش -->
+      <sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;background:#FDF7EC;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:28px">
+          <div style="font-size:14px;font-weight:700;color:#A4700F;letter-spacing:.5px">شاد و تشویق‌کننده</div>
+          <div style="position:relative;width:196px;height:190px;animation:drift 4.2s ease-in-out infinite alternate">
+          <div style="position:relative;width:196px;height:190px;animation:bob 2.8s ease-in-out infinite">
+            <div style="position:absolute;left:-24px;top:70px;width:84px;height:30px;border-radius:50%;background:#D8811F;z-index:0;transform-origin:right center;animation:flapL .5s ease-in-out infinite"></div>
+            <div style="position:absolute;right:-24px;top:70px;width:84px;height:30px;border-radius:50%;background:#D8811F;z-index:0;transform-origin:left center;animation:flapR .5s ease-in-out infinite"></div>
+            <div style="position:absolute;left:18px;top:14px;width:160px;height:160px;border-radius:50%;background:#E8973A;z-index:1"></div>
+            <div style="position:absolute;left:38px;top:28px;width:120px;height:92px;border-radius:60px 60px 50px 50px;background:#FDF4E3;z-index:2"></div>
+            <div style="position:absolute;left:42px;top:40px;display:flex;gap:10px;z-index:3;animation:blink 5s ease-in-out infinite">
+              <div style="width:52px;height:52px;border-radius:50%;background:#fff;border:4px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:21px;height:21px;border-radius:50%;background:#3B3027"></div></div>
+              <div style="width:52px;height:52px;border-radius:50%;background:#fff;border:4px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:21px;height:21px;border-radius:50%;background:#3B3027"></div></div>
+            </div>
+            <div style="position:absolute;left:85px;top:96px;width:0;height:0;border-right:13px solid transparent;border-left:13px solid transparent;border-top:19px solid #D8811F;z-index:4"></div>
+            <div style="position:absolute;left:78px;top:128px;width:40px;height:16px;border-bottom:3px solid #FDF4E3;border-radius:0 0 26px 26px;z-index:4"></div>
+            <div style="position:absolute;left:30px;top:-6px;width:136px;height:20px;background:#2F6FB3;border-radius:5px;z-index:5"></div>
+          </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="font-size:26px;font-weight:800">هوهو ریاضی</div>
+            <div style="font-size:13.5px;color:#8B7A52">ریاضی سوم دبستان · مطابق کتاب درسی ۱۴۰۴</div>
+          </div>
+          <div style="width:180px;height:9px;border-radius:999px;background:#F0E3CB;overflow:hidden">
+            <div style="height:100%;background:#E8973A;border-radius:999px;animation:load 1.6s ease-out forwards"></div>
+          </div>
+          <button onClick="{{ goMap }}" style="padding:14px 26px;border-radius:16px;border:none;background:#3AA79A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">شروع کنیم</button>
+        </div>
+      </sc-if>
+
+      <!-- نقشه -->
+      <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;min-height:100%">
+          <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;background:#fff;position:sticky;top:0;z-index:5;border-bottom:1px solid #F0EEE7">
+            <div style="display:flex;align-items:center;gap:10px">
+              <button onClick="{{ goProfile }}" style="width:38px;height:38px;border-radius:50%;background:#E8973A;border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">
+                <div style="width:22px;height:22px;border-radius:50%;background:#FDF4E3;display:flex;align-items:center;justify-content:center;gap:2px">
+                  <div style="width:6px;height:6px;border-radius:50%;background:#3B3027"></div>
+                  <div style="width:6px;height:6px;border-radius:50%;background:#3B3027"></div>
+                </div>
+              </button>
+              <sc-if value="{{ gamified }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <div style="display:flex;align-items:center;gap:5px;background:#FDF4E3;border:1px solid #F2E2C2;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:700;color:#A4700F">
+                    <div style="width:9px;height:9px;background:#E8973A;transform:rotate(45deg);border-radius:2px"></div>{{ stars }} ستاره
+                  </div>
+                  <div style="display:flex;align-items:center;gap:5px;background:#FBEAF0;border:1px solid #F3D3DF;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:700;color:#B33A65">{{ streak }} روز</div>
+                </div>
+              </sc-if>
+            </div>
+            <button onClick="{{ goParent }}" style="width:34px;height:34px;border-radius:50%;background:#FBEAF0;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+              <div style="width:15px;height:18px;background:#B33A65;border-radius:3px 3px 8px 8px"></div>
+            </button>
+          </div>
+
+          <div style="padding:14px 16px 8px;background:#fff">
+            <div style="font-size:19px;font-weight:800;line-height:1.5">{{ greeting }}</div>
+            <div style="font-size:12.5px;color:#7A8A83;margin-top:6px">{{ mapSub }}</div>
+            <div style="margin-top:10px;height:9px;border-radius:999px;background:#EDF1EC;overflow:hidden">
+              <div style="height:100%;border-radius:999px;background:#3AA79A;width:{{ chapterPct }}"></div>
+            </div>
+          </div>
+
+          <div style="position:relative;background:#E9F2E7;height:1160px;flex:none;overflow:hidden">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+              <path d="M72 82 C 60 78, 40 74, 44 69 C 48 63, 68 62, 66 57 C 63 51, 42 52, 38 45 C 34 38, 60 39, 62 33 C 64 26, 46 26, 44 16" fill="none" stroke="#CBE3C5" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <sc-for list="{{ mapNodes }}" as="n" hint-placeholder-count="6">
+              <div style="position:absolute;top:{{ n.top }};left:{{ n.left }};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:7px;width:150px">
+                <button onClick="{{ n.tap }}" style="width:{{ n.size }};height:{{ n.size }};border-radius:50%;background:{{ n.bg }};border:5px solid #fff;box-shadow:0 10px 20px -12px rgba(0,0,0,.4);color:{{ n.fg }};font-weight:800;font-size:14px;cursor:pointer;font-family:'Vazirmatn',sans-serif;line-height:1.35">{{ n.badge }}</button>
+                <div style="font-size:11.5px;font-weight:700;color:#41564E;background:#ffffffd9;padding:4px 9px;border-radius:9px;text-align:center;line-height:1.6">{{ n.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- فهرست فصل‌ها -->
+      <sc-if value="{{ isChapters }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:18px 16px 24px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:20px;font-weight:800">فصل‌های کتاب</div>
+          <div style="font-size:12.5px;color:#7A8A83;margin-top:-6px">تا جایی باز است که معلم درس داده باشد — {{ taughtLabel }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <sc-for list="{{ chapterCards }}" as="c" hint-placeholder-count="8">
+              <button onClick="{{ c.pick }}" style="flex:1 1 250px;text-align:right;border:1.5px solid {{ c.bd }};background:{{ c.bg }};border-radius:18px;padding:14px;cursor:pointer;font-family:'Vazirmatn',sans-serif;display:flex;gap:12px;align-items:center">
+                <div style="width:46px;height:46px;border-radius:14px;background:{{ c.chip }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;flex:none">{{ c.n }}</div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#2E3B36">{{ c.title }}</div>
+                  <div style="font-size:11.5px;color:#7A8A83;line-height:1.7">{{ c.sub }}</div>
+                  <div style="height:7px;border-radius:999px;background:#EDF1EC;overflow:hidden">
+                    <div style="height:100%;border-radius:999px;background:{{ c.chip }};width:{{ c.pct }}"></div>
+                  </div>
+                </div>
+                <div style="font-size:17px;flex:none;color:#9AA8A2">{{ c.icon }}</div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- درس صوتی -->
+      <sc-if value="{{ isLesson }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;min-height:100%">
+          <div style="padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #F0EEE7;position:sticky;top:0;background:#fff;z-index:5">
+            <button onClick="{{ goMap }}" style="width:34px;height:34px;border-radius:12px;border:1px solid #E6E2D6;background:#fff;cursor:pointer;font-size:15px">→</button>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:700">درس ۲: شمارش چندتا چندتا</div>
+              <div style="font-size:11px;color:#8B9A93">صفحه‌ی ۱۰ کتاب · گام {{ stepNo }} از {{ stepTotal }}</div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <sc-for list="{{ stepDots }}" as="s" hint-placeholder-count="7">
+                <div style="width:16px;height:6px;border-radius:99px;background:{{ s.bg }}"></div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-wrap:wrap;gap:14px;padding:16px;align-content:flex-start;background:#F7FAF6">
+            <div style="flex:1 1 300px;min-width:260px;display:flex;flex-direction:column;gap:12px">
+              <div style="background:#fff;border:1.5px solid #E8EEE6;border-radius:22px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px">
+                <div style="position:relative;width:150px;height:146px">
+                  <div style="position:absolute;left:-16px;top:54px;width:62px;height:23px;border-radius:50%;background:#D8811F;z-index:0;transform-origin:right center;animation:flapL .5s ease-in-out infinite"></div>
+                  <div style="position:absolute;right:-16px;top:54px;width:62px;height:23px;border-radius:50%;background:#D8811F;z-index:0;transform-origin:left center;animation:flapR .5s ease-in-out infinite"></div>
+                  <div style="position:absolute;left:14px;top:10px;width:122px;height:122px;border-radius:50%;background:#E8973A;z-index:1"></div>
+                  <div style="position:absolute;left:29px;top:21px;width:92px;height:70px;border-radius:46px 46px 38px 38px;background:#FDF4E3;z-index:2"></div>
+                  <div style="position:absolute;left:32px;top:30px;display:flex;gap:8px;z-index:3;animation:blink 5s ease-in-out infinite">
+                    <div style="width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:16px;border-radius:50%;background:#3B3027"></div></div>
+                    <div style="width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:16px;border-radius:50%;background:#3B3027"></div></div>
+                  </div>
+                  <div style="position:absolute;left:65px;top:73px;width:0;height:0;border-right:10px solid transparent;border-left:10px solid transparent;border-top:15px solid #D8811F;z-index:4"></div>
+                  <div style="position:absolute;left:60px;top:98px;width:30px;height:13px;border-bottom:3px solid #FDF4E3;border-radius:0 0 20px 20px;z-index:4"></div>
+                  <div style="position:absolute;left:24px;top:-6px;width:102px;height:17px;background:#2F6FB3;border-radius:4px;z-index:5"></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <button onClick="{{ toggleVoice }}" style="width:46px;height:46px;border-radius:50%;background:#3AA79A;border:none;color:#fff;font-size:17px;cursor:pointer;flex:none">{{ voiceIcon }}</button>
+                  <div style="display:flex;align-items:flex-end;gap:3px;height:28px">
+                    <sc-for list="{{ waves }}" as="w" hint-placeholder-count="9">
+                      <div style="width:4px;height:26px;border-radius:99px;background:#9ED3CC;transform-origin:bottom;animation:wv 1s ease-in-out infinite;animation-delay:{{ w.d }};animation-play-state:{{ w.play }}"></div>
+                    </sc-for>
+                  </div>
+                  <div style="font-size:11.5px;color:#7A8A83">{{ voiceLabel }}</div>
+                </div>
+                <div style="background:#FDF4E3;border:1.5px solid #F0DFBE;border-radius:16px;padding:13px 15px;font-size:15px;line-height:1.95;font-weight:500;text-align:right;width:100%">{{ say }}</div>
+              </div>
+              <div style="background:#fff;border:1.5px solid #E8EEE6;border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11.5px;color:#8B9A93;font-weight:600">{{ visCaption }}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px">
+                  <sc-for list="{{ visGroups }}" as="g" hint-placeholder-count="5">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;background:#F7FAF6;border:1px solid #E8EEE6;border-radius:14px;padding:9px 11px">
+                      <div style="display:flex;gap:5px">
+                        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+                          <div style="width:18px;height:18px;border-radius:50%;background:{{ it.c }}"></div>
+                        </sc-for>
+                      </div>
+                      <div style="font-size:11.5px;font-weight:700;color:#41564E">{{ g.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1 1 300px;min-width:260px;display:flex;flex-direction:column;gap:12px">
+              <sc-if value="{{ isTeach }}" hint-placeholder-val="{{ true }}">
+                <div style="background:#fff;border:1.5px solid #E8EEE6;border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px">
+                  <div style="font-size:15px;font-weight:700">فهمیدی؟</div>
+                  <div style="font-size:13px;color:#6E7F78;line-height:1.9">اگر روشن بود برویم گام بعد؛ اگر نه، هوهو همین قسمت را با مثال دیگری دوباره می‌گوید.</div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button onClick="{{ next }}" style="flex:1 1 130px;padding:15px;border-radius:16px;border:none;background:#3AA79A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">فهمیدم، برویم!</button>
+                    <button onClick="{{ again }}" style="flex:1 1 130px;padding:15px;border-radius:16px;border:1.5px solid #E6E2D6;background:#fff;color:#41564E;font-size:14px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">دوباره بگو</button>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isMcq }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#fff;border:1.5px solid #E8EEE6;border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px">
+                  <div style="font-size:15px;font-weight:700">جواب را انتخاب کن</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:10px">
+                    <sc-for list="{{ options }}" as="o" hint-placeholder-count="4">
+                      <button onClick="{{ o.pick }}" style="flex:1 1 110px;min-height:74px;border-radius:18px;border:2px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-size:24px;font-weight:800;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                  <button onClick="{{ toggleMic }}" style="align-self:flex-start;padding:10px 14px;border-radius:14px;border:1.5px solid #E6E2D6;background:{{ micBg }};color:{{ micFg }};font-size:13px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ micLabel }}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isNum }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#fff;border:1.5px solid #E8EEE6;border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px">
+                  <div style="font-size:15px;font-weight:700">عدد را بنویس</div>
+                  <div style="height:64px;border-radius:16px;border:2px dashed #CBD6D0;background:#F7FAF6;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;letter-spacing:4px">{{ typed }}</div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                    <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+                      <button onClick="{{ k.press }}" style="padding:15px 0;border-radius:14px;border:1.5px solid #E6E2D6;background:{{ k.bg }};color:#2E3B36;font-size:19px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ k.label }}</button>
+                    </sc-for>
+                  </div>
+                  <button onClick="{{ submitNum }}" style="padding:15px;border-radius:16px;border:none;background:#E8973A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">بفرست</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#FDF4E3;border:1.5px solid #F0DFBE;border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center">
+                  <div style="display:flex;gap:6px">
+                    <div style="width:22px;height:22px;background:#E8973A;transform:rotate(45deg);border-radius:4px"></div>
+                    <div style="width:22px;height:22px;background:#E8973A;transform:rotate(45deg);border-radius:4px"></div>
+                    <div style="width:22px;height:22px;background:#E8973A;transform:rotate(45deg);border-radius:4px"></div>
+                  </div>
+                  <div style="font-size:18px;font-weight:800">درس تمام شد!</div>
+                  <div style="font-size:13.5px;color:#6E7F78;line-height:1.9">۳ ستاره گرفتی. حالا تمرین‌های همین بخش را در اپ حل کن.</div>
+                  <button onClick="{{ goSections }}" style="width:100%;padding:16px;border-radius:16px;border:none;background:#3AA79A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">تمرین‌های این بخش</button>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- تمرین بخش‌ها -->
+      <sc-if value="{{ isSections }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:13px;background:#F7FAF6;min-height:100%">
+          <div>
+            <div style="font-size:19px;font-weight:800">تمرین بخش‌ها</div>
+            <div style="font-size:12px;color:#7A8A83;margin-top:5px">هر بخشی که معلم درس داده، اینجا تمرین جداگانه دارد — {{ taughtLabel }}</div>
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <sc-for list="{{ chapterChips }}" as="c" hint-placeholder-count="8">
+              <button onClick="{{ c.pickSec }}" style="padding:9px 13px;border-radius:13px;border:1.5px solid {{ c.bdS }};background:{{ c.bgS }};color:{{ c.fgS }};font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <div style="font-size:16px;font-weight:800;margin-top:2px">{{ secChTitle }}</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ sectionCards }}" as="s" hint-placeholder-count="5">
+              <div style="border:1.5px solid {{ s.bd }};background:{{ s.bg }};border-radius:18px;padding:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+                <div style="width:42px;height:42px;border-radius:13px;background:{{ s.chip }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:none">{{ s.n }}</div>
+                <div style="flex:1 1 150px;min-width:0">
+                  <div style="font-size:14.5px;font-weight:700">{{ s.title }}</div>
+                  <div style="font-size:11.5px;color:#7A8A83;margin-top:3px">{{ s.sub }}</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-for list="{{ s.packs }}" as="p" hint-placeholder-count="3">
+                    <button onClick="{{ p.start }}" style="padding:11px 14px;border-radius:13px;border:1.5px solid {{ p.bd }};background:{{ p.bg }};color:{{ p.fg }};font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ p.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- فهرست کاربرگ‌ها -->
+      <sc-if value="{{ isWsIndex }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:13px;background:#F7FAF6;min-height:100%">
+          <div>
+            <div style="font-size:19px;font-weight:800">کاربرگ‌ها</div>
+            <div style="font-size:12px;color:#7A8A83;margin-top:5px">هر فصل ۳ سطح · هر کاربرگ ۳۰ سؤال · همین‌جا جواب می‌نویسی</div>
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <sc-for list="{{ chapterChips }}" as="c" hint-placeholder-count="8">
+              <button onClick="{{ c.pickWs }}" style="padding:9px 13px;border-radius:13px;border:1.5px solid {{ c.bdW }};background:{{ c.bgW }};color:{{ c.fgW }};font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <div style="font-size:16px;font-weight:800;margin-top:2px">{{ wsChTitle }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <sc-for list="{{ wsLevels }}" as="l" hint-placeholder-count="3">
+              <button onClick="{{ l.pick }}" style="flex:1 1 230px;text-align:right;border:1.5px solid {{ l.bd }};background:{{ l.bg }};border-radius:20px;padding:15px;cursor:pointer;font-family:'Vazirmatn',sans-serif;display:flex;gap:12px;align-items:center">
+                <div style="width:44px;height:44px;border-radius:14px;background:{{ l.chip }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:none">{{ l.n }}</div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:14.5px;font-weight:700;color:#2E3B36">{{ l.name }}</div>
+                  <div style="font-size:11.5px;color:#7A8A83;line-height:1.7">{{ l.sub }}</div>
+                  <div style="font-size:11px;font-weight:700;color:{{ l.fg }}">{{ l.meta }}</div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- فهرست آزمون‌ها -->
+      <sc-if value="{{ isExamIndex }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:13px;background:#F7FAF6;min-height:100%">
+          <div>
+            <div style="font-size:19px;font-weight:800">آزمون‌ها</div>
+            <div style="font-size:12px;color:#7A8A83;margin-top:5px">هر فصل ۳ سطح · فقط از بخش‌هایی که درس داده شده</div>
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <sc-for list="{{ chapterChips }}" as="c" hint-placeholder-count="8">
+              <button onClick="{{ c.pickExam }}" style="padding:9px 13px;border-radius:13px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <div style="font-size:16px;font-weight:800;margin-top:2px">{{ examChTitle }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <sc-for list="{{ examLevels }}" as="l" hint-placeholder-count="3">
+              <button onClick="{{ l.pick }}" style="flex:1 1 230px;text-align:right;border:1.5px solid {{ l.bd }};background:{{ l.bg }};border-radius:20px;padding:15px;cursor:pointer;font-family:'Vazirmatn',sans-serif;display:flex;gap:12px;align-items:center">
+                <div style="width:44px;height:44px;border-radius:14px;background:{{ l.chip }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:none">{{ l.n }}</div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:14.5px;font-weight:700;color:#2E3B36">{{ l.name }}</div>
+                  <div style="font-size:11.5px;color:#7A8A83;line-height:1.7">{{ l.sub }}</div>
+                  <div style="font-size:11px;font-weight:700;color:{{ l.fg }}">{{ l.meta }}</div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- اجرای تمرین/آزمون/کاربرگ -->
+      <sc-if value="{{ isQuiz }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;min-height:100%;background:#F7FAF6">
+          <div style="padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #F0EEE7;background:#fff;position:sticky;top:0;z-index:5">
+            <button onClick="{{ quizExit }}" style="width:34px;height:34px;border-radius:12px;border:1px solid #E6E2D6;background:#fff;cursor:pointer;font-size:15px">→</button>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:700">{{ quizTitle }}</div>
+              <div style="font-size:11px;color:#8B9A93">{{ quizSub }}</div>
+            </div>
+            <div style="font-size:12px;font-weight:800;color:#3AA79A;flex:none">{{ quizCount }}</div>
+          </div>
+          <div style="height:7px;background:#EDF1EC;flex:none">
+            <div style="height:100%;background:#E8973A;width:{{ quizPct }}"></div>
+          </div>
+          <div style="flex:1;padding:16px;display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start">
+            <div style="flex:1 1 300px;min-width:270px;background:#fff;border:1.5px solid #E8EEE6;border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:12px;font-weight:700;color:#D94F7A">سؤال {{ quizNo }}</div>
+              <div style="font-size:17.5px;font-weight:800;line-height:1.95">{{ quizQ }}</div>
+              <sc-if value="{{ quizIsMcq }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-wrap:wrap;gap:10px">
+                  <sc-for list="{{ quizOptions }}" as="o" hint-placeholder-count="4">
+                    <button onClick="{{ o.pick }}" style="flex:1 1 110px;padding:18px 10px;border-radius:17px;border:2px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-size:19px;font-weight:800;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ o.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ quizIsNum }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div style="height:66px;border-radius:16px;border:2px dashed #CBD6D0;background:#F7FAF6;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;letter-spacing:4px">{{ quizTyped }}</div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                    <sc-for list="{{ quizKeys }}" as="k" hint-placeholder-count="12">
+                      <button onClick="{{ k.press }}" style="padding:15px 0;border-radius:14px;border:1.5px solid #E6E2D6;background:{{ k.bg }};color:#2E3B36;font-size:19px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ k.label }}</button>
+                    </sc-for>
+                  </div>
+                  <button onClick="{{ quizSubmit }}" style="padding:16px;border-radius:16px;border:none;background:#E8973A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">بفرست</button>
+                </div>
+              </sc-if>
+            </div>
+            <div style="flex:1 1 240px;min-width:240px;display:flex;flex-direction:column;gap:12px">
+              <div style="background:#fff;border:1.5px solid #E8EEE6;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:11px">
+                <div style="font-size:13.5px;font-weight:700">کمک‌ها</div>
+                <button onClick="{{ toggleVoice }}" style="padding:12px;border-radius:14px;border:1.5px solid #E6E2D6;background:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif;text-align:right;display:flex;align-items:center;gap:9px">
+                  <div style="width:10px;height:10px;border-radius:50%;background:#3AA79A;flex:none"></div>سؤال را برایم بخوان
+                </button>
+                <button onClick="{{ quizHint }}" style="padding:12px;border-radius:14px;border:1.5px solid #E6E2D6;background:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif;text-align:right;display:flex;align-items:center;gap:9px">
+                  <div style="width:10px;height:10px;border-radius:50%;background:#E8973A;flex:none"></div>راهنمای هوهو
+                </button>
+                <button onClick="{{ quizReveal }}" style="padding:12px;border-radius:14px;border:1.5px solid #F3D3DF;background:#FBEAF0;color:#B33A65;font-size:13px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif;text-align:right">{{ revealLabel }}</button>
+                <div style="font-size:11.5px;color:#8B9A93;line-height:1.85">{{ revealNote }}</div>
+              </div>
+              <div style="background:#FDF4E3;border:1.5px solid #F0DFBE;border-radius:20px;padding:15px;font-size:12.5px;color:#8B7A52;line-height:1.9">{{ quizProgressNote }}</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- کارنامه -->
+      <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;padding:24px 18px;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;background:#F7FAF6">
+          <div style="width:104px;height:104px;border-radius:50%;background:#FDF4E3;border:5px solid #E8973A;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#A4700F;animation:pop .35s ease-out">{{ resScore }}</div>
+          <div style="font-size:20px;font-weight:800">{{ resTitle }}</div>
+          <div style="font-size:13.5px;color:#6E7F78;line-height:1.95;max-width:430px">{{ resMsg }}</div>
+          <div style="width:100%;max-width:470px;display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ resItems }}" as="r" hint-placeholder-count="4">
+              <div style="background:#fff;border:1.5px solid {{ r.bd }};border-radius:16px;padding:13px;display:flex;gap:11px;align-items:center;text-align:right">
+                <div style="width:30px;height:30px;border-radius:10px;background:{{ r.chip }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex:none">{{ r.mark }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:600;line-height:1.75">{{ r.q }}</div>
+                  <div style="font-size:11.5px;color:#8B9A93;margin-top:3px">{{ r.a }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;width:100%;max-width:470px">
+            <button onClick="{{ resRetry }}" style="flex:1 1 140px;padding:15px;border-radius:16px;border:1.5px solid #E6E2D6;background:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">یک‌بار دیگر</button>
+            <button onClick="{{ resAnswers }}" style="flex:1 1 140px;padding:15px;border-radius:16px;border:none;background:#3AA79A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ resAnswersLabel }}</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- جوایز -->
+      <sc-if value="{{ isRewards }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:18px 16px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:20px;font-weight:800">جوایز من</div>
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <div style="flex:1 1 150px;background:#FDF4E3;border:1.5px solid #F0DFBE;border-radius:18px;padding:15px">
+              <div style="font-size:26px;font-weight:800;color:#A4700F">{{ stars }}</div>
+              <div style="font-size:12px;color:#8B7A52;font-weight:600">ستاره</div>
+            </div>
+            <div style="flex:1 1 150px;background:#FBEAF0;border:1.5px solid #F3D3DF;border-radius:18px;padding:15px">
+              <div style="font-size:26px;font-weight:800;color:#B33A65">{{ streak }}</div>
+              <div style="font-size:12px;color:#A06078;font-weight:600">روز پیوسته</div>
+            </div>
+            <div style="flex:1 1 150px;background:#E9F2E7;border:1.5px solid #D5E5D1;border-radius:18px;padding:15px">
+              <div style="font-size:26px;font-weight:800;color:#2E8A7F">{{ medalCount }}</div>
+              <div style="font-size:12px;color:#5C7A72;font-weight:600">نشان</div>
+            </div>
+          </div>
+          <div style="font-size:14.5px;font-weight:700;margin-top:4px">این هفته</div>
+          <div style="display:flex;gap:7px">
+            <sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="width:100%;aspect-ratio:1/1;border-radius:13px;background:{{ d.bg }};color:{{ d.fg }};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800">{{ d.mark }}</div>
+                <div style="font-size:11px;color:#8B9A93">{{ d.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:14.5px;font-weight:700;margin-top:6px">نشان‌ها</div>
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <sc-for list="{{ medals }}" as="m" hint-placeholder-count="6">
+              <div style="flex:1 1 140px;border:1.5px solid {{ m.bd }};background:{{ m.bg }};border-radius:18px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+                <div style="width:52px;height:52px;border-radius:50%;background:{{ m.chip }};display:flex;align-items:center;justify-content:center;font-size:22px">{{ m.icon }}</div>
+                <div style="font-size:13px;font-weight:700;color:{{ m.fg }}">{{ m.title }}</div>
+                <div style="font-size:11px;color:#8B9A93;line-height:1.7">{{ m.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:14.5px;font-weight:700;margin-top:6px">کلاه هوهو</div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap">
+            <sc-for list="{{ hats }}" as="h" hint-placeholder-count="4">
+              <button onClick="{{ h.pick }}" style="flex:1 1 100px;padding:14px 10px;border-radius:16px;border:2px solid {{ h.bd }};background:{{ h.bg }};font-size:13px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif;color:#41564E">{{ h.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- پروفایل -->
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:18px 16px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:#E9F2E7;border:1.5px solid #D5E5D1;border-radius:22px;padding:18px">
+            <div style="position:relative;width:96px;height:96px;flex:none">
+              <div style="position:absolute;inset:0;border-radius:50%;background:#E8973A"></div>
+              <div style="position:absolute;bottom:6px;left:12px;width:72px;height:58px;border-radius:34px 34px 30px 30px;background:#FDF4E3"></div>
+              <div style="position:absolute;top:20px;left:14px;display:flex;gap:5px">
+                <div style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#3B3027"></div></div>
+                <div style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#3B3027"></div></div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:180px">
+              <div style="font-size:19px;font-weight:800">{{ learner }}</div>
+              <div style="font-size:12.5px;color:#5C7A72;margin-top:4px">پایه‌ی سوم · کلاس ۳/ب · هم‌یار من: هوهو</div>
+              <div style="font-size:12.5px;color:#5C7A72;margin-top:2px">{{ taughtLabel }}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <sc-for list="{{ profileStats }}" as="s" hint-placeholder-count="3">
+              <div style="flex:1 1 140px;border:1.5px solid #E8EEE6;border-radius:18px;padding:15px;background:#fff">
+                <div style="font-size:24px;font-weight:800;color:#2E3B36">{{ s.v }}</div>
+                <div style="font-size:11.5px;color:#8B9A93;font-weight:600;margin-top:3px">{{ s.k }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:14.5px;font-weight:700;margin-top:4px">کارهای تازه</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ recent }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:12px;border:1.5px solid #E8EEE6;border-radius:16px;padding:13px;background:#fff">
+                <div style="width:38px;height:38px;border-radius:12px;background:#E9F2E7;color:#2E8A7F;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none">{{ r.n }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;font-weight:700">{{ r.title }}</div>
+                  <div style="font-size:11px;color:#8B9A93">{{ r.sub }}</div>
+                </div>
+                <div style="font-size:13px;font-weight:800;color:#A4700F">{{ r.stars }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- دروازه‌ی والدین -->
+      <sc-if value="{{ isGate }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:14px;background:#FBEAF0;min-height:100%">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button onClick="{{ goMap }}" style="width:34px;height:34px;border-radius:12px;border:1px solid #F3D3DF;background:#fff;cursor:pointer;font-size:15px">→</button>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:800;color:#B33A65">{{ gateTitle }}</div>
+              <div style="font-size:11.5px;color:#A06078;margin-top:3px">{{ gateSub }}</div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1.5px solid #F3D3DF;border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px">
+            <sc-if value="{{ gateAsksQuestion }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <div style="font-size:13px;font-weight:700">سؤال بازیابی</div>
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <sc-for list="{{ recoveryOptions }}" as="r" hint-placeholder-count="3">
+                    <button onClick="{{ r.pick }}" style="text-align:right;padding:12px 14px;border-radius:14px;border:1.5px solid {{ r.bd }};background:{{ r.bg }};color:#41564E;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ r.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ gateAsksText }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <div style="font-size:13px;font-weight:700">{{ gateTextLabel }}</div>
+                <input type="text" value="{{ gateText }}" onChange="{{ onGateText }}" placeholder="پاسخ را بنویسید" style="padding:14px;border-radius:14px;border:1.5px solid #E6E2D6;font-size:14px;font-family:'Vazirmatn',sans-serif;direction:rtl" />
+              </div>
+            </sc-if>
+            <sc-if value="{{ gateAsksPin }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:13px;font-weight:700">{{ pinLabel }}</div>
+                <div style="display:flex;gap:9px;justify-content:center;direction:ltr">
+                  <sc-for list="{{ pinDots }}" as="p" hint-placeholder-count="4">
+                    <div style="width:46px;height:56px;border-radius:14px;border:2px solid {{ p.bd }};background:{{ p.bg }};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#B33A65">{{ p.ch }}</div>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                  <sc-for list="{{ pinKeys }}" as="k" hint-placeholder-count="12">
+                    <button onClick="{{ k.press }}" style="padding:15px 0;border-radius:14px;border:1.5px solid #F0DDE5;background:{{ k.bg }};color:#41564E;font-size:19px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ k.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <button onClick="{{ gateSubmit }}" style="padding:16px;border-radius:16px;border:none;background:#D94F7A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ gateBtn }}</button>
+            <button onClick="{{ gateAlt }}" style="padding:13px;border-radius:14px;border:1.5px solid #F0DDE5;background:#fff;color:#B33A65;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ gateAltLabel }}</button>
+            <div style="font-size:11.5px;color:#A06078;line-height:1.85">{{ gateNote }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- پنل والدین -->
+      <sc-if value="{{ isParent }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:18px 16px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:20px;font-weight:800">پنل والدین</div>
+              <div style="font-size:12.5px;color:#7A8A83;margin-top:4px">گزارش هفته‌ی {{ learner }} · دسترسی باز است</div>
+            </div>
+            <button onClick="{{ lockParent }}" style="padding:10px 14px;border-radius:13px;border:1.5px solid #F3D3DF;background:#FBEAF0;color:#B33A65;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">قفل کردن</button>
+          </div>
+
+          <div style="border:1.5px solid #D5E5D1;background:#E9F2E7;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div>
+              <div style="font-size:14.5px;font-weight:800;color:#2E8A7F">معلم تا کجا درس داده؟</div>
+              <div style="font-size:11.5px;color:#5C7A72;margin-top:4px;line-height:1.8">تمرین‌ها، کاربرگ‌ها و آزمون‌ها فقط از همین حد ساخته می‌شوند.</div>
+            </div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <sc-for list="{{ taughtChapterChips }}" as="c" hint-placeholder-count="8">
+                <button onClick="{{ c.pick }}" style="padding:9px 12px;border-radius:12px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-size:12px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ taughtSectionRows }}" as="s" hint-placeholder-count="5">
+                <button onClick="{{ s.pick }}" style="text-align:right;padding:12px 13px;border-radius:13px;border:1.5px solid {{ s.bd }};background:{{ s.bg }};color:#41564E;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Vazirmatn',sans-serif;display:flex;justify-content:space-between;gap:10px;align-items:center">
+                  <span>{{ s.label }}</span>
+                  <span style="font-size:12px;font-weight:800;color:{{ s.fg }}">{{ s.mark }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:11px">
+            <sc-for list="{{ parentStats }}" as="s" hint-placeholder-count="3">
+              <div style="flex:1 1 150px;border:1.5px solid #E8EEE6;border-radius:18px;padding:15px;background:#fff">
+                <div style="font-size:22px;font-weight:800">{{ s.v }}</div>
+                <div style="font-size:11.5px;color:#8B9A93;font-weight:600;margin-top:3px">{{ s.k }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="border:1.5px solid #E8EEE6;border-radius:20px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:14px;font-weight:700">دقیقه‌های تمرین در هفته</div>
+            <div style="display:flex;align-items:flex-end;gap:8px;height:118px">
+              <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
+                  <div style="width:100%;border-radius:8px 8px 3px 3px;background:{{ b.bg }};height:{{ b.h }}"></div>
+                  <div style="font-size:10.5px;color:#8B9A93">{{ b.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="border:1.5px solid #F3D3DF;background:#FBEAF0;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:9px">
+            <div style="font-size:14px;font-weight:700;color:#B33A65">جاهایی که کمک لازم دارد</div>
+            <sc-for list="{{ weak }}" as="w" hint-placeholder-count="3">
+              <div style="font-size:12.5px;color:#7A4256;line-height:1.85">• {{ w.text }}</div>
+            </sc-for>
+          </div>
+
+          <div style="border:1.5px solid #E8EEE6;border-radius:20px;padding:6px 16px;background:#fff">
+            <sc-for list="{{ settings }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #F2F5F1">
+                <div style="font-size:13px;font-weight:600;color:#41564E">{{ s.label }}</div>
+                <button onClick="{{ s.toggle }}" style="width:48px;height:27px;border-radius:999px;border:none;background:{{ s.bg }};cursor:pointer;display:flex;align-items:center;padding:3px;justify-content:{{ s.just }}">
+                  <div style="width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div>
+                </button>
+              </div>
+            </sc-for>
+          </div>
+
+          <button onClick="{{ changePin }}" style="padding:14px;border-radius:15px;border:1.5px solid #E6E2D6;background:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">تغییر رمز و سؤال بازیابی</button>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ showOwl }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;right:0;left:0;bottom:66px;height:128px;z-index:15;pointer-events:none;overflow:hidden">
+      <div style="position:absolute;left:6%;bottom:8px;left:{{ owlLeft }};bottom:{{ owlBottom }};animation:{{ owlAnim }};pointer-events:auto">
+        <div style="animation:{{ owlFace }};position:relative;width:100px;height:92px">
+          <div style="position:absolute;left:-12px;top:28px;width:42px;height:16px;border-radius:50%;background:#D8811F;z-index:0;transform-origin:right center;animation:{{ wingL }}"></div>
+          <div style="position:absolute;right:-12px;top:28px;width:42px;height:16px;border-radius:50%;background:#D8811F;z-index:0;transform-origin:left center;animation:{{ wingR }}"></div>
+          <div style="position:absolute;left:10px;top:6px;width:80px;height:80px;border-radius:50%;background:#E8973A;z-index:1"></div>
+          <div style="position:absolute;left:20px;top:13px;width:60px;height:47px;border-radius:30px 30px 26px 26px;background:#FDF4E3;z-index:2"></div>
+          <div style="position:absolute;left:22px;top:19px;display:flex;gap:6px;z-index:3;animation:blink 5s ease-in-out infinite">
+            <div style="width:25px;height:25px;border-radius:50%;background:#fff;border:3px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:10px;height:10px;border-radius:50%;background:#3B3027"></div></div>
+            <div style="width:25px;height:25px;border-radius:50%;background:#fff;border:3px solid #3B3027;display:flex;align-items:center;justify-content:center"><div style="width:10px;height:10px;border-radius:50%;background:#3B3027"></div></div>
+          </div>
+          <div style="position:absolute;left:43px;top:47px;width:0;height:0;border-right:7px solid transparent;border-left:7px solid transparent;border-top:11px solid #D8811F;z-index:4"></div>
+          <sc-if value="{{ owlHappy }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute;left:40px;top:64px;width:20px;height:9px;border-bottom:2.5px solid #FDF4E3;border-radius:0 0 14px 14px;z-index:4"></div>
+          </sc-if>
+          <sc-if value="{{ owlThinks }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:44px;top:64px;width:12px;height:12px;border-radius:50%;border:2.5px solid #FDF4E3;z-index:4"></div>
+          </sc-if>
+        </div>
+      </div>
+      <button onClick="{{ owlTalk }}" style="position:absolute;right:10px;bottom:2px;max-width:58%;text-align:right;background:#FDF4E3;border:1.5px solid #F0DFBE;border-radius:16px 16px 4px 16px;padding:10px 12px;font-size:12px;line-height:1.75;color:#6B5A34;font-family:'Vazirmatn',sans-serif;cursor:pointer;pointer-events:auto;box-shadow:0 10px 20px -14px rgba(0,0,0,.4)">{{ owlSays }}</button>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ showFb }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:rgba(34,43,39,.35);display:flex;align-items:flex-end;z-index:20">
+        <div style="width:100%;background:#fff;border-radius:26px 26px 0 0;padding:20px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;animation:pop .25s ease-out">
+          <div style="width:72px;height:72px;border-radius:50%;background:{{ fbChip }};display:flex;align-items:center;justify-content:center;font-size:30px">{{ fbIcon }}</div>
+          <div style="font-size:19px;font-weight:800;color:{{ fbFg }}">{{ fbTitle }}</div>
+          <div style="font-size:13.5px;color:#6E7F78;line-height:1.95;max-width:430px">{{ fbMsg }}</div>
+          <div style="display:flex;gap:10px;width:100%;max-width:430px;flex-wrap:wrap">
+            <button onClick="{{ fbPrimary }}" style="flex:1 1 140px;padding:15px;border-radius:16px;border:none;background:#3AA79A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ fbBtn }}</button>
+            <sc-if value="{{ fbHasSecond }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ fbSecondary }}" style="flex:1 1 140px;padding:15px;border-radius:16px;border:1.5px solid #E6E2D6;background:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Vazirmatn',sans-serif">{{ fbBtn2 }}</button>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showNav }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;border-top:1px solid #EDEAE1;background:#fff;flex:none;position:relative;z-index:16">
+        <button onClick="{{ goMap }}" style="flex:1;padding:10px 3px 12px;border:none;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:{{ navMap }};font-family:'Vazirmatn',sans-serif">
+          <div style="width:22px;height:22px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="width:13px;height:13px;border-radius:50% 50% 50% 0;background:currentColor;transform:rotate(-45deg)"></div>
+          </div>
+          <div style="font-size:11px;font-weight:700">نقشه</div>
+        </button>
+        <button onClick="{{ goSectionsNav }}" style="flex:1;padding:10px 3px 12px;border:none;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:{{ navSec }};font-family:'Vazirmatn',sans-serif">
+          <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+            <div style="width:7px;height:19px;background:currentColor;border-radius:2px 2px 0 0;transform:rotate(38deg);clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%)"></div>
+          </div>
+          <div style="font-size:11px;font-weight:700">تمرین</div>
+        </button>
+        <button onClick="{{ goWs }}" style="flex:1;padding:10px 3px 12px;border:none;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:{{ navWs }};font-family:'Vazirmatn',sans-serif">
+          <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+            <div style="width:16px;height:20px;border:2px solid currentColor;border-radius:3px;display:flex;flex-direction:column;justify-content:center;gap:2.5px;padding:0 3px">
+              <div style="height:2px;background:currentColor;border-radius:2px"></div>
+              <div style="height:2px;background:currentColor;border-radius:2px"></div>
+              <div style="height:2px;width:60%;background:currentColor;border-radius:2px"></div>
+            </div>
+          </div>
+          <div style="font-size:11px;font-weight:700">کاربرگ</div>
+        </button>
+        <button onClick="{{ goExamNav }}" style="flex:1;padding:10px 3px 12px;border:none;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:{{ navExam }};font-family:'Vazirmatn',sans-serif">
+          <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+            <div style="width:20px;height:20px;border:2px solid currentColor;border-radius:50%;display:flex;align-items:center;justify-content:center">
+              <div style="width:8px;height:8px;border-radius:50%;background:currentColor"></div>
+            </div>
+          </div>
+          <div style="font-size:11px;font-weight:700">آزمون</div>
+        </button>
+        <button onClick="{{ goParent }}" style="flex:1;padding:10px 3px 12px;border:none;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:{{ navParent }};font-family:'Vazirmatn',sans-serif">
+          <div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+            <div style="width:17px;height:20px;background:currentColor;border-radius:4px 4px 9px 9px"></div>
+          </div>
+          <div style="font-size:11px;font-weight:700">والدین</div>
+        </button>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="font-size:11.5px;color:#8B9A93;text-align:center;max-width:540px;line-height:1.9">رمز پیش‌فرض والدین تنظیم‌نشده است؛ بار اول خودتان می‌سازید. همه‌ی صفحه‌ها در موبایل و تبلت، عمودی و افقی بازچین می‌شوند.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;device&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;موبایل عمودی&quot;,&quot;موبایل افقی&quot;,&quot;تبلت عمودی&quot;,&quot;تبلت افقی&quot;],&quot;default&quot;:&quot;موبایل عمودی&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;learnerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;آرمین&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showGamification&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = {
+    device: null, screen: 'splash', prev: 'map',
+    step: 0, voice: true, mic: false, pick: null, typed: '', fb: null,
+    stars: 24, streak: 5, hat: 'دانش‌آموزی', settings: [true, true, false, true],
+    taughtCh: 0, taughtSec: 2,
+    secCh: 0, wsCh: 0, examCh: 0,
+    quiz: null, res: null, tip: 0, flying: false,
+    pin: null, recIdx: 0, recAns: '', parentOpen: false,
+    gateMode: 'enter', pinDraft: '', gateText: '', pinStage: 0, pinFirst: ''
+  };
+
+  fa(n) { return String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]); }
+  en(s) { return String(s).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); }
+
+  RECOVERY = ['نام مدرسه‌ی فرزندم چیست؟', 'نام معلم کلاس سوم فرزندم چیست؟', 'نام حیوان خانگی یا عروسک محبوب فرزندم چیست؟'];
+
+  LEVELS = [
+    ['۱', 'سطح ۱ — آسان', 'عددهای کوچک، یک مرحله‌ای', '#3AA79A', '#E9F2E7', '#D5E5D1'],
+    ['۲', 'سطح ۲ — متوسط', 'عددهای بزرگ‌تر و مسئله‌های کلامی', '#E8973A', '#FDF4E3', '#F0DFBE'],
+    ['۳', 'سطح ۳ — سخت', 'دو مرحله‌ای و ترکیبی', '#D94F7A', '#FBEAF0', '#F3D3DF']
+  ];
+
+  componentDidMount() {
+    try {
+      const raw = localStorage.getItem('howhow-math-v1');
+      if (raw) {
+        const d = JSON.parse(raw);
+        this.setState({ pin: d.pin || null, recIdx: d.recIdx || 0, recAns: d.recAns || '',
+          taughtCh: d.taughtCh != null ? d.taughtCh : 0, taughtSec: d.taughtSec != null ? d.taughtSec : 2 });
+      }
+    } catch (e) {}
+    this.timer = setTimeout(() => { if (this.state.screen === 'splash') this.setState({ screen: 'map' }); }, 1900);
+  }
+  componentWillUnmount() { clearTimeout(this.timer); clearTimeout(this.flyTimer); }
+
+  save(patch) {
+    const s = Object.assign({ pin: this.state.pin, recIdx: this.state.recIdx, recAns: this.state.recAns,
+      taughtCh: this.state.taughtCh, taughtSec: this.state.taughtSec }, patch);
+    try { localStorage.setItem('howhow-math-v1', JSON.stringify(s)); } catch (e) {}
+  }
+
+  /* ---------- محتوای کتاب: فصل‌ها و بخش‌ها ---------- */
+  BOOK = [
+    ['۱', 'الگوها', ['حلّ مسئله: الگویابی', 'شمارش چندتا چندتا', 'ماشین‌های ورودی ـ خروجی', 'ساعت در بعدازظهر', 'الگوهای متقارن']],
+    ['۲', 'عددهای چهار رقمی', ['حلّ مسئله: الگوسازی', 'معرّفی عدد هزار', 'ارزش مکانی', 'ارزش پول', 'تقریب عددها']],
+    ['۳', 'عددهای کسری', ['حلّ مسئله: رسم شکل', 'کسر', 'کاربرد کسر در اندازه‌گیری', 'تساوی کسرها', 'مقایسه‌ی کسرها']],
+    ['۴', 'ضرب و تقسیم', ['حلّ مسئله: روش‌های نمادین', 'ضرب', 'ضرب عددهای یک‌رقمی', 'خاصیت‌های ضرب', 'تقسیم']],
+    ['۵', 'محیط و مساحت', ['حلّ مسئله: زیرمسئله', 'خط، نیم‌خط و پاره‌خط', 'محیط', 'اندازه‌ی سطح', 'واحد اندازه‌گیری سطح']],
+    ['۶', 'جمع و تفریق', ['حلّ مسئله: مسئله‌ی ساده‌تر', 'مقایسه‌ی عددها', 'جمع و تفریق', 'جمع در جدول ارزش مکانی', 'تفریق در جدول ارزش مکانی']],
+    ['۷', 'آمار و احتمال', ['حلّ مسئله: حدس و آزمایش', 'جدول داده‌ها', 'احتمال', 'نمودار دایره‌ای', 'انتخاب نمودار']],
+    ['۸', 'ضرب عددها', ['حلّ مسئله: حذف حالت‌های نامطلوب', 'ضرب در عدد ۱۰', 'ضرب یک‌رقمی در چندرقمی', 'محاسبه‌ی ضرب', 'تقسیم با باقی‌مانده']]
+  ];
+
+  /* عدد شبه‌تصادفی پایدار */
+  v(i, k, lo, hi) { return lo + (((i + 1) * 7 + (k + 1) * 13 + i * k) % (hi - lo + 1)); }
+
+  /* یک سؤال از فصل ch، بخش sec، شماره i، سطح lv */
+  item(ch, sec, i, lv) {
+    const f = n => this.fa(n), V = (k, lo, hi) => this.v(i, k + lv * 5, lo, hi);
+    const m = [1, 2, 4][lv];
+    let q = '', a = 0, hint = '';
+    if (ch === 0) {
+      if (sec === 0) { const s = [2, 3, 5][lv], b = V(1, 2, 9); q = 'الگو را ادامه بده: ' + f(b) + ' ، ' + f(b + s) + ' ، ' + f(b + 2 * s) + ' ، ⬜'; a = b + 3 * s; hint = 'هر بار ' + f(s) + ' اضافه می‌شود.'; }
+      else if (sec === 1) { const s = [2, 5, 10][lv], b = V(2, 1, 6) * s; q = f(s) + 'تا ' + f(s) + 'تا بشمار: بعد از ' + f(b) + ' سه عدد جلوتر چند می‌شود؟'; a = b + 3 * s; hint = 'سه بار ' + f(s) + ' اضافه کن.'; }
+      else if (sec === 2) { const r = V(3, 2, 4 + lv * 3), x = V(4, 3, 9 + lv * 8); q = 'ماشین با قانون «' + f(r) + '+»: ورودی ' + f(x) + ' → خروجی چند است؟'; a = x + r; hint = 'ورودی را با ' + f(r) + ' جمع کن.'; }
+      else if (sec === 3) { const k = V(5, 1, 11); q = 'ساعت ' + f(k) + ' بعدازظهر با شمارش ۲۴ساعته چه عددی است؟'; a = k + 12; hint = 'بعدازظهر ۱۲ ساعت اضافه می‌شود.'; }
+      else { const n = V(6, 2, 4 + lv * 3); q = 'در نیمه‌ی چپ یک شکل متقارن ' + f(n) + ' خانه رنگی است. کل خانه‌های رنگی چند تا می‌شود؟'; a = 2 * n; hint = 'نیمه‌ی دیگر هم همان‌قدر رنگی است.'; }
+    } else if (ch === 1) {
+      if (sec === 0) { const n = V(1, 2, 6 + lv * 2); q = 'الگوی هزارتایی: ۱۰۰۰ ، ۲۰۰۰ ، ۳۰۰۰ … عدد ' + f(n) + 'ام چند است؟'; a = n * 1000; hint = f(n) + ' تا هزار.'; }
+      else if (sec === 1) { const a1 = V(2, 1, 4 + lv * 3); q = 'در ' + f(a1) + ' هزار، چند دسته‌ی صدتایی داریم؟'; a = a1 * 10; hint = 'هر هزار ۱۰ تا صدتایی است.'; }
+      else if (sec === 2) { const n = V(3, 1000, 9000 + lv); q = 'در عدد ' + f(n) + ' رقم صدگان چند است؟'; a = Math.floor(n / 100) % 10; hint = 'از راست، رقم سوم.'; }
+      else if (sec === 3) { const b = V(4, 1, 4 + lv * 2), c = V(5, 1, 5); q = f(b) + ' اسکناس ۵۰۰ تومانی و ' + f(c) + ' سکه‌ی ۱۰۰ تومانی، چند تومان می‌شود؟'; a = b * 500 + c * 100; hint = 'اول ۵۰۰‌ها را جمع کن.'; }
+      else { const n = V(6, 120, 980) * (lv + 1); q = 'عدد ' + f(n) + ' را به نزدیک‌ترین صد تقریب بزن.'; a = Math.round(n / 100) * 100; hint = 'به رقم دهگان نگاه کن.'; }
+    } else if (ch === 2) {
+      if (sec === 0) { const n = V(1, 4, 8 + lv * 2), k = V(2, 1, 3); q = 'شکلی به ' + f(n) + ' قسمت مساوی تقسیم شده و ' + f(k) + ' قسمت رنگی است. صورت کسر چند است؟'; a = k; hint = 'صورت = تعداد قسمت‌های رنگی.'; }
+      else if (sec === 1) { const n = V(3, 3, 9), k = V(4, 1, 2); q = 'در کسر ' + f(k) + '/' + f(n) + ' مخرج چند است؟'; a = n; hint = 'مخرج عدد پایین کسر است.'; }
+      else if (sec === 2) { const mm = V(5, 2, 10) * 2 * m; q = 'نصف ' + f(mm) + ' متر چند متر است؟'; a = mm / 2; hint = 'تقسیم بر ۲.'; }
+      else if (sec === 3) { const n = V(6, 2, 6) * 2; q = '۱/۲ مساوی است با ⬜/' + f(n) + ' — عدد صورت چند است؟'; a = n / 2; hint = 'نصف مخرج.'; }
+      else { const n = V(7, 4, 9), k = V(8, 1, 3), j = k + V(9, 1, 3); q = 'بین ' + f(k) + '/' + f(n) + ' و ' + f(j) + '/' + f(n) + ' کدام بزرگ‌تر است؟ صورتِ کسر بزرگ‌تر را بنویس.'; a = Math.max(k, j); hint = 'با مخرج برابر، صورت بزرگ‌تر بزرگ‌تر است.'; }
+    } else if (ch === 3) {
+      const b = V(1, 2, 9), c = V(2, 2, 9);
+      if (sec === 0) { q = f(b) + ' دسته‌ی ' + f(c) + ' تایی، چند تا می‌شود؟'; a = b * c; hint = 'ضرب کن.'; }
+      else if (sec === 1) { q = f(b) + ' × ' + f(c) + ' = ⬜'; a = b * c; hint = 'جدول ضرب.'; }
+      else if (sec === 2) { const d = V(3, 6, 9); q = f(d) + ' × ' + f(c) + ' = ⬜'; a = d * c; hint = 'یک‌رقمی در یک‌رقمی.'; }
+      else if (sec === 3) { q = f(b) + ' × ' + f(c) + ' = ' + f(c) + ' × ⬜ — عدد جای خالی چند است؟'; a = b; hint = 'جابه‌جایی ضرب.'; }
+      else { const d = V(4, 2, 9), n = d * V(5, 2, 9); q = f(n) + ' ÷ ' + f(d) + ' = ⬜'; a = n / d; hint = 'چند تا ' + f(d) + ' در ' + f(n) + ' جا می‌شود؟'; }
+    } else if (ch === 4) {
+      const b = V(1, 2, 9) * m, c = V(2, 2, 9) * m;
+      if (sec === 0) { q = 'مستطیلی با طول ' + f(b) + ' و عرض ' + f(c) + ' سانتی‌متر: محیط چند سانتی‌متر است؟'; a = 2 * (b + c); hint = '(طول + عرض) × ۲'; }
+      else if (sec === 1) { q = 'دو پاره‌خط به طول ' + f(b) + ' و ' + f(c) + ' سانتی‌متر: روی هم چند سانتی‌متر؟'; a = b + c; hint = 'جمع کن.'; }
+      else if (sec === 2) { q = 'مربعی با ضلع ' + f(b) + ' سانتی‌متر: محیط چند است؟'; a = 4 * b; hint = 'ضلع × ۴'; }
+      else if (sec === 3) { q = 'مستطیل ' + f(b) + ' × ' + f(c) + ' سانتی‌متر: مساحت چند سانتی‌متر مربع است؟'; a = b * c; hint = 'طول × عرض'; }
+      else { q = 'شکلی از ' + f(b) + ' ردیفِ ' + f(c) + ' تایی مربع واحد ساخته شده. چند واحد سطح دارد؟'; a = b * c; hint = 'ردیف‌ها را ضرب کن.'; }
+    } else if (ch === 5) {
+      const b = V(1, 120, 900) * m, c = V(2, 30, 400) * m;
+      if (sec === 0) { q = f(b) + ' + ' + f(c) + ' = ⬜'; a = b + c; hint = 'اول صدها را جمع کن.'; }
+      else if (sec === 1) { q = 'کدام عدد بزرگ‌تر است؟ ' + f(b) + ' یا ' + f(c) + ' — عدد بزرگ‌تر را بنویس.'; a = Math.max(b, c); hint = 'رقم‌ها را از چپ مقایسه کن.'; }
+      else if (sec === 2) { q = f(b) + ' − ' + f(c) + ' = ⬜'; a = b - c; hint = 'از یکان شروع کن.'; }
+      else if (sec === 3) { q = 'در جدول ارزش مکانی: ' + f(b) + ' + ' + f(c + 7) + ' = ⬜'; a = b + c + 7; hint = 'یکان، دهگان، صدگان.'; }
+      else { q = 'در جدول ارزش مکانی: ' + f(b + c) + ' − ' + f(c) + ' = ⬜'; a = b; hint = 'قرض گرفتن را یادت باشد.'; }
+    } else if (ch === 6) {
+      const b = V(1, 3, 12) * m, c = V(2, 2, 9) * m, e = V(3, 1, 8) * m;
+      if (sec === 0) { q = 'مجموع دو عدد ' + f(2 * b) + ' است و هر دو برابرند. هر عدد چند است؟'; a = b; hint = 'نصف مجموع.'; }
+      else if (sec === 1) { q = 'در جدول: ' + f(b) + ' نفر فوتبال، ' + f(c) + ' نفر والیبال و ' + f(e) + ' نفر شنا. همه چند نفرند؟'; a = b + c + e; hint = 'سه عدد را جمع کن.'; }
+      else if (sec === 2) { q = 'در کیسه ' + f(b) + ' مهره‌ی قرمز و ' + f(c) + ' مهره‌ی آبی است. همه‌ی مهره‌ها چند تاست؟'; a = b + c; hint = 'برای احتمال، اول کل را بشمار.'; }
+      else if (sec === 3) { const n = V(4, 4, 8), k = V(5, 1, 3); q = 'نمودار دایره‌ای به ' + f(n) + ' قسمت مساوی تقسیم شده و ' + f(k) + ' قسمت آبی است. چند قسمت آبی نیست؟'; a = n - k; hint = 'کل منهای آبی‌ها.'; }
+      else { q = 'داده‌ها: ' + f(b) + ' و ' + f(c) + ' و ' + f(e) + ' — بلندترین ستون نمودار چه عددی است؟'; a = Math.max(b, c, e); hint = 'بزرگ‌ترین داده.'; }
+    } else {
+      const b = V(1, 2, 9), c = V(2, 11, 40) + lv * 20;
+      if (sec === 0) { const n = V(3, 2, 9) * 5; q = 'کدام عدد در ۵ ضرب شود، ' + f(n) + ' می‌شود؟'; a = n / 5; hint = 'تقسیم بر ۵.'; }
+      else if (sec === 1) { q = f(b * m) + ' × ۱۰ = ⬜'; a = b * m * 10; hint = 'یک صفر اضافه می‌شود.'; }
+      else if (sec === 2) { q = f(b) + ' × ' + f(c) + ' = ⬜'; a = b * c; hint = 'یکان و دهگان را جدا ضرب کن.'; }
+      else if (sec === 3) { q = f(b) + ' × ' + f(c + 5) + ' = ⬜'; a = b * (c + 5); hint = 'ضرب در جدول را بنویس.'; }
+      else { const d = V(4, 3, 9), n = d * V(5, 2, 9) + V(6, 1, d - 1); q = f(n) + ' ÷ ' + f(d) + ' — باقی‌مانده چند است؟'; a = n % d; hint = 'تا جای ممکن تقسیم کن، بقیه باقی‌مانده است.'; }
+    }
+    return { q, a: this.fa(a), raw: a, hint, sec, ch };
+  }
+
+  /* بخش‌های مجاز بر اساس پیشرفت معلم */
+  allowed(ch) {
+    const st = this.state;
+    if (ch < st.taughtCh) return [0, 1, 2, 3, 4];
+    if (ch > st.taughtCh) return [];
+    const out = [];
+    for (let i = 0; i <= st.taughtSec; i++) out.push(i);
+    return out;
+  }
+
+  build(mode, ch, opt) {
+    const secs = this.allowed(ch);
+    if (!secs.length) return null;
+    const lv = mode === 'practice' ? 0 : opt;
+    const count = mode === 'exam' ? 8 : mode === 'worksheet' ? 30 : 15;
+    const items = [];
+    for (let i = 0; i < count; i++) {
+      const sec = mode === 'practice' ? opt : secs[i % secs.length];
+      const it = this.item(ch, sec, i, mode === 'practice' ? (i < 5 ? 0 : i < 10 ? 1 : 2) : lv);
+      if (mode === 'exam') {
+        const base = it.raw, offs = [1, 2, -1, 3, 10].map(o => base + o * (base > 10 ? 1 : 1));
+        const opts = [base];
+        let k = 0;
+        while (opts.length < 4 && k < 9) { const cand = base + [1, -1, 2, -2, 3, 10, -10, 5, 4][k]; if (cand > 0 && opts.indexOf(cand) < 0) opts.push(cand); k++; }
+        const order = [(i % 4), (i + 1) % 4, (i + 2) % 4, (i + 3) % 4];
+        it.options = order.map(x => opts[x]).map(n => this.fa(n));
+        it.answerLabel = this.fa(base);
+      }
+      items.push(it);
+    }
+    return { mode, ch, opt, items, idx: 0, right: 0, log: [] };
+  }
+
+  startQuiz(mode, ch, opt) {
+    const q = this.build(mode, ch, opt);
+    if (!q) return this.no('این بخش هنوز درس داده نشده است. در پنل والدین مشخص کنید معلم تا کجا پیش رفته.', 'باشه', () => this.set({ fb: null }));
+    this.fly(2400);
+    this.setState({ quiz: q, typed: '', screen: 'quiz', fb: null, res: null });
+  }
+
+  answerQuiz(val) {
+    const st = this.state, q = st.quiz, it = q.items[q.idx];
+    const right = String(val) === String(it.a);
+    const log = q.log.concat([{ q: it.q, a: it.a, mine: String(val), ok: right }]);
+    const nextIdx = q.idx + 1;
+    const done = nextIdx >= q.items.length;
+    const nq = Object.assign({}, q, { idx: done ? q.idx : nextIdx, right: q.right + (right ? 1 : 0), log: log });
+    this.setState({ quiz: nq, typed: '', stars: st.stars + (right ? 1 : 0) });
+    if (right) this.ok(it.hint, done ? 'دیدن کارنامه' : 'سؤال بعد', () => done ? this.finish(nq) : this.set({ fb: null }));
+    else this.no('جواب درست ' + it.a + ' است. ' + it.hint, done ? 'دیدن کارنامه' : 'سؤال بعد', () => done ? this.finish(nq) : this.set({ fb: null }));
+  }
+
+  finish(q) { this.setState({ res: q, screen: 'result', fb: null }); }
+
+  set(o) { this.setState(o); }
+  go(s) {
+    if (s === 'parent') return this.openParent();
+    if (s !== this.state.screen) this.fly(2600);
+    this.setState({ screen: s, fb: null });
+  }
+  openParent() {
+    if (this.state.parentOpen) return this.setState({ screen: 'parent', fb: null });
+    this.setState({ screen: 'gate', gateMode: this.state.pin ? 'enter' : 'setup', pinDraft: '', gateText: '', pinStage: 0, pinFirst: '', fb: null });
+  }
+  fly(ms) {
+    clearTimeout(this.flyTimer);
+    this.setState({ flying: true });
+    this.flyTimer = setTimeout(() => this.setState({ flying: false }), ms || 3000);
+  }
+  ok(msg, btn, onBtn) { this.fly(4800); this.setState({ fb: { kind: 'ok', title: 'آفرین!', msg: msg, btn: btn, onBtn: onBtn } }); }
+  no(msg, btn, onBtn) { this.setState({ fb: { kind: 'no', title: 'اشکالی ندارد!', msg: msg, btn: btn, onBtn: onBtn } }); }
+
+  /* درس صوتی */
+  LESSON = [
+    { kind: 'teach', say: 'سلام! امروز «شمارش چندتا چندتا» را یاد می‌گیریم. نگاه کن: جوراب‌ها جفت‌جفت هستند.', cap: 'جفت‌های جوراب', vis: 5, per: 2 },
+    { kind: 'teach', say: 'هر جفت ۲ تا است. با من بشمار: دو… چهار… شش… هشت… ده.', cap: 'دوتا دوتا: ۲، ۴، ۶، ۸، ۱۰', vis: 5, per: 2 },
+    { kind: 'mcq', say: 'حالا تو بگو: ۴ جفت جوراب، چند تا جوراب می‌شود؟', cap: '۴ جفت را بشمار', vis: 4, per: 2, options: ['۶', '۸', '۱۰', '۱۲'], ans: 1, why: 'دوتا دوتا شمردیم: ۲، ۴، ۶، ۸ — پس ۸ تا.' },
+    { kind: 'teach', say: 'آفرین! حالا پنج‌تا پنج‌تا. هر دست ۵ انگشت دارد.', cap: 'هر دست ۵ انگشت', vis: 3, per: 5 },
+    { kind: 'num', say: '۳ دست، چند انگشت؟ عدد را بنویس.', cap: '۵، ۱۰، ۱۵', vis: 3, per: 5, ans: '۱۵', why: 'پنج‌تا پنج‌تا: ۵، ۱۰، ۱۵.' },
+    { kind: 'num', say: 'الگو را کامل کن: ۵ ، ۱۰ ، ۱۵ ، ۲۰ ، ⬜', cap: 'عدد بعدی الگو', vis: 4, per: 5, ans: '۲۵', why: 'هر بار ۵ اضافه می‌شود.' },
+    { kind: 'done', say: 'کارت حرف نداشت! برویم سراغ تمرین‌های همین بخش؟', cap: 'درس تمام شد', vis: 5, per: 2 }
+  ];
+
+  lessonAnswer(i) {
+    const s = this.LESSON[this.state.step];
+    this.setState({ pick: i });
+    if (i === s.ans) this.ok(s.why, 'گام بعد', () => this.advance());
+    else this.no('نزدیک بودی. ' + s.why, 'دوباره تلاش کن', () => this.set({ fb: null, pick: null }));
+  }
+  submitNum() {
+    const s = this.LESSON[this.state.step], t = this.state.typed;
+    if (!t) return;
+    if (t === s.ans) this.ok(s.why, 'گام بعد', () => this.advance());
+    else this.no('جواب درست ' + s.ans + ' است. ' + s.why, 'دوباره', () => this.set({ fb: null, typed: '' }));
+  }
+  advance() { this.setState(s => ({ step: Math.min(s.step + 1, this.LESSON.length - 1), fb: null, pick: null, typed: '', stars: s.stars + 1 })); }
+
+  dev() {
+    const d = this.state.device || this.props.device || 'موبایل عمودی';
+    const map = { 'موبایل عمودی': ['412px', '846px'], 'موبایل افقی': ['846px', '412px'], 'تبلت عمودی': ['780px', '1040px'], 'تبلت افقی': ['1040px', '760px'] };
+    return { name: d, size: map[d] || map['موبایل عمودی'] };
+  }
+
+  gateSubmit() {
+    const st = this.state, pin = st.pinDraft;
+    if (st.gateMode === 'setup') {
+      if (st.pinStage === 0) {
+        if (pin.length !== 4) return this.no('رمز باید ۴ رقم باشد.', 'باشه', () => this.set({ fb: null }));
+        return this.setState({ pinFirst: pin, pinDraft: '', pinStage: 1 });
+      }
+      if (st.pinStage === 1) {
+        if (pin !== st.pinFirst) return this.no('دو رمز یکسان نبودند. دوباره امتحان کنید.', 'باشه', () => this.set({ fb: null, pinDraft: '', pinStage: 0, pinFirst: '' }));
+        return this.setState({ pinStage: 2, pinDraft: '' });
+      }
+      if (!st.gateText.trim()) return this.no('پاسخ سؤال بازیابی را بنویسید تا اگر رمز را فراموش کردید، بتوانید بازیابی کنید.', 'باشه', () => this.set({ fb: null }));
+      this.save({ pin: st.pinFirst, recIdx: st.recIdx, recAns: st.gateText.trim() });
+      return this.setState({ pin: st.pinFirst, recAns: st.gateText.trim(), parentOpen: true, screen: 'parent', pinDraft: '', pinStage: 0, gateText: '' });
+    }
+    if (st.gateMode === 'enter') {
+      if (pin === st.pin) return this.setState({ parentOpen: true, screen: 'parent', pinDraft: '' });
+      return this.no('رمز درست نیست. اگر فراموش کرده‌اید، «رمز را فراموش کردم» را بزنید.', 'باشه', () => this.set({ fb: null, pinDraft: '' }));
+    }
+    if (st.gateMode === 'recover') {
+      if (st.gateText.trim() && st.gateText.trim() === st.recAns) return this.setState({ gateMode: 'setup', pinStage: 0, pinDraft: '', pinFirst: '', gateText: '' });
+      return this.no('پاسخ با سؤال بازیابی هم‌خوانی ندارد.', 'باشه', () => this.set({ fb: null }));
+    }
+  }
+
+  renderVals() {
+    const st = this.state, S = this.LESSON[st.step], d = this.dev();
+    const gamified = this.props.showGamification ?? true;
+    const learner = this.props.learnerName ?? 'آرمین';
+    const F = n => this.fa(n);
+    const taughtLabel = 'درس‌داده‌شده تا: فصل ' + this.BOOK[st.taughtCh][0] + ' — ' + this.BOOK[st.taughtCh][2][st.taughtSec];
+
+    const devices = ['موبایل عمودی', 'موبایل افقی', 'تبلت عمودی', 'تبلت افقی'].map(label => ({
+      label, bg: d.name === label ? '#2E3B36' : '#fff', fg: d.name === label ? '#fff' : '#41564E', pick: () => this.set({ device: label })
+    }));
+
+    const jumpDefs = [['اسپلش', 'splash'], ['نقشه', 'map'], ['فصل‌ها', 'chapters'], ['درس صوتی', 'lesson'], ['تمرین بخش', 'sections'], ['کاربرگ', 'worksheet'], ['آزمون', 'exam'], ['جوایز', 'rewards'], ['پروفایل', 'profile'], ['والدین', 'parent']];
+    const jumps = jumpDefs.map(([label, key]) => ({
+      label, bd: st.screen === key ? '#3AA79A' : '#E3DFD2', bg: st.screen === key ? '#E9F2E7' : '#FBFAF6',
+      fg: st.screen === key ? '#2E8A7F' : '#6E7F78', pick: () => this.go(key)
+    }));
+
+    const navDefs = [['نقشه', 'map'], ['تمرین', 'sections'], ['کاربرگ', 'worksheet'], ['آزمون', 'exam'], ['والدین', 'parent']];
+    const navCol = key => st.screen === key ? '#E8973A' : '#9AA8A2';
+    const TIPS = {
+      map: ['هر بخشی که معلم درس داده، اینجا باز می‌شود. روی دایره‌ی نارنجی بزن!', 'من همه‌جا کنارتم؛ روی من بزن تا راهنمایی بگیری.', 'اگر خسته شدی، یک تمرین کوتاه بزن و برو بازی!'],
+      chapters: ['فصل‌های قفل، وقتی معلم درس بدهد باز می‌شوند.', 'هر فصل پنج بخش دارد و هر بخش تمرین جدا.'],
+      lesson: ['گوش بده، بعد خودت جواب بده. من صبر می‌کنم.', 'اگر نفهمیدی بگو «دوباره بگو»؛ ناراحت نمی‌شوم!'],
+      sections: ['هر بخش ۱۵ تمرین دارد؛ از آسان شروع می‌شود.', 'تمرین کن تا خودت یاد بگیری، نه اینکه حفظ کنی.'],
+      worksheet: ['کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست.', 'هر سطح سؤال‌های خودش را دارد.'],
+      exam: ['آزمون فقط از بخش‌هایی است که معلم درس داده.', 'اشتباه اشکالی ندارد؛ با هم درستش می‌کنیم.'],
+      quiz: ['اگر گیر کردی، روی «راهنمای هوهو» بزن.', 'عجله نکن؛ با انگشت بشمار.'],
+      result: ['کارنامه‌ات را ببین؛ سؤال‌های اشتباه را با هم دوباره کار می‌کنیم.'],
+      rewards: ['ستاره‌هایت را جمع کن تا کلاه تازه برایم بخری!'],
+      profile: ['اینجا می‌بینی تا کجا جلو رفته‌ای.'],
+      parent: ['اینجا بابا و مامان تنظیم می‌کنند که معلم تا کجا درس داده.'],
+      gate: ['این قسمت مخصوص بزرگ‌ترهاست؛ من اینجا منتظر می‌مانم.'],
+      splash: ['سلام! من هوهو هستم، معلم ریاضی تو.']
+    };
+    const tipList = TIPS[st.screen] || TIPS.map;
+
+    const chipCols = (sel, open) => ({
+      bd: sel ? '#E8973A' : '#E3DFD2', bg: sel ? '#FDF4E3' : '#fff', fg: sel ? '#A4700F' : (open ? '#41564E' : '#9AA8A2')
+    });
+    const chapterChips = this.BOOK.map((c, i) => {
+      const open = this.allowed(i).length > 0;
+      const e = chipCols(i === st.examCh, open), w = chipCols(i === st.wsCh, open), s = chipCols(i === st.secCh, open);
+      const lock = () => this.no('این فصل هنوز درس داده نشده است. در پنل والدین، پیشرفت معلم را به‌روز کنید.', 'باشه', () => this.set({ fb: null }));
+      return {
+        label: (open ? '' : 'قفل · ') + 'فصل ' + c[0],
+        bd: e.bd, bg: e.bg, fg: e.fg, bdW: w.bd, bgW: w.bg, fgW: w.fg, bdS: s.bd, bgS: s.bg, fgS: s.fg,
+        pickExam: () => open ? this.setState({ examCh: i }) : lock(),
+        pickWs: () => open ? this.setState({ wsCh: i }) : lock(),
+        pickSec: () => open ? this.setState({ secCh: i }) : lock()
+      };
+    });
+
+    const levelCards = (ch, mode) => this.LEVELS.map((l, i) => ({
+      n: l[0], name: l[1], sub: l[2], chip: l[3], bg: l[4], bd: l[5], fg: l[3],
+      meta: mode === 'exam' ? '۸ سؤال چهارگزینه‌ای · فقط از بخش‌های درس‌داده‌شده' : '۳۰ سؤال · همین‌جا جواب می‌نویسی',
+      pick: () => this.startQuiz(mode, ch, i)
+    }));
+
+    const secList = this.BOOK[st.secCh][2].map((name, i) => {
+      const open = this.allowed(st.secCh).indexOf(i) >= 0;
+      return {
+        n: F(i + 1), title: name, sub: open ? 'کاربرگ تمرینی این بخش — ۱۵ سؤال در سه پله' : 'هنوز درس داده نشده',
+        bd: open ? '#E8EEE6' : '#EFECE3', bg: open ? '#fff' : '#FAFAF7', chip: open ? '#3AA79A' : '#B9C4BF',
+        packs: open
+          ? [{ label: 'تمرین کن', bd: '#3AA79A', bg: '#3AA79A', fg: '#fff', start: () => this.startQuiz('practice', st.secCh, i) },
+             { label: 'تمرین سریع', bd: '#E6E2D6', bg: '#fff', fg: '#41564E', start: () => this.startQuiz('practice', st.secCh, i) }]
+          : [{ label: 'قفل است', bd: '#EFECE3', bg: '#FAFAF7', fg: '#9AA8A2', start: () => this.no('این بخش هنوز درس داده نشده است.', 'باشه', () => this.set({ fb: null })) }]
+      };
+    });
+
+    const positions = [['80%', '72%'], ['69%', '44%'], ['57%', '66%'], ['45%', '38%'], ['33%', '62%'], ['16%', '44%']];
+    const chSecs = this.BOOK[st.taughtCh][2];
+    const mapNodes = chSecs.map((name, i) => {
+      const open = i <= st.taughtSec, active = i === st.taughtSec;
+      return {
+        top: positions[i][0], left: positions[i][1], label: name, size: active ? '88px' : '68px',
+        bg: active ? '#E8973A' : open ? '#3AA79A' : '#B9C4BF', fg: '#fff',
+        badge: open ? (active ? 'اینجا' : '✓') : 'قفل',
+        tap: () => open
+          ? (st.taughtCh === 0 && i === 1 ? this.setState({ screen: 'lesson', step: 0, fb: null }) : this.startQuiz('practice', st.taughtCh, i))
+          : this.no('معلم تا اینجا درس نداده. وقتی گفت «یاد گرفتیم»، این بخش باز می‌شود.', 'باشه', () => this.set({ fb: null }))
+      };
+    }).concat([{
+      top: positions[5][0], left: positions[5][1], label: 'آزمون فصل ' + this.BOOK[st.taughtCh][0], size: '72px',
+      bg: '#D94F7A', fg: '#fff', badge: 'آزمون', tap: () => this.setState({ examCh: st.taughtCh, screen: 'exam', fb: null })
+    }]);
+
+    const chapterCards = this.BOOK.map((c, i) => {
+      const allow = this.allowed(i), open = allow.length > 0;
+      const pct = Math.round((allow.length / 5) * 100);
+      return {
+        n: c[0], title: c[1], sub: c[2].join(' · '), chip: open ? '#E8973A' : '#B9C4BF',
+        bd: open ? '#F0DFBE' : '#E8EEE6', bg: open ? '#FDF4E3' : '#FAFBF9', pct: pct + '%', icon: open ? '›' : 'قفل',
+        pick: () => open ? this.setState({ secCh: i, screen: 'sections', fb: null }) : this.no('این فصل هنوز درس داده نشده است.', 'باشه', () => this.set({ fb: null }))
+      };
+    });
+
+    const keypad = (onPress) => ['۱','۲','۳','۴','۵','۶','۷','۸','۹','۰','⌫','C'].map(k => ({
+      label: k, bg: k === '⌫' || k === 'C' ? '#F7FAF6' : '#fff', press: () => onPress(k)
+    }));
+    const keys = keypad(k => this.setState(s => ({ typed: k === 'C' ? '' : k === '⌫' ? s.typed.slice(0, -1) : (s.typed + k).slice(0, 5) })));
+
+    const q = st.quiz, qi = q ? q.items[q.idx] : null;
+    const quizTitles = { practice: 'تمرین بخش', worksheet: 'کاربرگ', exam: 'آزمون' };
+    const res = st.res;
+
+    const fb = st.fb;
+    const waves = [0,1,2,3,4,5,6,7,8].map(i => ({ d: (i * 0.09) + 's', play: st.voice ? 'running' : 'paused' }));
+
+    const pinDots = [0,1,2,3].map(i => ({
+      ch: st.pinDraft.length > i ? '●' : '', bd: st.pinDraft.length === i ? '#D94F7A' : '#F0DDE5', bg: st.pinDraft.length > i ? '#FBEAF0' : '#fff'
+    }));
+    const pinKeys = keypad(k => this.setState(s => ({ pinDraft: k === 'C' ? '' : k === '⌫' ? s.pinDraft.slice(0, -1) : (s.pinDraft + this.en(k)).slice(0, 4) })));
+    const gateSetupStage = st.gateMode === 'setup' ? st.pinStage : -1;
+
+    const taughtChapterChips = this.BOOK.map((c, i) => ({
+      label: 'فصل ' + c[0], bd: i === st.taughtCh ? '#2E8A7F' : '#D5E5D1', bg: i === st.taughtCh ? '#fff' : '#F3F8F2',
+      fg: i === st.taughtCh ? '#2E8A7F' : '#5C7A72',
+      pick: () => { this.setState({ taughtCh: i, taughtSec: 0 }); this.save({ taughtCh: i, taughtSec: 0 }); }
+    }));
+    const taughtSectionRows = this.BOOK[st.taughtCh][2].map((name, i) => ({
+      label: F(i + 1) + '. ' + name, mark: i <= st.taughtSec ? 'درس داده شد' : 'نه هنوز',
+      bd: i <= st.taughtSec ? '#2E8A7F' : '#D5E5D1', bg: i <= st.taughtSec ? '#fff' : '#F3F8F2',
+      fg: i <= st.taughtSec ? '#2E8A7F' : '#9AA8A2',
+      pick: () => { this.setState({ taughtSec: i }); this.save({ taughtSec: i }); }
+    }));
+
+    const week = ['ش','ی','د','س','چ','پ','ج'].map((label, i) => ({ label, mark: i < 5 ? '★' : '—', bg: i < 5 ? '#FDF4E3' : '#F4F7F3', fg: i < 5 ? '#E8973A' : '#B9C4BF' }));
+    const medals = [
+      ['★', 'نخستین درس', 'اولین درس را تمام کردی', 1],
+      ['۲', 'شمارشگر', 'دوتا دوتا و پنج‌تا پنج‌تا', 1],
+      ['✓', 'ده پاسخ درست', 'در تمرین بخش‌ها', 1],
+      ['◆', 'پنج روز پیوسته', 'هر روز تمرین', 1],
+      ['▲', 'استاد تقارن', 'بخش الگوهای متقارن', 0],
+      ['●', 'فصل کامل', 'آزمون فصل با نتیجه‌ی کامل', 0]
+    ].map(([icon, title, sub, earned]) => ({ icon, title, sub, bd: earned ? '#F0DFBE' : '#E8EEE6', bg: earned ? '#FDF4E3' : '#FAFBF9', chip: earned ? '#FBE7C6' : '#EDF1EC', fg: earned ? '#A4700F' : '#9AA8A2' }));
+    const hats = ['دانش‌آموزی', 'کاپیتان', 'کلاه بارانی', 'بدون کلاه'].map(label => ({ label, pick: () => this.set({ hat: label }), bd: st.hat === label ? '#E8973A' : '#E6E2D6', bg: st.hat === label ? '#FDF4E3' : '#fff' }));
+    const bars = [['ش', 68], ['ی', 92], ['د', 40], ['س', 100], ['چ', 74], ['پ', 22], ['ج', 0]].map(([label, h]) => ({ label, h: Math.max(h, 4) + '%', bg: h > 70 ? '#3AA79A' : h > 30 ? '#9ED3CC' : '#DCE6E1' }));
+    const settings = ['خواندن صوتی سؤال‌ها', 'یادآور تمرین روزانه', 'رقابت با هم‌کلاسی‌ها', 'محدودیت ۲۰ دقیقه در روز'].map((label, i) => ({
+      label, bg: st.settings[i] ? '#3AA79A' : '#DCE6E1', just: st.settings[i] ? 'flex-end' : 'flex-start',
+      toggle: () => this.setState(s => { const a = s.settings.slice(); a[i] = !a[i]; return { settings: a }; })
+    }));
+
+    return {
+      fw: d.size[0], fh: d.size[1], devices, jumps, gamified, learner, taughtLabel,
+      flySpeed: st.screen === 'quiz' ? '22s' : '16s',
+      owlAnim: st.flying ? 'fly 6.5s ease-in-out infinite' : 'bob 3.4s ease-in-out infinite',
+      owlFace: st.flying ? 'face 6.5s steps(1,end) infinite' : 'none',
+      owlLeft: st.flying ? '6%' : '5%', owlBottom: st.flying ? '46px' : '6px',
+      wingL: st.flying ? 'flapL .4s ease-in-out infinite' : 'flapSlowL 3.6s ease-in-out infinite',
+      wingR: st.flying ? 'flapR .4s ease-in-out infinite' : 'flapSlowR 3.6s ease-in-out infinite',
+      owlSays: tipList[st.tip % tipList.length],
+      owlHappy: !(fb && fb.kind === 'no'), owlThinks: !!(fb && fb.kind === 'no'),
+      owlTalk: () => this.setState(s => ({ tip: s.tip + 1 })),
+      navMap: navCol('map'), navSec: navCol('sections'), navWs: navCol('worksheet'), navExam: navCol('exam'), navParent: navCol('parent'),
+      goSectionsNav: () => this.go('sections'), goWs: () => this.go('worksheet'), goExamNav: () => this.go('exam'),
+      stars: F(st.stars), streak: F(st.streak), medalCount: '۴',
+      showNav: st.screen !== 'splash' && st.screen !== 'gate',
+      showOwl: st.screen !== 'splash',
+      isSplash: st.screen === 'splash', isMap: st.screen === 'map', isChapters: st.screen === 'chapters',
+      isLesson: st.screen === 'lesson', isSections: st.screen === 'sections', isWsIndex: st.screen === 'worksheet',
+      isExamIndex: st.screen === 'exam', isQuiz: st.screen === 'quiz', isResult: st.screen === 'result',
+      isRewards: st.screen === 'rewards', isProfile: st.screen === 'profile', isGate: st.screen === 'gate', isParent: st.screen === 'parent',
+
+      goMap: () => this.go('map'), goProfile: () => this.go('profile'), goParent: () => this.openParent(),
+      goSections: () => this.setState({ secCh: st.taughtCh, screen: 'sections', fb: null }),
+
+      greeting: 'سلام ' + learner + '! تا «' + this.BOOK[st.taughtCh][2][st.taughtSec] + '» درس داده شده؛ همین‌جا تمرین کنیم؟',
+      mapSub: 'فصل ' + this.BOOK[st.taughtCh][0] + ': ' + this.BOOK[st.taughtCh][1] + ' · ' + F(st.taughtSec + 1) + ' بخش از ۵',
+      chapterPct: Math.round(((st.taughtSec + 1) / 5) * 100) + '%',
+      owlTip: 'هر بخشی که معلم درس داده، یک کاربرگ تمرینی جدا دارد. از دکمه‌ی «تمرین» پایین شروع کن.',
+      mapNodes, chapterCards, chapterChips,
+      secChTitle: 'فصل ' + this.BOOK[st.secCh][0] + ': ' + this.BOOK[st.secCh][1], sectionCards: secList,
+      wsChTitle: 'فصل ' + this.BOOK[st.wsCh][0] + ': ' + this.BOOK[st.wsCh][1], wsLevels: levelCards(st.wsCh, 'worksheet'),
+      examChTitle: 'فصل ' + this.BOOK[st.examCh][0] + ': ' + this.BOOK[st.examCh][1], examLevels: levelCards(st.examCh, 'exam'),
+
+      say: S.say, visCaption: S.cap,
+      visGroups: Array.from({ length: S.vis }, (_, i) => ({ label: F((i + 1) * S.per), items: Array.from({ length: S.per }, (_, j) => ({ c: j % 2 ? '#E8973A' : '#3AA79A' })) })),
+      stepNo: F(st.step + 1), stepTotal: F(this.LESSON.length),
+      stepDots: this.LESSON.map((_, i) => ({ bg: i < st.step ? '#3AA79A' : i === st.step ? '#E8973A' : '#E3E9E3' })),
+      isTeach: S.kind === 'teach', isMcq: S.kind === 'mcq', isNum: S.kind === 'num', isDone: S.kind === 'done',
+      options: (S.options || []).map((label, i) => {
+        const on = st.pick === i, right = i === S.ans;
+        return { label, pick: () => this.lessonAnswer(i),
+          bd: st.pick === null ? '#E6E2D6' : on ? (right ? '#3AA79A' : '#D94F7A') : '#EFECE3',
+          bg: st.pick === null ? '#fff' : on ? (right ? '#E9F2E7' : '#FBEAF0') : '#FAFAF7',
+          fg: st.pick === null ? '#2E3B36' : on ? (right ? '#2E8A7F' : '#B33A65') : '#A8B2AD' };
+      }),
+      next: () => this.advance(), again: () => this.set({ voice: true }),
+      voiceIcon: st.voice ? '❚❚' : '▶', voiceLabel: st.voice ? 'هوهو دارد توضیح می‌دهد…' : 'برای شنیدن بزن', waves,
+      toggleVoice: () => this.setState(s => ({ voice: !s.voice })),
+      micLabel: st.mic ? 'دارم گوش می‌دهم…' : 'جواب را بلند بگو', micBg: st.mic ? '#FBEAF0' : '#fff', micFg: st.mic ? '#B33A65' : '#41564E',
+      toggleMic: () => this.setState(s => ({ mic: !s.mic })),
+      typed: st.typed || '⬜', keys, submitNum: () => this.submitNum(),
+
+      quizTitle: q ? quizTitles[q.mode] + ' — فصل ' + this.BOOK[q.ch][0] + ': ' + this.BOOK[q.ch][1] : '',
+      quizSub: q ? (q.mode === 'practice' ? this.BOOK[q.ch][2][q.opt] : this.LEVELS[q.opt][1]) : '',
+      quizCount: q ? F(q.idx + 1) + ' / ' + F(q.items.length) : '',
+      quizPct: q ? Math.round((q.idx / q.items.length) * 100) + '%' : '0%',
+      quizNo: q ? F(q.idx + 1) : '', quizQ: qi ? qi.q : '',
+      quizIsMcq: !!(q && q.mode === 'exam'), quizIsNum: !!(q && q.mode !== 'exam'),
+      quizOptions: qi && qi.options ? qi.options.map(label => ({ label, bd: '#E6E2D6', bg: '#fff', fg: '#2E3B36', pick: () => this.answerQuiz(label) })) : [],
+      quizTyped: st.typed || '⬜',
+      quizKeys: keys, quizSubmit: () => st.typed ? this.answerQuiz(st.typed) : null,
+      quizExit: () => this.setState({ screen: q ? (q.mode === 'practice' ? 'sections' : q.mode) : 'map', quiz: null, fb: null }),
+      quizHint: () => qi ? this.ok(qi.hint, 'فهمیدم', () => this.set({ fb: null })) : null,
+      revealLabel: st.parentOpen ? 'نمایش پاسخ (باز است)' : 'نمایش پاسخ — ورود والدین',
+      revealNote: st.parentOpen ? 'دسترسی والدین باز است؛ پاسخ‌ها نشان داده می‌شوند.' : 'پاسخ‌ها فقط با رمز والدین دیده می‌شوند تا کودک خودش تمرین کند.',
+      quizReveal: () => st.parentOpen && qi ? this.ok('پاسخ درست: ' + qi.a + ' — ' + qi.hint, 'باشه', () => this.set({ fb: null })) : this.openParent(),
+      quizProgressNote: q ? 'درست تا حالا: ' + F(q.right) + ' از ' + F(q.idx) + ' · این تمرین فقط از بخش‌هایی است که معلم درس داده.' : '',
+
+      resScore: res ? F(res.right) + '/' + F(res.items.length) : '',
+      resTitle: res ? (res.right >= res.items.length * 0.8 ? 'عالی بود!' : 'خوب شروع کردی') : '',
+      resMsg: res ? (res.right >= res.items.length * 0.8 ? 'این بخش را خوب یاد گرفته‌ای. سطح بالاتر را امتحان کن.' : 'چند سؤال را با هوهو دوباره کار کن، بعد همین تمرین را تکرار کن.') : '',
+      resItems: res ? res.log.slice(0, 6).map(l => ({
+        q: l.q, mark: l.ok ? '✓' : '✕', chip: l.ok ? '#3AA79A' : '#D94F7A', bd: l.ok ? '#D5E5D1' : '#F3D3DF',
+        a: l.ok ? ('پاسخ تو: ' + l.mine) : (st.parentOpen ? ('پاسخ درست: ' + l.a + ' · پاسخ تو: ' + l.mine) : 'پاسخ درست با ورود والدین دیده می‌شود')
+      })) : [],
+      resRetry: () => res ? this.startQuiz(res.mode, res.ch, res.opt) : null,
+      resAnswersLabel: st.parentOpen ? 'پاسخ‌ها نمایش داده شد' : 'دیدن پاسخ‌ها (والدین)',
+      resAnswers: () => st.parentOpen ? this.forceUpdate() : this.openParent(),
+
+      gateTitle: st.gateMode === 'setup' ? 'ساختن رمز والدین' : st.gateMode === 'recover' ? 'بازیابی رمز' : 'ورود والدین',
+      gateSub: st.gateMode === 'setup' ? (gateSetupStage === 2 ? 'سؤال بازیابی را انتخاب و پاسخش را ثبت کنید' : gateSetupStage === 1 ? 'رمز را یک‌بار دیگر بزنید' : 'یک رمز ۴ رقمی بسازید') : st.gateMode === 'recover' ? 'به سؤال بازیابی پاسخ دهید' : 'رمز ۴ رقمی را وارد کنید',
+      gateAsksPin: st.gateMode === 'enter' || (st.gateMode === 'setup' && gateSetupStage < 2),
+      gateAsksQuestion: st.gateMode === 'setup' && gateSetupStage === 2,
+      gateAsksText: (st.gateMode === 'setup' && gateSetupStage === 2) || st.gateMode === 'recover',
+      gateTextLabel: st.gateMode === 'recover' ? this.RECOVERY[st.recIdx] : 'پاسخ سؤال بازیابی',
+      gateText: st.gateText, onGateText: e => this.setState({ gateText: e.target.value }),
+      recoveryOptions: this.RECOVERY.map((label, i) => ({ label, bd: st.recIdx === i ? '#D94F7A' : '#E6E2D6', bg: st.recIdx === i ? '#FBEAF0' : '#fff', pick: () => this.setState({ recIdx: i }) })),
+      pinLabel: st.gateMode === 'setup' && gateSetupStage === 1 ? 'رمز را تکرار کنید' : 'رمز ۴ رقمی',
+      pinDots, pinKeys,
+      gateBtn: st.gateMode === 'setup' ? (gateSetupStage === 2 ? 'ثبت رمز و ورود' : 'ادامه') : st.gateMode === 'recover' ? 'بررسی پاسخ' : 'ورود',
+      gateSubmit: () => this.gateSubmit(),
+      gateAltLabel: st.gateMode === 'enter' ? 'رمز را فراموش کردم' : 'بازگشت به ورود',
+      gateAlt: () => this.setState({ gateMode: st.gateMode === 'enter' ? 'recover' : 'enter', pinDraft: '', gateText: '', pinStage: 0 }),
+      gateNote: st.gateMode === 'enter' ? 'پاسخ تمرین‌ها، کاربرگ‌ها و تنظیم «معلم تا کجا درس داده» فقط از این بخش در دسترس است.' : 'سؤال بازیابی را جایی یادداشت نکنید؛ فقط پاسخش را به خاطر بسپارید.',
+
+      lockParent: () => this.setState({ parentOpen: false, screen: 'map' }),
+      changePin: () => this.setState({ screen: 'gate', gateMode: 'setup', pinStage: 0, pinDraft: '', pinFirst: '', gateText: '' }),
+      taughtChapterChips, taughtSectionRows,
+      parentStats: [{ v: '۹۴ دقیقه', k: 'تمرین این هفته' }, { v: '۸۲٪', k: 'پاسخ درست' }, { v: F(st.streak) + ' روز', k: 'زنجیره' }],
+      bars, settings,
+      weak: [{ text: 'در «ماشین ورودی ـ خروجی» ۴ پاسخ از ۷ درست بود.' }, { text: 'در مسئله‌های کلامی بیشتر از دکمه‌ی صوت استفاده می‌کند.' }, { text: 'پیشنهاد: کاربرگ تمرینی همان بخش را دوباره با او کار کنید.' }],
+      profileStats: [{ v: F(st.stars), k: 'ستاره' }, { v: F(st.taughtSec + 1), k: 'بخش باز' }, { v: F(st.streak), k: 'روز پیوسته' }],
+      recent: [{ n: '۱', title: 'حلّ مسئله: الگویابی', sub: 'فصل ۱ · ۱۵ تمرین', stars: '★★★' }, { n: '۲', title: 'شمارش چندتا چندتا', sub: 'درس صوتی هوهو', stars: '★★☆' }, { n: '۳', title: 'ماشین ورودی ـ خروجی', sub: 'در انتظار درس معلم', stars: '☆☆☆' }],
+      medals, hats, week,
+
+      showFb: !!fb, fbTitle: fb ? fb.title : '', fbMsg: fb ? fb.msg : '',
+      fbIcon: fb ? (fb.kind === 'ok' ? '🌟' : '🤔') : '', fbChip: fb && fb.kind === 'ok' ? '#FDF4E3' : '#FBEAF0',
+      fbFg: fb && fb.kind === 'ok' ? '#A4700F' : '#B33A65',
+      fbBtn: fb ? fb.btn : '', fbBtn2: '', fbHasSecond: false,
+      fbPrimary: () => fb && fb.onBtn ? fb.onBtn() : this.set({ fb: null }),
+      fbSecondary: () => this.set({ fb: null })
+    };
+  }
+}
+</script>
+</body>
+</html>
