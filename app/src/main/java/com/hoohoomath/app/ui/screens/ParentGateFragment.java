@@ -91,16 +91,24 @@ public class ParentGateFragment extends BaseFragment {
         LinearLayout col = UiKit.column(requireContext());
         col.setGravity(Gravity.CENTER);
 
+        TextView pinLabel = UiKit.text(requireContext(),
+            mode == Mode.SETUP && setupStage == 1 ? "رمز را تکرار کنید" : "رمز ۴ رقمی", 13f, R.color.text_primary, true);
+        col.addView(pinLabel, UiKit.marginParams(requireContext(), 0, 12));
+
         LinearLayout dots = UiKit.row(requireContext());
         dots.setGravity(Gravity.CENTER);
         for (int i = 0; i < 4; i++) {
-            View dot = new View(requireContext());
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(UiKit.dp(requireContext(), 16), UiKit.dp(requireContext(), 16));
-            lp.setMargins(UiKit.dp(requireContext(), 6), 0, UiKit.dp(requireContext(), 6), 0);
-            dot.setLayoutParams(lp);
             boolean filled = pinDraft.length() > i;
-            dot.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), filled ? R.color.pink_bg : R.color.bg_card), ContextCompat.getColor(requireContext(), filled ? R.color.pink : R.color.border_input), 999f, requireContext()));
-            dots.addView(dot);
+            boolean isNext = pinDraft.length() == i;
+            TextView box = UiKit.text(requireContext(), filled ? "●" : "", 22f, R.color.pink_dark, true);
+            box.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(UiKit.dp(requireContext(), 46), UiKit.dp(requireContext(), 56));
+            lp.setMargins(UiKit.dp(requireContext(), 5), 0, UiKit.dp(requireContext(), 5), 0);
+            box.setLayoutParams(lp);
+            box.setBackground(UiKit.roundedBg(
+                ContextCompat.getColor(requireContext(), filled ? R.color.pink_bg : R.color.bg_card),
+                ContextCompat.getColor(requireContext(), isNext ? R.color.pink : R.color.pink_border), 14f, requireContext()));
+            dots.addView(box);
         }
         col.addView(dots, UiKit.marginParams(requireContext(), 0, 16));
 
@@ -114,7 +122,7 @@ public class ParentGateFragment extends BaseFragment {
         TextView submit = UiKit.text(requireContext(), mode == Mode.SETUP && setupStage == 1 ? "ادامه" : mode == Mode.SETUP ? "ادامه" : "ورود", 15f, R.color.white, true);
         submit.setGravity(Gravity.CENTER);
         submit.setPadding(0, UiKit.dp(requireContext(), 14), 0, UiKit.dp(requireContext(), 14));
-        submit.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), R.color.teal), 0, 14f, requireContext()));
+        submit.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), R.color.pink), 0, 16f, requireContext()));
         submit.setLayoutParams(UiKit.marginParams(requireContext(), 14, 0));
         submit.setOnClickListener(v -> onPinSubmit(root));
         col.addView(submit);
@@ -184,7 +192,7 @@ public class ParentGateFragment extends BaseFragment {
         TextView submit = UiKit.text(requireContext(), "ثبت رمز و ورود", 15f, R.color.white, true);
         submit.setGravity(Gravity.CENTER);
         submit.setPadding(0, UiKit.dp(requireContext(), 14), 0, UiKit.dp(requireContext(), 14));
-        submit.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), R.color.teal), 0, 14f, requireContext()));
+        submit.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), R.color.pink), 0, 16f, requireContext()));
         submit.setLayoutParams(UiKit.marginParams(requireContext(), 14, 0));
         submit.setOnClickListener(v -> {
             String text = answer.getText().toString().trim();
@@ -215,7 +223,7 @@ public class ParentGateFragment extends BaseFragment {
         TextView submit = UiKit.text(requireContext(), "بررسی پاسخ", 15f, R.color.white, true);
         submit.setGravity(Gravity.CENTER);
         submit.setPadding(0, UiKit.dp(requireContext(), 14), 0, UiKit.dp(requireContext(), 14));
-        submit.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), R.color.teal), 0, 14f, requireContext()));
+        submit.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), R.color.pink), 0, 16f, requireContext()));
         submit.setLayoutParams(UiKit.marginParams(requireContext(), 14, 0));
         submit.setOnClickListener(v -> {
             AppState s = state();

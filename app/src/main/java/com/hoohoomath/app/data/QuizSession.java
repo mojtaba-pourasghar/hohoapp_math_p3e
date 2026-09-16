@@ -8,15 +8,17 @@ public class QuizSession {
     public final QuizMode mode;
     public final int chapter;
     public final int option; // section index for PRACTICE, level index for WORKSHEET/EXAM
+    public final int round;  // which set of generated questions this attempt used
     public final List<QuestionItem> items;
     public int index = 0;
     public int rightCount = 0;
     public final List<LogEntry> log = new ArrayList<>();
 
-    public QuizSession(QuizMode mode, int chapter, int option, List<QuestionItem> items) {
+    public QuizSession(QuizMode mode, int chapter, int option, int round, List<QuestionItem> items) {
         this.mode = mode;
         this.chapter = chapter;
         this.option = option;
+        this.round = round;
         this.items = items;
     }
 

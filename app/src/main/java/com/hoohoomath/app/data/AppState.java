@@ -13,7 +13,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * All persisted + session state for the app, kept on-device only (SharedPreferences).
@@ -49,6 +51,9 @@ public final class AppState {
 
     // --- history, for the parent panel ---
     private final List<QuizResult> history = new ArrayList<>();
+
+    /** Sections whose lesson the child has finished, as "chapter:section" keys. */
+    private final Set<String> completedSections = new HashSet<>();
 
     public static final String[] RECOVERY_QUESTIONS = {
         "نام مدرسه‌ی فرزندم چیست؟",
@@ -129,6 +134,33 @@ public final class AppState {
         persist();
     }
 
+    private static String sectionKey(int chapter, int section) {
+        return chapter + ":" + section;
+    }
+
+    /** The child finished this section's voice lesson, so the app can offer the next one. */
+    public void markSectionLessonDone(int chapter, int section) {
+        completedSections.add(sectionKey(chapter, section));
+        persist();
+    }
+
+    public boolean isSectionLessonDone(int chapter, int section) {
+        return completedSections.contains(sectionKey(chapter, section));
+    }
+
+    /**
+     * How many rounds of this exact practice set / worksheet / exam the child has already done.
+     * Each round shifts the question generator's seed, so the same section or level can be
+     * practised endlessly without ever repeating the same fifteen or thirty questions.
+     */
+    public int getRound(String key) {
+        return prefs.getInt("round_" + key, 0);
+    }
+
+    public void bumpRound(String key) {
+        prefs.edit().putInt("round_" + key, getRound(key) + 1).apply();
+    }
+
     private void bumpStreakOnOpen() {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         long todayEpoch = today.toEpochDay();
@@ -159,6 +191,7 @@ public final class AppState {
         e.putInt("recIdx", recoveryQuestionIndex);
         e.putString("recAnswerHash", recoveryAnswerHash);
         e.putString("history", historyToJson());
+        e.putStringSet("completedSections", new HashSet<>(completedSections));
         e.apply();
     }
 
@@ -174,6 +207,9 @@ public final class AppState {
         recoveryQuestionIndex = prefs.getInt("recIdx", 0);
         recoveryAnswerHash = prefs.getString("recAnswerHash", null);
         historyFromJson(prefs.getString("history", null));
+        completedSections.clear();
+        Set<String> saved = prefs.getStringSet("completedSections", null);
+        if (saved != null) completedSections.addAll(saved);
     }
 
     private String historyToJson() {

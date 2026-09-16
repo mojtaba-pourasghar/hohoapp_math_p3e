@@ -79,8 +79,14 @@ public class SectionsFragment extends BaseFragment {
         LinearLayout textCol = UiKit.column(requireContext());
         LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         textCol.setLayoutParams(textLp);
-        textCol.addView(UiKit.text(requireContext(), com.hoohoomath.app.data.PersianDigits.fa(i + 1) + ". " + ch.sections.get(i), 14.5f, R.color.text_primary, true));
-        textCol.addView(UiKit.text(requireContext(), open ? "۱۵ سؤال · از آسان به سخت" : "هنوز درس داده نشده", 11.5f, R.color.text_muted, false));
+        AppState s = state();
+        boolean learned = s.isSectionLessonDone(ch.index, i);
+        int nextRound = s.getRound("PRACTICE_" + ch.index + "_" + i) + 1;
+        String title = com.hoohoomath.app.data.PersianDigits.fa(i + 1) + ". " + ch.sections.get(i) + (learned ? "  ✓" : "");
+        String sub = !open ? "هنوز درس داده نشده"
+            : "۱۵ سؤال تازه در هر دور · دور " + com.hoohoomath.app.data.PersianDigits.fa(nextRound);
+        textCol.addView(UiKit.text(requireContext(), title, 14.5f, R.color.text_primary, true));
+        textCol.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
 
         TextView cta = UiKit.text(requireContext(), open ? "تمرین کن" : "قفل است", 13f, R.color.white, true);
         cta.setGravity(Gravity.CENTER);

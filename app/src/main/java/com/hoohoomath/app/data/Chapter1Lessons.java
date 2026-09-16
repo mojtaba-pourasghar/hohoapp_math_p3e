@@ -6,7 +6,7 @@ import java.util.Map;
 
 /**
  * Voice-guided lessons for Chapter 1 (الگوها), one script per section, written to follow
- * the same worked examples and order the printed textbook uses (see chapter-1 extraction).
+ * the same worked examples and order the printed textbook uses (pages ۸–۲۱ of the 1404 book).
  */
 public final class Chapter1Lessons {
     private Chapter1Lessons() {}
@@ -14,7 +14,7 @@ public final class Chapter1Lessons {
     private static final Map<Integer, LessonScript> BY_SECTION = new HashMap<>();
 
     static {
-        BY_SECTION.put(0, new LessonScript(0, 0, Arrays.asList(
+        BY_SECTION.put(0, new LessonScript(0, 0, 8, Arrays.asList(
             LessonStep.teach(
                 "سلام! امروز یاد می‌گیریم چطور یک الگو را کشف کنیم. به این پله‌های عددی نگاه کن: یک، سه، شش، ده.",
                 "پله‌های عددی: ۱ ، ۳ ، ۶ ، ۱۰"),
@@ -41,43 +41,50 @@ public final class Chapter1Lessons {
                 "مریم ساختمانی ۱۰ طبقه دارد که هر طبقه ۴ واحد دارد. طبقه‌ی سوم چند واحد دارد؟ بنویس.",
                 "هر طبقه ۴ واحد — طبقه‌ی ۳؟",
                 "۱۲",
-                "۴ واحد در هر طبقه، سه طبقه یعنی ۴ × ۳ = ۱۲."),
+                "۴ واحد در هر طبقه، سه طبقه یعنی ۴ × ۳ = ۱۲.",
+                3, 4),
             LessonStep.done(
                 "کارت عالی بود! برویم سراغ تمرین‌های همین بخش؟",
                 "درس تمام شد")
         )));
 
-        BY_SECTION.put(1, new LessonScript(0, 1, Arrays.asList(
+        BY_SECTION.put(1, new LessonScript(0, 1, 10, Arrays.asList(
             LessonStep.teach(
                 "سلام! امروز «شمارش چندتا چندتا» را یاد می‌گیریم. نگاه کن: جوراب‌ها جفت‌جفت هستند.",
-                "جفت‌های جوراب"),
+                "جفت‌های جوراب",
+                5, 2),
             LessonStep.teach(
                 "هر جفت ۲ تا است. با من بشمار: دو… چهار… شش… هشت… ده.",
-                "دوتا دوتا: ۲ ، ۴ ، ۶ ، ۸ ، ۱۰"),
+                "دوتا دوتا: ۲ ، ۴ ، ۶ ، ۸ ، ۱۰",
+                5, 2),
             LessonStep.mcq(
                 "حالا تو بگو: ۴ جفت جوراب، چند تا جوراب می‌شود؟",
                 "۴ جفت را بشمار",
                 Arrays.asList("۶", "۸", "۱۰", "۱۲"), 1,
-                "دوتا دوتا شمردیم: ۲، ۴، ۶، ۸ — پس ۸ تا."),
+                "دوتا دوتا شمردیم: ۲، ۴، ۶، ۸ — پس ۸ تا.",
+                4, 2),
             LessonStep.teach(
                 "آفرین! حالا پنج‌تا پنج‌تا. هر دست ۵ انگشت دارد.",
-                "هر دست ۵ انگشت"),
+                "هر دست ۵ انگشت",
+                3, 5),
             LessonStep.num(
                 "۳ دست، چند انگشت؟ عدد را بنویس.",
                 "۵ ، ۱۰ ، ۱۵",
                 "۱۵",
-                "پنج‌تا پنج‌تا: ۵، ۱۰، ۱۵."),
+                "پنج‌تا پنج‌تا: ۵، ۱۰، ۱۵.",
+                3, 5),
             LessonStep.num(
                 "نازنین هر روز شنبه کلاس خیاطی دارد. روزهای کلاس او این‌طوری‌اند: صفر، هفت، چهارده، بیست‌ویک. روز بعدی کدام است؟",
                 "۰ ، ۷ ، ۱۴ ، ۲۱ ، ⬜",
                 "۲۸",
-                "عددها هفت‌تا هفت‌تا اضافه می‌شوند: ۲۱ + ۷ = ۲۸."),
+                "عددها هفت‌تا هفت‌تا اضافه می‌شوند: ۲۱ + ۷ = ۲۸.",
+                4, 7),
             LessonStep.done(
                 "کارت حرف نداشت! برویم سراغ تمرین‌های همین بخش؟",
                 "درس تمام شد")
         )));
 
-        BY_SECTION.put(2, new LessonScript(0, 2, Arrays.asList(
+        BY_SECTION.put(2, new LessonScript(0, 2, 13, Arrays.asList(
             LessonStep.teach(
                 "سلام! امروز با «ماشین‌های ورودی-خروجی» آشنا می‌شویم. یک ماشین با قانون «بعلاوه‌ی پنج» را تصور کن.",
                 "ماشین با قانون +۵"),
@@ -107,7 +114,7 @@ public final class Chapter1Lessons {
                 "درس تمام شد")
         )));
 
-        BY_SECTION.put(3, new LessonScript(0, 3, Arrays.asList(
+        BY_SECTION.put(3, new LessonScript(0, 3, 16, Arrays.asList(
             LessonStep.teach(
                 "سلام! امروز یاد می‌گیریم ساعت‌های بعدازظهر را با شمارش ۲۴ ساعته بخوانیم.",
                 "قبل از ظهر و بعد از ظهر"),
@@ -137,7 +144,7 @@ public final class Chapter1Lessons {
                 "درس تمام شد")
         )));
 
-        BY_SECTION.put(4, new LessonScript(0, 4, Arrays.asList(
+        BY_SECTION.put(4, new LessonScript(0, 4, 19, Arrays.asList(
             LessonStep.teach(
                 "سلام! امروز با «الگوهای متقارن» آشنا می‌شویم. یک شکل متقارن از وسط یک خط دارد که دو طرفش کاملاً شبیه هم است.",
                 "خط تقارن"),
@@ -148,7 +155,8 @@ public final class Chapter1Lessons {
                 "در نیمه‌ی چپ یک شکل متقارن، ۶ خانه رنگی است. نیمه‌ی راست چند خانه رنگی دارد؟",
                 "نیمه‌ی چپ: ۶ خانه رنگی",
                 Arrays.asList("۳", "۶", "۹", "۱۲"), 1,
-                "دو نیمه‌ی شکل متقارن همیشه با هم برابرند."),
+                "دو نیمه‌ی شکل متقارن همیشه با هم برابرند.",
+                2, 6),
             LessonStep.teach(
                 "پس برای شمردن سریع‌تر، کافی است یک نیمه را بشماریم و در ۲ ضرب کنیم!",
                 "نیمه × ۲ = کل"),
@@ -156,12 +164,14 @@ public final class Chapter1Lessons {
                 "اگر نیمه‌ی چپ یک شکل متقارن ۸ خانه رنگی داشته باشد، کل خانه‌های رنگی چند تاست؟",
                 "۸ × ۲ = ⬜",
                 "۱۶",
-                "۸ × ۲ = ۱۶."),
+                "۸ × ۲ = ۱۶.",
+                2, 8),
             LessonStep.num(
                 "یک شکل پروانه هم متقارن است. اگر یک بالش ۵ مثلث رنگی دارد، هر دو بال با هم چند مثلث دارند؟",
                 "۵ × ۲ = ⬜",
                 "۱۰",
-                "۵ × ۲ = ۱۰."),
+                "۵ × ۲ = ۱۰.",
+                2, 5),
             LessonStep.done(
                 "آفرین! حالا برویم تمرین‌های همین بخش؟",
                 "درس تمام شد")

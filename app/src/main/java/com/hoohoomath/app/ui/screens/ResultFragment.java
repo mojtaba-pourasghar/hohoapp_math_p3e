@@ -9,10 +9,13 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
+import com.hoohoomath.app.data.Book;
+import com.hoohoomath.app.data.Chapter1Lessons;
+import com.hoohoomath.app.data.QuizBuilder;
+import com.hoohoomath.app.data.QuizMode;
 import com.hoohoomath.app.data.QuizSession;
 import com.hoohoomath.app.data.QuizSessionHolder;
 import com.hoohoomath.app.ui.BaseFragment;
@@ -39,12 +42,16 @@ public class ResultFragment extends BaseFragment {
         }
         AppState s = state();
         boolean good = res.rightCount >= res.items.size() * 0.8;
+        boolean passed = res.rightCount >= res.items.size() * 0.7;
 
         ((TextView) view.findViewById(R.id.result_score)).setText(fa(res.rightCount) + "/" + fa(res.items.size()));
-        ((TextView) view.findViewById(R.id.result_title)).setText(good ? "عالی بود!" : "خوب شروع کردی");
+        ((TextView) view.findViewById(R.id.result_title)).setText(good ? "عالی بود!" : passed ? "خوب بود!" : "خوب شروع کردی");
         ((TextView) view.findViewById(R.id.result_msg)).setText(good
-            ? "این بخش را خوب یاد گرفته‌ای. سطح بالاتر را امتحان کن."
+            ? "این بخش را خوب یاد گرفته‌ای."
+            : passed ? "تقریباً یاد گرفتی. یک دور دیگر هم تمرین کن تا محکم شود."
             : "چند سؤال را با هوهو دوباره کار کن، بعد همین تمرین را تکرار کن.");
+
+        buildNextStep(view, res, s, passed);
 
         LinearLayout list = view.findViewById(R.id.result_list);
         list.removeAllViews();
@@ -78,6 +85,54 @@ public class ResultFragment extends BaseFragment {
             nav().go(Screen.QUIZ, args);
         });
         view.findViewById(R.id.result_map).setOnClickListener(v -> nav().go(Screen.MAP));
+    }
+
+    /**
+     * The teacher-like next move: once the child has shown they understood a section, walk them
+     * to the next section the teacher has covered; at the end of a chapter, hand them the
+     * chapter's worksheet instead.
+     */
+    private void buildNextStep(View view, QuizSession res, AppState s, boolean passed) {
+        TextView nextStep = view.findViewById(R.id.result_next_step);
+        if (res.mode != QuizMode.PRACTICE || !passed) {
+            nextStep.setVisibility(View.GONE);
+            return;
+        }
+
+        Book.Chapter ch = Book.chapter(res.chapter);
+        int nextSection = res.option + 1;
+        boolean nextIsTaught = QuizBuilder.allowedSections(res.chapter, s.taughtChapter, s.taughtSection).contains(nextSection);
+
+        if (nextIsTaught) {
+            nextStep.setVisibility(View.VISIBLE);
+            nextStep.setText("برویم بخش بعد: " + ch.sections.get(nextSection));
+            nextStep.setOnClickListener(v -> {
+                Bundle args = new Bundle();
+                args.putInt("chapter", res.chapter);
+                if (res.chapter == 0 && Chapter1Lessons.forSection(nextSection) != null) {
+                    args.putInt("section", nextSection);
+                    nav().go(Screen.LESSON, args);
+                } else {
+                    args.putString("mode", "PRACTICE");
+                    args.putInt("option", nextSection);
+                    nav().go(Screen.QUIZ, args);
+                }
+            });
+            return;
+        }
+
+        boolean chapterFinished = nextSection >= Book.SECTIONS_PER_CHAPTER;
+        nextStep.setVisibility(View.VISIBLE);
+        if (chapterFinished) {
+            nextStep.setText("فصل تمام شد! کاربرگ فصل " + ch.numberFa + " را بگیر");
+        } else {
+            nextStep.setText("تا اینجا درس داده شده — با کاربرگ تمرین کن");
+        }
+        nextStep.setOnClickListener(v -> {
+            Bundle args = new Bundle();
+            args.putInt("chapter", res.chapter);
+            nav().go(Screen.WORKSHEET_INDEX, args);
+        });
     }
 
     @Override

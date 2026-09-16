@@ -28,8 +28,13 @@ public final class QuizBuilder {
         return !allowedSections(ch, taughtCh, taughtSec).isEmpty();
     }
 
-    /** Returns null if the requested section/chapter hasn't been taught yet. */
-    public static QuizSession build(QuizMode mode, int ch, int option, int taughtCh, int taughtSec) {
+    /**
+     * Returns null if the requested section/chapter hasn't been taught yet.
+     *
+     * `round` shifts the generator's question index, so asking for round 1, 2, 3… of the same
+     * section yields a fresh set of questions each time instead of repeating the first fifteen.
+     */
+    public static QuizSession build(QuizMode mode, int ch, int option, int taughtCh, int taughtSec, int round) {
         List<Integer> secs = allowedSections(ch, taughtCh, taughtSec);
         if (secs.isEmpty()) return null;
 
@@ -40,7 +45,7 @@ public final class QuizBuilder {
         for (int i = 0; i < count; i++) {
             int sec = mode == QuizMode.PRACTICE ? option : secs.get(i % secs.size());
             int itemLv = mode == QuizMode.PRACTICE ? (i < 5 ? 0 : i < 10 ? 1 : 2) : lv;
-            QuestionItem it = QuestionGenerator.item(ch, sec, i, itemLv);
+            QuestionItem it = QuestionGenerator.item(ch, sec, i + round * count, itemLv);
 
             if (mode == QuizMode.EXAM) {
                 long base = it.rawAnswer;
@@ -62,6 +67,6 @@ public final class QuizBuilder {
             }
             items.add(it);
         }
-        return new QuizSession(mode, ch, option, items);
+        return new QuizSession(mode, ch, option, round, items);
     }
 }

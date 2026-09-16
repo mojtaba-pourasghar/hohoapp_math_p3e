@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_page">
+    android:background="@color/pink_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -26,7 +26,7 @@
             android:layout_marginTop="14dp"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@color/text_primary" />
+            android:textColor="@color/pink_dark" />
 
         <TextView
             android:id="@+id/gate_sub"
@@ -35,7 +35,7 @@
             android:layout_marginTop="4dp"
             android:gravity="center"
             android:textSize="12.5sp"
-            android:textColor="@color/text_muted" />
+            android:textColor="#A06078" />
 
         <LinearLayout
             android:id="@+id/gate_content"
@@ -43,7 +43,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:layout_marginTop="20dp" />
+            android:layout_marginTop="18dp"
+            android:padding="18dp"
+            android:background="@drawable/bg_card_pink" />
 
         <TextView
             android:id="@+id/gate_alt"

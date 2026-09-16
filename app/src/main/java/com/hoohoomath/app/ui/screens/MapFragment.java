@@ -12,18 +12,25 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Chapter1Lessons;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.PathMapView;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
 
 import static com.hoohoomath.app.data.PersianDigits.fa;
 
 public class MapFragment extends BaseFragment {
+
+    /** {top%, left%} stops along the trail — five sections then the chapter exam. */
+    private static final float[][] NODE_POSITIONS = {
+        {80, 72}, {69, 44}, {57, 66}, {45, 38}, {33, 62}, {16, 44}
+    };
 
     @Nullable
     @Override
@@ -43,116 +50,109 @@ public class MapFragment extends BaseFragment {
 
         LinearLayout chipRow = view.findViewById(R.id.chip_row);
         chipRow.removeAllViews();
-        TextView starsChip = UiKit.chip(requireContext(), fa(s.stars) + " ستاره", getColor(R.color.orange_bg), getColor(R.color.orange_border), getColor(R.color.orange_text));
-        TextView streakChip = UiKit.chip(requireContext(), fa(s.streak) + " روز", getColor(R.color.pink_bg), getColor(R.color.pink_border), getColor(R.color.pink_dark));
+        TextView starsChip = UiKit.chip(requireContext(), fa(s.stars) + " ستاره",
+            color(R.color.orange_bg), color(R.color.orange_border), color(R.color.orange_text));
+        TextView streakChip = UiKit.chip(requireContext(), fa(s.streak) + " روز",
+            color(R.color.pink_bg), color(R.color.pink_border), color(R.color.pink_dark));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMarginEnd(UiKit.dp(requireContext(), 6));
         chipRow.addView(starsChip, lp);
         chipRow.addView(streakChip, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        TextView greeting = view.findViewById(R.id.map_greeting);
-        greeting.setText("سلام قهرمان کوچولو! تا «" + ch.sections.get(s.taughtSection) + "» درس داده شده؛ همین‌جا تمرین کنیم؟");
+        String name = s.learnerName == null || s.learnerName.isEmpty() ? "قهرمان کوچولو" : s.learnerName;
+        ((TextView) view.findViewById(R.id.map_greeting)).setText(
+            "سلام " + name + "! تا «" + ch.sections.get(s.taughtSection) + "» درس داده شده؛ همین‌جا تمرین کنیم؟");
+        ((TextView) view.findViewById(R.id.map_subtitle)).setText(
+            "فصل " + ch.numberFa + ": " + ch.title + " · " + fa(s.taughtSection + 1) + " بخش از " + fa(Book.SECTIONS_PER_CHAPTER));
+        ((ProgressBar) view.findViewById(R.id.map_progress))
+            .setProgress(Math.round(((s.taughtSection + 1) / (float) Book.SECTIONS_PER_CHAPTER) * 100));
 
-        TextView subtitle = view.findViewById(R.id.map_subtitle);
-        subtitle.setText("فصل " + ch.numberFa + ": " + ch.title + " · " + fa(s.taughtSection + 1) + " بخش از " + fa(Book.SECTIONS_PER_CHAPTER));
-
-        ProgressBar progress = view.findViewById(R.id.map_progress);
-        progress.setProgress(Math.round(((s.taughtSection + 1) / (float) Book.SECTIONS_PER_CHAPTER) * 100));
-
-        LinearLayout nodeContainer = view.findViewById(R.id.node_container);
-        nodeContainer.removeAllViews();
+        PathMapView map = view.findViewById(R.id.path_map);
+        map.clearNodes();
         for (int i = 0; i < ch.sections.size(); i++) {
-            nodeContainer.addView(buildNode(ch, i, s));
+            map.addNode(buildSectionNode(ch, i, s), NODE_POSITIONS[i][0], NODE_POSITIONS[i][1]);
         }
-        nodeContainer.addView(buildExamNode(ch, s));
+        map.addNode(buildExamNode(ch), NODE_POSITIONS[5][0], NODE_POSITIONS[5][1]);
     }
 
-    private int getColor(int res) {
-        return androidx.core.content.ContextCompat.getColor(requireContext(), res);
+    private int color(int res) {
+        return ContextCompat.getColor(requireContext(), res);
     }
 
-    private View buildNode(Book.Chapter ch, int i, AppState s) {
+    private View buildSectionNode(Book.Chapter ch, int i, AppState s) {
         boolean open = i <= s.taughtSection;
         boolean active = i == s.taughtSection;
+        boolean childDone = s.isSectionLessonDone(ch.index, i);
 
-        LinearLayout row = UiKit.row(requireContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 10), UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 10));
-        UiKit.applyCardBg(row, requireContext(), active ? R.color.orange_bg : (open ? R.color.teal_bg : R.color.bg_card_muted), active ? R.color.orange_border : (open ? R.color.teal_border : R.color.border_muted));
-        row.setLayoutParams(UiKit.marginParams(requireContext(), 0, 8));
+        int circleColor = active ? R.color.orange : open ? R.color.teal : R.color.lock_bg;
+        String badge = !open ? "قفل" : childDone && !active ? "✓" : active ? "اینجا" : "✓";
+        int size = active ? 88 : 68;
 
-        TextView badge = new TextView(requireContext());
-        badge.setGravity(Gravity.CENTER);
-        badge.setTextColor(Color.WHITE);
-        badge.setText(open ? (active ? "اینجا" : "✓") : "قفل");
-        badge.setTextSize(active ? 12.5f : 13f);
-        LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(UiKit.dp(requireContext(), 52), UiKit.dp(requireContext(), 52));
-        badge.setLayoutParams(badgeLp);
-        badge.setBackground(UiKit.roundedBg(getColor(active ? R.color.orange : open ? R.color.teal : R.color.lock_bg), 0, 26f, requireContext()));
+        LinearLayout node = UiKit.column(requireContext());
+        node.setGravity(Gravity.CENTER_HORIZONTAL);
 
-        LinearLayout textCol = UiKit.column(requireContext());
-        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        textLp.setMarginStart(UiKit.dp(requireContext(), 12));
-        textCol.setLayoutParams(textLp);
-        textCol.addView(UiKit.text(requireContext(), fa(i + 1) + ". " + ch.sections.get(i), 14f, R.color.text_primary, true));
-        String sub = !open ? "هنوز درس داده نشده" : (Chapter1Lessons.forSection(i) != null ? "درس صوتی + تمرین" : "تمرین این بخش");
-        textCol.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
+        TextView circle = UiKit.text(requireContext(), badge, active ? 13f : 14f, R.color.white, true);
+        circle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams circleLp = new LinearLayout.LayoutParams(UiKit.dp(requireContext(), size), UiKit.dp(requireContext(), size));
+        circle.setLayoutParams(circleLp);
+        circle.setBackground(UiKit.ringedCircle(color(circleColor), Color.WHITE, UiKit.dp(requireContext(), 5)));
+        circle.setElevation(UiKit.dp(requireContext(), 4));
 
-        row.addView(badge);
-        row.addView(textCol);
+        TextView label = UiKit.text(requireContext(), ch.sections.get(i), 11.5f, R.color.text_primary, true);
+        label.setGravity(Gravity.CENTER);
+        label.setMaxWidth(UiKit.dp(requireContext(), 150));
+        label.setPadding(UiKit.dp(requireContext(), 9), UiKit.dp(requireContext(), 4), UiKit.dp(requireContext(), 9), UiKit.dp(requireContext(), 4));
+        label.setBackground(UiKit.roundedBg(Color.parseColor("#F2FFFFFF"), 0, 9f, requireContext()));
+        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = UiKit.dp(requireContext(), 7);
 
-        row.setOnClickListener(v -> {
+        node.addView(circle);
+        node.addView(label, labelLp);
+
+        node.setOnClickListener(v -> {
             if (!open) {
                 mascot().comfort("معلم تا اینجا درس نداده. وقتی گفت «یاد گرفتیم»، این بخش باز می‌شود.");
                 return;
             }
+            Bundle args = new Bundle();
+            args.putInt("chapter", ch.index);
             if (ch.index == 0 && Chapter1Lessons.forSection(i) != null) {
-                Bundle args = new Bundle();
-                args.putInt("chapter", ch.index);
                 args.putInt("section", i);
                 nav().go(Screen.LESSON, args);
             } else {
-                Bundle args = new Bundle();
                 args.putString("mode", "PRACTICE");
-                args.putInt("chapter", ch.index);
                 args.putInt("option", i);
                 nav().go(Screen.QUIZ, args);
             }
         });
-        return row;
+        return node;
     }
 
-    private View buildExamNode(Book.Chapter ch, AppState s) {
-        LinearLayout row = UiKit.row(requireContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 10), UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 10));
-        UiKit.applyCardBg(row, requireContext(), R.color.pink_bg, R.color.pink_border);
-        row.setLayoutParams(UiKit.marginParams(requireContext(), 0, 8));
+    private View buildExamNode(Book.Chapter ch) {
+        LinearLayout node = UiKit.column(requireContext());
+        node.setGravity(Gravity.CENTER_HORIZONTAL);
 
-        TextView badge = new TextView(requireContext());
-        badge.setGravity(Gravity.CENTER);
-        badge.setTextColor(Color.WHITE);
-        badge.setText("آزمون");
-        badge.setTextSize(11.5f);
-        LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(UiKit.dp(requireContext(), 52), UiKit.dp(requireContext(), 52));
-        badge.setLayoutParams(badgeLp);
-        badge.setBackground(UiKit.roundedBg(getColor(R.color.pink), 0, 26f, requireContext()));
+        TextView circle = UiKit.text(requireContext(), "آزمون", 12f, R.color.white, true);
+        circle.setGravity(Gravity.CENTER);
+        circle.setLayoutParams(new LinearLayout.LayoutParams(UiKit.dp(requireContext(), 72), UiKit.dp(requireContext(), 72)));
+        circle.setBackground(UiKit.ringedCircle(color(R.color.pink), Color.WHITE, UiKit.dp(requireContext(), 5)));
+        circle.setElevation(UiKit.dp(requireContext(), 4));
 
-        LinearLayout textCol = UiKit.column(requireContext());
-        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        textLp.setMarginStart(UiKit.dp(requireContext(), 12));
-        textCol.setLayoutParams(textLp);
-        textCol.addView(UiKit.text(requireContext(), "آزمون فصل " + ch.numberFa, 14f, R.color.text_primary, true));
-        textCol.addView(UiKit.text(requireContext(), "فقط از بخش‌هایی که درس داده شده", 11.5f, R.color.text_muted, false));
+        TextView label = UiKit.text(requireContext(), "آزمون فصل " + ch.numberFa, 11.5f, R.color.text_primary, true);
+        label.setGravity(Gravity.CENTER);
+        label.setPadding(UiKit.dp(requireContext(), 9), UiKit.dp(requireContext(), 4), UiKit.dp(requireContext(), 9), UiKit.dp(requireContext(), 4));
+        label.setBackground(UiKit.roundedBg(Color.parseColor("#F2FFFFFF"), 0, 9f, requireContext()));
+        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = UiKit.dp(requireContext(), 7);
 
-        row.addView(badge);
-        row.addView(textCol);
-        row.setOnClickListener(v -> {
+        node.addView(circle);
+        node.addView(label, labelLp);
+        node.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putInt("chapter", ch.index);
             nav().go(Screen.EXAM_INDEX, args);
         });
-        return row;
+        return node;
     }
 
     @Override
