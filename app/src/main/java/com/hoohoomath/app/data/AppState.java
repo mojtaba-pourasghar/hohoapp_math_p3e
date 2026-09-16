@@ -1,0 +1,197 @@
+package com.hoohoomath.app.data;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import com.hoohoomath.app.util.Hash;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * All persisted + session state for the app, kept on-device only (SharedPreferences).
+ * Mirrors the design prototype's single-component state, split out because a native
+ * app has many screens instead of one re-rendering component.
+ */
+public final class AppState {
+    private static final String PREFS = "hoohoo_math_v1";
+    private static final int MAX_HISTORY = 60;
+
+    private static AppState instance;
+
+    private final SharedPreferences prefs;
+
+    // --- gamification ---
+    public int stars;
+    public int streak;
+    public String hat;
+    public String learnerName;
+
+    // --- teacher pace: how far the teacher has actually taught ---
+    public int taughtChapter;
+    public int taughtSection;
+
+    // --- settings toggles: [صوتی سؤال‌ها, یادآور روزانه, رقابت هم‌کلاسی, محدودیت زمانی] ---
+    public boolean[] settings = {true, true, false, true};
+
+    // --- parent gate ---
+    private String pinHash; // null until parent sets one up
+    public int recoveryQuestionIndex;
+    private String recoveryAnswerHash;
+    public boolean parentUnlockedThisSession = false; // not persisted: re-enter PIN each app launch
+
+    // --- history, for the parent panel ---
+    private final List<QuizResult> history = new ArrayList<>();
+
+    public static final String[] RECOVERY_QUESTIONS = {
+        "نام مدرسه‌ی فرزندم چیست؟",
+        "نام معلم کلاس سوم فرزندم چیست؟",
+        "نام حیوان خانگی یا عروسک محبوب فرزندم چیست؟"
+    };
+
+    private AppState(Context appContext) {
+        prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        load();
+        bumpStreakOnOpen();
+    }
+
+    public static synchronized void init(Context appContext) {
+        if (instance == null) instance = new AppState(appContext.getApplicationContext());
+    }
+
+    public static AppState get() {
+        if (instance == null) throw new IllegalStateException("AppState.init() was not called");
+        return instance;
+    }
+
+    public boolean hasPin() {
+        return pinHash != null;
+    }
+
+    public void setPin(String fourDigitPin) {
+        this.pinHash = Hash.sha256(fourDigitPin);
+        persist();
+    }
+
+    public boolean checkPin(String candidate) {
+        return pinHash != null && pinHash.equals(Hash.sha256(candidate));
+    }
+
+    public void setRecovery(int questionIndex, String answer) {
+        this.recoveryQuestionIndex = questionIndex;
+        this.recoveryAnswerHash = Hash.sha256(Hash.normalize(answer));
+        persist();
+    }
+
+    public boolean checkRecovery(String candidateAnswer) {
+        return recoveryAnswerHash != null && recoveryAnswerHash.equals(Hash.sha256(Hash.normalize(candidateAnswer)));
+    }
+
+    public boolean hasRecovery() {
+        return recoveryAnswerHash != null;
+    }
+
+    public void setTeacherPace(int chapter, int section) {
+        this.taughtChapter = chapter;
+        this.taughtSection = section;
+        persist();
+    }
+
+    public void addStars(int n) {
+        stars += n;
+        persist();
+    }
+
+    public void toggleSetting(int i) {
+        settings[i] = !settings[i];
+        persist();
+    }
+
+    public void setHat(String hat) {
+        this.hat = hat;
+        persist();
+    }
+
+    public List<QuizResult> getHistory() {
+        return Collections.unmodifiableList(history);
+    }
+
+    public void recordResult(QuizSession session) {
+        history.add(0, QuizResult.fromSession(session));
+        while (history.size() > MAX_HISTORY) history.remove(history.size() - 1);
+        persist();
+    }
+
+    private void bumpStreakOnOpen() {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        long todayEpoch = today.toEpochDay();
+        long last = prefs.getLong("lastActiveEpochDay", -1);
+        if (last == todayEpoch) {
+            // already counted today
+        } else if (last == todayEpoch - 1) {
+            streak += 1;
+        } else if (last >= 0) {
+            streak = 1;
+        } else {
+            streak = Math.max(streak, 1);
+        }
+        prefs.edit().putLong("lastActiveEpochDay", todayEpoch).apply();
+        persist();
+    }
+
+    private void persist() {
+        SharedPreferences.Editor e = prefs.edit();
+        e.putInt("stars", stars);
+        e.putInt("streak", streak);
+        e.putString("hat", hat == null ? "دانش‌آموزی" : hat);
+        e.putString("learnerName", learnerName == null ? "" : learnerName);
+        e.putInt("taughtChapter", taughtChapter);
+        e.putInt("taughtSection", taughtSection);
+        for (int i = 0; i < settings.length; i++) e.putBoolean("setting" + i, settings[i]);
+        e.putString("pinHash", pinHash);
+        e.putInt("recIdx", recoveryQuestionIndex);
+        e.putString("recAnswerHash", recoveryAnswerHash);
+        e.putString("history", historyToJson());
+        e.apply();
+    }
+
+    private void load() {
+        stars = prefs.getInt("stars", 0);
+        streak = prefs.getInt("streak", 0);
+        hat = prefs.getString("hat", "دانش‌آموزی");
+        learnerName = prefs.getString("learnerName", "");
+        taughtChapter = prefs.getInt("taughtChapter", 0);
+        taughtSection = prefs.getInt("taughtSection", 0);
+        for (int i = 0; i < settings.length; i++) settings[i] = prefs.getBoolean("setting" + i, settings[i]);
+        pinHash = prefs.getString("pinHash", null);
+        recoveryQuestionIndex = prefs.getInt("recIdx", 0);
+        recoveryAnswerHash = prefs.getString("recAnswerHash", null);
+        historyFromJson(prefs.getString("history", null));
+    }
+
+    private String historyToJson() {
+        JSONArray arr = new JSONArray();
+        try {
+            for (QuizResult r : history) arr.put(r.toJson());
+        } catch (JSONException ignored) {}
+        return arr.toString();
+    }
+
+    private void historyFromJson(String s) {
+        history.clear();
+        if (s == null) return;
+        try {
+            JSONArray arr = new JSONArray(s);
+            for (int i = 0; i < arr.length(); i++) {
+                history.add(QuizResult.fromJson(arr.getJSONObject(i)));
+            }
+        } catch (JSONException ignored) {}
+    }
+}

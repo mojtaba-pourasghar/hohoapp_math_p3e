@@ -1,0 +1,189 @@
+package com.hoohoomath.app.ui.mascot;
+
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
+import android.util.AttributeSet;
+import android.view.View;
+import android.view.animation.LinearInterpolator;
+
+/**
+ * هوهو the owl, hand-drawn on a Canvas so no image assets are needed. Draws itself fresh
+ * every frame from the view's current size, so it looks right at any size (small overlay
+ * bubble, big splash-screen hero, etc). Continuously bobs/blinks/flaps at an idle pace;
+ * callers drive mood + flying + speaking to match what's happening on screen.
+ */
+public class HooHooView extends View {
+
+    public enum Mood { IDLE, HAPPY, THINKING }
+
+    private Mood mood = Mood.IDLE;
+    private boolean flying = false;
+    private boolean speaking = false;
+    private boolean facingLeft = false;
+
+    private final Paint bodyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint wingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint facePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint eyeWhitePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pupilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint beakPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint hatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint smilePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    private final long startTimeNanos = System.nanoTime();
+    private long lastBlinkAtMs = 0;
+    private long blinkStartedAtMs = -1;
+    private float eyeOpenness = 1f;
+
+    private ValueAnimator loopAnimator;
+
+    public HooHooView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        bodyPaint.setColor(Color.parseColor("#E8973A"));
+        wingPaint.setColor(Color.parseColor("#D8811F"));
+        facePaint.setColor(Color.parseColor("#FDF4E3"));
+        eyeWhitePaint.setColor(Color.WHITE);
+        pupilPaint.setColor(Color.parseColor("#3B3027"));
+        beakPaint.setColor(Color.parseColor("#D8811F"));
+        hatPaint.setColor(Color.parseColor("#2F6FB3"));
+        smilePaint.setColor(Color.parseColor("#3B3027"));
+        smilePaint.setStyle(Paint.Style.STROKE);
+        smilePaint.setStrokeWidth(4f);
+        smilePaint.setStrokeCap(Paint.Cap.ROUND);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        loopAnimator = ValueAnimator.ofFloat(0f, 1f);
+        loopAnimator.setDuration(16);
+        loopAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        loopAnimator.setInterpolator(new LinearInterpolator());
+        loopAnimator.addUpdateListener(a -> {
+            tick();
+            invalidate();
+        });
+        loopAnimator.start();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (loopAnimator != null) loopAnimator.cancel();
+        super.onDetachedFromWindow();
+    }
+
+    public void setMood(Mood mood) {
+        this.mood = mood;
+        invalidate();
+    }
+
+    public void setFlying(boolean flying) {
+        this.flying = flying;
+    }
+
+    public void setSpeaking(boolean speaking) {
+        this.speaking = speaking;
+    }
+
+    public void setFacingLeft(boolean left) {
+        this.facingLeft = left;
+        invalidate();
+    }
+
+    private void tick() {
+        long now = System.currentTimeMillis();
+        if (blinkStartedAtMs < 0 && now - lastBlinkAtMs > 3800) {
+            blinkStartedAtMs = now;
+        }
+        if (blinkStartedAtMs >= 0) {
+            float t = (now - blinkStartedAtMs) / 220f;
+            if (t >= 1f) {
+                blinkStartedAtMs = -1;
+                lastBlinkAtMs = now;
+                eyeOpenness = 1f;
+            } else {
+                eyeOpenness = (float) (1f - Math.sin(Math.PI * Math.min(t, 1f)));
+            }
+        }
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        float w = getWidth(), h = getHeight();
+        if (w <= 0 || h <= 0) return;
+        float cx = w / 2f, cy = h / 2f;
+        float scale = Math.min(w, h);
+
+        canvas.save();
+        if (facingLeft) canvas.scale(-1f, 1f, cx, cy);
+
+        double t = (System.nanoTime() - startTimeNanos) / 1e9;
+        double bobPeriod = flying ? 0.9 : 2.8;
+        float bob = (float) (Math.sin(t / bobPeriod * 2 * Math.PI) * scale * (flying ? 0.018 : 0.03));
+
+        double flapPeriod = flying ? 0.4 : 3.6;
+        double flapAmpDeg = flying ? 24 : 4;
+        double flapBaseDeg = flying ? 4 : -6;
+        float flapL = (float) (flapBaseDeg + Math.sin(t / flapPeriod * 2 * Math.PI) * flapAmpDeg);
+        float flapR = -flapL;
+
+        float bodyR = scale * 0.30f;
+        float bodyCx = cx, bodyCy = cy + bob;
+
+        canvas.save();
+        canvas.rotate(flapL, bodyCx - bodyR * 0.75f, bodyCy);
+        canvas.drawRoundRect(bodyCx - bodyR * 1.55f, bodyCy - bodyR * 0.22f, bodyCx - bodyR * 0.35f, bodyCy + bodyR * 0.22f, bodyR * 0.22f, bodyR * 0.22f, wingPaint);
+        canvas.restore();
+
+        canvas.save();
+        canvas.rotate(flapR, bodyCx + bodyR * 0.75f, bodyCy);
+        canvas.drawRoundRect(bodyCx + bodyR * 0.35f, bodyCy - bodyR * 0.22f, bodyCx + bodyR * 1.55f, bodyCy + bodyR * 0.22f, bodyR * 0.22f, bodyR * 0.22f, wingPaint);
+        canvas.restore();
+
+        canvas.drawCircle(bodyCx, bodyCy, bodyR, bodyPaint);
+
+        RectF face = new RectF(bodyCx - bodyR * 0.72f, bodyCy - bodyR * 0.62f, bodyCx + bodyR * 0.72f, bodyCy + bodyR * 0.5f);
+        canvas.drawRoundRect(face, bodyR * 0.4f, bodyR * 0.34f, facePaint);
+
+        float eyeR = bodyR * 0.32f;
+        float eyeY = bodyCy - bodyR * 0.16f;
+        float eyeDX = bodyR * 0.4f;
+        boolean thinking = mood == Mood.THINKING;
+        drawEye(canvas, bodyCx - eyeDX, eyeY, eyeR, eyeOpenness, thinking);
+        drawEye(canvas, bodyCx + eyeDX, eyeY, eyeR, eyeOpenness, thinking);
+
+        float talkPulse = speaking ? (float) (0.22 * Math.abs(Math.sin(t * 2 * Math.PI / 0.22))) : 0f;
+        float beakY = bodyCy + bodyR * 0.12f;
+        float beakH = bodyR * 0.22f * (1f + talkPulse);
+        Path beak = new Path();
+        beak.moveTo(bodyCx - bodyR * 0.16f, beakY);
+        beak.lineTo(bodyCx + bodyR * 0.16f, beakY);
+        beak.lineTo(bodyCx, beakY + beakH);
+        beak.close();
+        canvas.drawPath(beak, beakPaint);
+
+        if (mood == Mood.HAPPY) {
+            RectF smileRect = new RectF(bodyCx - bodyR * 0.22f, beakY + bodyR * 0.14f, bodyCx + bodyR * 0.22f, beakY + bodyR * 0.42f);
+            canvas.drawArc(smileRect, 20, 140, false, smilePaint);
+        }
+
+        canvas.drawRoundRect(bodyCx - bodyR * 0.62f, bodyCy - bodyR * 0.98f, bodyCx + bodyR * 0.62f, bodyCy - bodyR * 0.82f, 6f, 6f, hatPaint);
+
+        canvas.restore();
+    }
+
+    private void drawEye(Canvas canvas, float ex, float ey, float r, float openness, boolean thinking) {
+        canvas.save();
+        canvas.scale(1f, Math.max(0.08f, openness), ex, ey);
+        canvas.drawCircle(ex, ey, r, eyeWhitePaint);
+        float pupilOffsetY = thinking ? -r * 0.15f : 0;
+        canvas.drawCircle(ex, ey + pupilOffsetY, r * 0.42f, pupilPaint);
+        canvas.restore();
+    }
+}

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_page">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/quiz_exit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="خروج"
+                android:textColor="@color/pink_dark"
+                android:textStyle="bold"
+                android:padding="6dp"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/quiz_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:textStyle="bold"
+                android:textSize="13.5sp"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/quiz_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/text_muted" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/quiz_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="7dp"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progressDrawable="@drawable/progress_teal" />
+
+        <TextView
+            android:id="@+id/quiz_question"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:padding="22dp"
+            android:gravity="center"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/text_primary"
+            android:background="@drawable/bg_card_teal" />
+
+        <LinearLayout
+            android:id="@+id/quiz_answer_area"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginTop="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="14dp">
+
+            <TextView
+                android:id="@+id/quiz_hint"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:padding="10dp"
+                android:text="راهنمای هوهو"
+                android:textColor="@color/teal_dark"
+                android:textStyle="bold"
+                android:textSize="12.5sp" />
+
+            <TextView
+                android:id="@+id/quiz_reveal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:padding="10dp"
+                android:text="نمایش پاسخ — ورود والدین"
+                android:textColor="@color/pink_dark"
+                android:textStyle="bold"
+                android:textSize="12.5sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
