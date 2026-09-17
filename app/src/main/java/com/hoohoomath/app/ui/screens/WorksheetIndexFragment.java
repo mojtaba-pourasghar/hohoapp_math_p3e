@@ -15,7 +15,6 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Level;
-import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 
@@ -41,7 +40,6 @@ public class WorksheetIndexFragment extends BaseFragment {
     private void render(View view) {
         AppState s = state();
         Book.Chapter ch = Book.chapter(currentChapter);
-        boolean open = QuizBuilder.isChapterOpen(ch.index, s.taughtChapter, s.taughtSection);
 
         FrameLayout chipContainer = view.findViewById(R.id.chip_container);
         chipContainer.removeAllViews();
@@ -51,18 +49,15 @@ public class WorksheetIndexFragment extends BaseFragment {
         }));
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
-        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText(open
-            ? "کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست."
-            : "این فصل هنوز درس داده نشده است.");
+        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست.");
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
         for (Level level : Level.values()) {
-            list.addView(ScreenHelpers.buildLevelCard(requireContext(), level, "۳۰ سؤال · همین‌جا جواب می‌نویسی", () -> {
-                if (!open) {
-                    mascot().comfort("این فصل هنوز درس داده نشده است. در پنل والدین پیشرفت معلم را به‌روز کنید.");
-                    return;
-                }
+            // a half-finished set is picked up where it stopped, so the card says so
+            boolean halfDone = s.hasAttempt("WORKSHEET_" + ch.index + "_" + level.index);
+            list.addView(ScreenHelpers.buildLevelCard(requireContext(), level,
+                halfDone ? "کاربرگ نیمه‌کاره — از همان سؤال ادامه می‌دهی" : "۳۰ سؤال · همین‌جا جواب می‌نویسی", () -> {
                 Bundle args = new Bundle();
                 args.putString("mode", "WORKSHEET");
                 args.putInt("chapter", ch.index);

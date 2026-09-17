@@ -18,12 +18,10 @@ import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Chapter1Lessons;
 import com.hoohoomath.app.data.PersianDigits;
-import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
 
-import java.util.List;
 
 public class SectionsFragment extends BaseFragment {
     private int currentChapter;
@@ -51,23 +49,17 @@ public class SectionsFragment extends BaseFragment {
         FrameLayout chipContainer = view.findViewById(R.id.chip_container);
         chipContainer.removeAllViews();
         chipContainer.addView(ScreenHelpers.buildChapterChipRow(requireContext(), s, currentChapter, i -> {
-            if (!QuizBuilder.isChapterOpen(i, s.taughtChapter, s.taughtSection)) {
-                mascot().comfort("این فصل هنوز درس داده نشده است.");
-                return;
-            }
             currentChapter = i;
             render(view);
         }));
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
-        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("هر بخشی که درس داده شده، تمرین جدا دارد.");
+        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("هر بخش تمرین جدا دارد و همه‌شان باز است.");
 
-        List<Integer> allowed = QuizBuilder.allowedSections(ch.index, s.taughtChapter, s.taughtSection);
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
         for (int i = 0; i < ch.sections.size(); i++) {
-            boolean open = allowed.contains(i);
-            list.addView(buildRow(ch, i, open));
+            list.addView(buildRow(ch, i));
         }
         list.addView(buildChapterLink("کاربرگ‌های این فصل ›", R.color.orange_bg, R.color.orange_border, R.color.orange_text,
             () -> {
@@ -95,19 +87,22 @@ public class SectionsFragment extends BaseFragment {
         return link;
     }
 
-    private View buildRow(Book.Chapter ch, int i, boolean open) {
+    private View buildRow(Book.Chapter ch, int i) {
         LinearLayout card = UiKit.column(requireContext());
         card.setPadding(UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14));
-        UiKit.applyCardBg(card, requireContext(), open ? R.color.bg_card : R.color.bg_card_muted, open ? R.color.border_green : R.color.border_muted);
+        UiKit.applyCardBg(card, requireContext(), R.color.bg_card, R.color.border_green);
         card.setLayoutParams(UiKit.marginParams(requireContext(), 0, 10));
 
         AppState s = state();
         boolean learned = s.isSectionLessonDone(ch.index, i);
         boolean hasLesson = Chapter1Lessons.forSection(i) != null && ch.index == 0;
-        int nextRound = s.getRound("PRACTICE_" + ch.index + "_" + i) + 1;
+        String practiceKey = "PRACTICE_" + ch.index + "_" + i;
+        int nextRound = s.getRound(practiceKey) + 1;
+        boolean halfDone = s.hasAttempt(practiceKey);
 
         String title = PersianDigits.fa(i + 1) + ". " + ch.sections.get(i) + (learned ? "  ✓" : "");
-        String sub = !open ? "هنوز درس داده نشده"
+        String sub = halfDone
+            ? "تمرین نیمه‌کاره داری؛ از همان‌جا ادامه می‌دهی."
             : "۱۵ سؤال تازه در هر دور · دور " + PersianDigits.fa(nextRound);
         card.addView(UiKit.text(requireContext(), title, 14.5f, R.color.text_primary, true));
         card.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
@@ -115,7 +110,7 @@ public class SectionsFragment extends BaseFragment {
         LinearLayout buttons = UiKit.row(requireContext());
         buttons.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
 
-        if (open && hasLesson) {
+        if (hasLesson) {
             TextView lesson = pill(learned ? "دوباره ببین" : "درس هوهو", R.color.orange, R.color.white);
             lesson.setOnClickListener(v -> {
                 Bundle args = new Bundle();
@@ -128,13 +123,8 @@ public class SectionsFragment extends BaseFragment {
             buttons.addView(lesson, lp);
         }
 
-        TextView practice = pill(open ? "تمرین کن" : "قفل است", open ? R.color.teal : R.color.lock_bg,
-            open ? R.color.white : R.color.text_faint);
+        TextView practice = pill(halfDone ? "ادامه بده" : "تمرین کن", R.color.teal, R.color.white);
         practice.setOnClickListener(v -> {
-            if (!open) {
-                mascot().comfort("این بخش هنوز درس داده نشده است.");
-                return;
-            }
             Bundle args = new Bundle();
             args.putString("mode", "PRACTICE");
             args.putInt("chapter", ch.index);

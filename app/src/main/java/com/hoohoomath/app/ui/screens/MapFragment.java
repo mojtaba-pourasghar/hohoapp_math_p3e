@@ -61,7 +61,7 @@ public class MapFragment extends BaseFragment {
 
         String name = s.learnerName == null || s.learnerName.isEmpty() ? "قهرمان کوچولو" : s.learnerName;
         ((TextView) view.findViewById(R.id.map_greeting)).setText(
-            "سلام " + name + "! تا «" + ch.sections.get(s.taughtSection) + "» درس داده شده؛ همین‌جا تمرین کنیم؟");
+            "سلام " + name + "! کلاس تا «" + ch.sections.get(s.taughtSection) + "» رسیده؛ اما هر بخشی را بخواهی باز است.");
         ((TextView) view.findViewById(R.id.map_subtitle)).setText(
             "فصل " + ch.numberFa + ": " + ch.title + " · " + fa(s.taughtSection + 1) + " بخش از " + fa(Book.SECTIONS_PER_CHAPTER));
         ((ProgressBar) view.findViewById(R.id.map_progress))
@@ -80,12 +80,12 @@ public class MapFragment extends BaseFragment {
     }
 
     private View buildSectionNode(Book.Chapter ch, int i, AppState s) {
-        boolean open = i <= s.taughtSection;
+        // nothing on the trail is locked; the orange node is only where the class has got to
         boolean active = i == s.taughtSection;
         boolean childDone = s.isSectionLessonDone(ch.index, i);
 
-        int circleColor = active ? R.color.orange : open ? R.color.teal : R.color.lock_bg;
-        String badge = !open ? "قفل" : childDone && !active ? "✓" : active ? "اینجا" : "✓";
+        int circleColor = active ? R.color.orange : childDone ? R.color.teal : R.color.teal_light;
+        String badge = active ? "اینجا" : childDone ? "✓" : "برو";
         int size = active ? 88 : 68;
 
         LinearLayout node = UiKit.column(requireContext());
@@ -110,10 +110,6 @@ public class MapFragment extends BaseFragment {
         node.addView(label, labelLp);
 
         node.setOnClickListener(v -> {
-            if (!open) {
-                mascot().comfort("معلم تا اینجا درس نداده. وقتی گفت «یاد گرفتیم»، این بخش باز می‌شود.");
-                return;
-            }
             Bundle args = new Bundle();
             args.putInt("chapter", ch.index);
             if (ch.index == 0 && Chapter1Lessons.forSection(i) != null) {

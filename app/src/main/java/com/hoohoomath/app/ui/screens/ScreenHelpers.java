@@ -13,7 +13,6 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Level;
-import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.ui.UiKit;
 
 import java.util.function.IntConsumer;
@@ -28,14 +27,15 @@ final class ScreenHelpers {
         LinearLayout row = UiKit.row(c);
         row.setPadding(0, 0, 0, UiKit.dp(c, 4));
         for (Book.Chapter ch : Book.CHAPTERS) {
-            boolean open = QuizBuilder.isChapterOpen(ch.index, s.taughtChapter, s.taughtSection);
             boolean sel = ch.index == selected;
-            String label = (open ? "" : "قفل · ") + "فصل " + ch.numberFa;
+            // every chapter is open; the teacher's position is a bookmark, not a lock
+            boolean here = ch.index == s.taughtChapter;
+            String label = "فصل " + ch.numberFa + (here ? " ★" : "");
             TextView chip = UiKit.chip(c,
                 label,
                 sel ? ContextCompat.getColor(c, R.color.orange_bg) : Color.WHITE,
                 ContextCompat.getColor(c, sel ? R.color.orange : R.color.border_card),
-                ContextCompat.getColor(c, sel ? R.color.orange_text : (open ? R.color.text_primary : R.color.text_faint)));
+                ContextCompat.getColor(c, sel ? R.color.orange_text : R.color.text_primary));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             lp.setMarginEnd(UiKit.dp(c, 6));
             chip.setLayoutParams(lp);

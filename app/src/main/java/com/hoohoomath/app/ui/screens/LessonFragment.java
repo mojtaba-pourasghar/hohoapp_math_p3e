@@ -75,6 +75,12 @@ public class LessonFragment extends BaseFragment {
         Book.Chapter ch = Book.chapter(chapter);
         ((TextView) view.findViewById(R.id.lesson_title)).setText("درس " + fa(section + 1) + ": " + ch.sections.get(section));
         view.findViewById(R.id.lesson_replay).setOnClickListener(v -> narrateCurrentStep());
+        view.findViewById(R.id.lesson_prev).setOnClickListener(v -> goToStep(stepIndex - 1));
+        view.findViewById(R.id.lesson_next).setOnClickListener(v -> goToStep(stepIndex + 1));
+
+        // come back to the step the child had reached instead of starting the lesson over
+        int saved = state().lessonStep(chapter, section);
+        stepIndex = saved > 0 && saved < script.steps.size() ? saved : 0;
 
         renderStep();
     }
@@ -104,9 +110,23 @@ public class LessonFragment extends BaseFragment {
         rootView.findViewById(R.id.lesson_stage_card).setVisibility(step.hasStage() ? View.VISIBLE : View.GONE);
         stage.setSpec(step.stage);
 
+        rootView.findViewById(R.id.lesson_prev).setVisibility(stepIndex == 0 ? View.INVISIBLE : View.VISIBLE);
+        rootView.findViewById(R.id.lesson_next).setVisibility(
+            stepIndex >= script.steps.size() - 1 ? View.INVISIBLE : View.VISIBLE);
+
+        state().saveLessonStep(chapter, section, stepIndex);
+
         renderDots();
         buildContent(step);
         narrateCurrentStep();
+    }
+
+    /** Free movement through the lesson, in either direction, at any time. */
+    private void goToStep(int target) {
+        if (target < 0 || target >= script.steps.size()) return;
+        LessonAudio.stop();
+        stepIndex = target;
+        renderStep();
     }
 
     private void renderDots() {
@@ -119,6 +139,8 @@ public class LessonFragment extends BaseFragment {
             dot.setLayoutParams(lp);
             int colorRes = i < stepIndex ? R.color.teal : i == stepIndex ? R.color.orange : R.color.border_card;
             dot.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), colorRes), 0, 999f, requireContext()));
+            int target = i;
+            dot.setOnClickListener(v -> goToStep(target));
             dots.addView(dot);
         }
     }
@@ -202,6 +224,7 @@ public class LessonFragment extends BaseFragment {
             }
             case DONE: {
                 state().markSectionLessonDone(chapter, section);
+                state().saveLessonStep(chapter, section, 0);
                 content.addView(buildDoneCard());
                 break;
             }
@@ -342,9 +365,7 @@ public class LessonFragment extends BaseFragment {
     }
 
     private void advance() {
-        LessonAudio.stop();
-        stepIndex = Math.min(stepIndex + 1, script.steps.size() - 1);
-        renderStep();
+        goToStep(Math.min(stepIndex + 1, script.steps.size() - 1));
     }
 
     @Override

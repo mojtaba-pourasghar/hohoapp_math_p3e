@@ -96,7 +96,8 @@ public final class LessonAudio {
     /** Rough length of the spoken line, used to pace the stage animation against the voice. */
     public static long estimateSpokenMs(String text) {
         if (text == null || text.isEmpty()) return 1500;
-        long ms = 700 + (long) (text.length() * 72);
-        return Math.max(1800, Math.min(ms, 16000));
+        long ms = 700 + (long) (SpokenText.forSpeech(text).length() * 78);
+        // long enough for the whole line: cutting the watchdog short used to clip the narration
+        return Math.max(1800, Math.min(ms, 30000));
     }
 }

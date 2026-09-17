@@ -185,6 +185,67 @@ public final class AppState {
         prefs.edit().putInt("round_" + key, getRound(key) + 1).apply();
     }
 
+    /**
+     * An unfinished worksheet / exam / practice set: which question the child was on and every
+     * answer given so far. Saved on every answer and on leaving, so closing the app in the middle
+     * of a thirty-question worksheet never means starting over.
+     */
+    public void saveAttempt(String key, int index, List<String> answers) {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("i", index);
+            JSONArray arr = new JSONArray();
+            for (String a : answers) arr.put(a == null ? "" : a);
+            o.put("a", arr);
+        } catch (JSONException e) {
+            return;
+        }
+        prefs.edit().putString("attempt_" + key, o.toString()).apply();
+    }
+
+    public int attemptIndex(String key) {
+        JSONObject o = attempt(key);
+        return o == null ? -1 : o.optInt("i", 0);
+    }
+
+    /** The saved answers, or null when there is no unfinished attempt for this key. */
+    public List<String> attemptAnswers(String key) {
+        JSONObject o = attempt(key);
+        if (o == null) return null;
+        JSONArray arr = o.optJSONArray("a");
+        if (arr == null) return null;
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) out.add(arr.optString(i, ""));
+        return out;
+    }
+
+    public boolean hasAttempt(String key) {
+        return attempt(key) != null;
+    }
+
+    public void clearAttempt(String key) {
+        prefs.edit().remove("attempt_" + key).apply();
+    }
+
+    private JSONObject attempt(String key) {
+        String raw = prefs.getString("attempt_" + key, null);
+        if (raw == null) return null;
+        try {
+            return new JSONObject(raw);
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    /** Which step of a section's voice lesson the child had reached, so it resumes there. */
+    public void saveLessonStep(int chapter, int section, int step) {
+        prefs.edit().putInt("lesson_" + sectionKey(chapter, section), step).apply();
+    }
+
+    public int lessonStep(int chapter, int section) {
+        return prefs.getInt("lesson_" + sectionKey(chapter, section), 0);
+    }
+
     private void bumpStreakOnOpen() {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         long todayEpoch = today.toEpochDay();

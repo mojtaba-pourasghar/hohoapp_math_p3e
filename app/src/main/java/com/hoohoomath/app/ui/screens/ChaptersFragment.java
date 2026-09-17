@@ -17,12 +17,9 @@ import androidx.core.content.ContextCompat;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
-import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
-
-import java.util.List;
 
 import static com.hoohoomath.app.data.PersianDigits.fa;
 
@@ -39,7 +36,8 @@ public class ChaptersFragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
         AppState s = state();
         Book.Chapter taught = Book.chapter(s.taughtChapter);
-        ((TextView) view.findViewById(R.id.chapters_sub)).setText("تا جایی باز است که معلم درس داده باشد — درس‌داده‌شده تا: فصل " + taught.numberFa + " — " + taught.sections.get(s.taughtSection));
+        ((TextView) view.findViewById(R.id.chapters_sub)).setText("همه‌ی فصل‌ها باز است. کلاس تا اینجا رسیده: فصل "
+            + taught.numberFa + " — " + taught.sections.get(s.taughtSection));
 
         LinearLayout container = view.findViewById(R.id.chapter_container);
         container.removeAllViews();
@@ -49,14 +47,18 @@ public class ChaptersFragment extends BaseFragment {
     }
 
     private View buildCard(Book.Chapter ch, AppState s) {
-        List<Integer> allowed = QuizBuilder.allowedSections(ch.index, s.taughtChapter, s.taughtSection);
-        boolean open = !allowed.isEmpty();
-        int pct = Math.round((allowed.size() / (float) Book.SECTIONS_PER_CHAPTER) * 100);
+        // every chapter is open; the bar now shows the child's own progress, not a permission
+        int learned = 0;
+        for (int i = 0; i < Book.SECTIONS_PER_CHAPTER; i++) {
+            if (s.isSectionLessonDone(ch.index, i)) learned++;
+        }
+        boolean here = ch.index == s.taughtChapter;
+        int pct = Math.round((learned / (float) Book.SECTIONS_PER_CHAPTER) * 100);
 
         LinearLayout row = UiKit.row(requireContext());
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14));
-        UiKit.applyCardBg(row, requireContext(), open ? R.color.orange_bg : R.color.bg_card_muted, open ? R.color.orange_border : R.color.border_green);
+        UiKit.applyCardBg(row, requireContext(), here ? R.color.orange_bg : R.color.bg_card, here ? R.color.orange_border : R.color.border_green);
         row.setLayoutParams(UiKit.marginParams(requireContext(), 0, 11));
 
         TextView chip = new TextView(requireContext());
@@ -67,7 +69,7 @@ public class ChaptersFragment extends BaseFragment {
         chip.setTextSize(17f);
         LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(UiKit.dp(requireContext(), 46), UiKit.dp(requireContext(), 46));
         chip.setLayoutParams(chipLp);
-        chip.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), open ? R.color.orange : R.color.lock_bg), 0, 14f, requireContext()));
+        chip.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), here ? R.color.orange : R.color.teal), 0, 14f, requireContext()));
 
         LinearLayout textCol = UiKit.column(requireContext());
         LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -85,17 +87,13 @@ public class ChaptersFragment extends BaseFragment {
         bar.setLayoutParams(barLp);
         textCol.addView(bar);
 
-        TextView arrow = UiKit.text(requireContext(), open ? "›" : "قفل", 15f, open ? R.color.orange_text : R.color.text_faint, true);
+        TextView arrow = UiKit.text(requireContext(), "›", 15f, here ? R.color.orange_text : R.color.teal_dark, true);
 
         row.addView(chip);
         row.addView(textCol);
         row.addView(arrow);
 
         row.setOnClickListener(v -> {
-            if (!open) {
-                mascot().comfort("این فصل هنوز درس داده نشده است.");
-                return;
-            }
             Bundle args = new Bundle();
             args.putInt("chapter", ch.index);
             nav().go(Screen.SECTIONS, args);
@@ -105,6 +103,6 @@ public class ChaptersFragment extends BaseFragment {
 
     @Override
     protected String entryTip() {
-        return "فصل‌های قفل، وقتی معلم درس بدهد باز می‌شوند.";
+        return "هر فصلی را بخواهی باز است؛ ستاره نشان می‌دهد کلاس کجاست.";
     }
 }

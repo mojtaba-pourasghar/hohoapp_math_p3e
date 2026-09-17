@@ -52,7 +52,7 @@ public class ProfileFragment extends BaseFragment {
         LinearLayout statsRow = view.findViewById(R.id.profile_stats_row);
         statsRow.removeAllViews();
         statsRow.addView(statTile(fa(s.stars), "ستاره"));
-        statsRow.addView(statTile(fa(s.taughtSection + 1), "بخش باز"));
+        statsRow.addView(statTile(fa(s.taughtSection + 1), "بخشِ کلاس"));
         statsRow.addView(statTile(fa(s.streak), "روز پیوسته"));
 
         List<QuizResult> history = s.getHistory();

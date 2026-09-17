@@ -14,7 +14,6 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Chapter1Lessons;
-import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.data.QuizMode;
 import com.hoohoomath.app.data.QuizSession;
 import com.hoohoomath.app.data.QuizSessionHolder;
@@ -41,13 +40,15 @@ public class ResultFragment extends BaseFragment {
             return;
         }
         AppState s = state();
-        boolean good = res.rightCount >= res.items.size() * 0.8;
-        boolean passed = res.rightCount >= res.items.size() * 0.7;
+        int right = res.rightCount();
+        java.util.List<QuizSession.LogEntry> log = res.buildLog();
+        boolean good = right >= res.items.size() * 0.8;
+        boolean passed = right >= res.items.size() * 0.7;
 
         com.hoohoomath.app.tts.SoundManager sound = com.hoohoomath.app.tts.SoundManager.get();
         if (sound != null && good) sound.win();
 
-        ((TextView) view.findViewById(R.id.result_score)).setText(fa(res.rightCount) + "/" + fa(res.items.size()));
+        ((TextView) view.findViewById(R.id.result_score)).setText(fa(right) + "/" + fa(res.items.size()));
         ((TextView) view.findViewById(R.id.result_title)).setText(good ? "عالی بود!" : passed ? "خوب بود!" : "خوب شروع کردی");
         ((TextView) view.findViewById(R.id.result_msg)).setText(good
             ? "این بخش را خوب یاد گرفته‌ای."
@@ -58,9 +59,9 @@ public class ResultFragment extends BaseFragment {
 
         LinearLayout list = view.findViewById(R.id.result_list);
         list.removeAllViews();
-        int shown = Math.min(6, res.log.size());
+        int shown = Math.min(6, log.size());
         for (int i = 0; i < shown; i++) {
-            QuizSession.LogEntry e = res.log.get(i);
+            QuizSession.LogEntry e = log.get(i);
             LinearLayout row = UiKit.column(requireContext());
             row.setPadding(UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 10), UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 10));
             UiKit.applyCardBg(row, requireContext(), R.color.bg_card, e.correct ? R.color.teal_border : R.color.pink_border);
@@ -104,9 +105,8 @@ public class ResultFragment extends BaseFragment {
 
         Book.Chapter ch = Book.chapter(res.chapter);
         int nextSection = res.option + 1;
-        boolean nextIsTaught = QuizBuilder.allowedSections(res.chapter, s.taughtChapter, s.taughtSection).contains(nextSection);
 
-        if (nextIsTaught) {
+        if (nextSection < Book.SECTIONS_PER_CHAPTER) {
             nextStep.setVisibility(View.VISIBLE);
             nextStep.setText("برویم بخش بعد: " + ch.sections.get(nextSection));
             nextStep.setOnClickListener(v -> {
@@ -124,13 +124,8 @@ public class ResultFragment extends BaseFragment {
             return;
         }
 
-        boolean chapterFinished = nextSection >= Book.SECTIONS_PER_CHAPTER;
         nextStep.setVisibility(View.VISIBLE);
-        if (chapterFinished) {
-            nextStep.setText("فصل تمام شد! کاربرگ فصل " + ch.numberFa + " را بگیر");
-        } else {
-            nextStep.setText("تا اینجا درس داده شده — با کاربرگ تمرین کن");
-        }
+        nextStep.setText("فصل تمام شد! کاربرگ فصل " + ch.numberFa + " را بگیر");
         nextStep.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putInt("chapter", res.chapter);

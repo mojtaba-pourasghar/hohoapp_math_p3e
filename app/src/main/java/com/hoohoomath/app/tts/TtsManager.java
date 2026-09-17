@@ -10,9 +10,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Wraps Android's built-in text-to-speech engine for هوهو's narration: Persian locale,
- * a male-sounding voice when the device offers one, and a slightly lower/slower delivery
- * so it reads a bit like a warm owl-teacher instead of a generic phone voice.
+ * Wraps Android’s built-in text-to-speech engine for هوهو’s narration: Persian locale,
+ * a female voice when the device offers one, and a slower delivery so a third-grader can
+ * follow. Symbols in the written questions are turned into Persian words first (SpokenText).
  */
 public class TtsManager {
     private static TtsManager instance;
@@ -87,8 +87,8 @@ public class TtsManager {
         } catch (Exception ignored) {}
         if (best != null) tts.setVoice(best);
 
-        tts.setPitch(1.06f);      // bright and friendly rather than deep
-        tts.setSpeechRate(0.92f); // a little slower than normal, so a third-grader can follow
+        tts.setPitch(1.04f);      // bright and friendly rather than deep
+        tts.setSpeechRate(0.88f); // slower than normal, so a third-grader can follow every word
     }
 
     private final java.util.Map<String, Callback> callbacks = new java.util.concurrent.ConcurrentHashMap<>();
@@ -112,9 +112,12 @@ public class TtsManager {
 
     public void speak(String text, Callback callback) {
         if (!ready || text == null || text.isEmpty()) return;
+        // symbols like × ÷ = ⬜ are spoken as Persian words, otherwise the voice stumbles
+        String spoken = SpokenText.forSpeech(text);
+        if (spoken.isEmpty()) return;
         String id = "u" + idCounter.incrementAndGet();
         if (callback != null) callbacks.put(id, callback);
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id);
+        tts.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, id);
     }
 
     public void stop() {

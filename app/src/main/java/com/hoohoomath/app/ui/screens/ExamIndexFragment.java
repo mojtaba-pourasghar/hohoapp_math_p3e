@@ -15,7 +15,6 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Level;
-import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 
@@ -41,7 +40,6 @@ public class ExamIndexFragment extends BaseFragment {
     private void render(View view) {
         AppState s = state();
         Book.Chapter ch = Book.chapter(currentChapter);
-        boolean open = QuizBuilder.isChapterOpen(ch.index, s.taughtChapter, s.taughtSection);
 
         FrameLayout chipContainer = view.findViewById(R.id.chip_container);
         chipContainer.removeAllViews();
@@ -51,18 +49,15 @@ public class ExamIndexFragment extends BaseFragment {
         }));
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
-        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText(open
-            ? "آزمون فقط از بخش‌هایی است که معلم درس داده."
-            : "این فصل هنوز درس داده نشده است.");
+        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("آزمون از همه‌ی بخش‌های این فصل است؛ مثل امتحان مدرسه.");
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
         for (Level level : Level.values()) {
-            list.addView(ScreenHelpers.buildLevelCard(requireContext(), level, "۸ سؤال چهارگزینه‌ای · فقط از بخش‌های درس‌داده‌شده", () -> {
-                if (!open) {
-                    mascot().comfort("این فصل هنوز درس داده نشده است. در پنل والدین پیشرفت معلم را به‌روز کنید.");
-                    return;
-                }
+            // a half-finished set is picked up where it stopped, so the card says so
+            boolean halfDone = s.hasAttempt("EXAM_" + ch.index + "_" + level.index);
+            list.addView(ScreenHelpers.buildLevelCard(requireContext(), level,
+                halfDone ? "آزمون نیمه‌کاره — از همان سؤال ادامه می‌دهی" : "۱۵ سؤال چهارگزینه‌ای · از همه‌ی بخش‌های فصل", () -> {
                 Bundle args = new Bundle();
                 args.putString("mode", "EXAM");
                 args.putInt("chapter", ch.index);
@@ -74,6 +69,6 @@ public class ExamIndexFragment extends BaseFragment {
 
     @Override
     protected String entryTip() {
-        return "آزمون فقط از بخش‌هایی است که معلم درس داده.";
+        return "آزمون از همه‌ی بخش‌های این فصل است؛ مثل امتحان مدرسه.";
     }
 }

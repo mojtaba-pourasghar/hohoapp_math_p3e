@@ -28,7 +28,7 @@ public class QuizResult {
     }
 
     public static QuizResult fromSession(QuizSession s) {
-        return new QuizResult(System.currentTimeMillis(), s.mode, s.chapter, s.option, s.rightCount, s.items.size(), s.log);
+        return new QuizResult(System.currentTimeMillis(), s.mode, s.chapter, s.option, s.rightCount(), s.items.size(), s.buildLog());
     }
 
     JSONObject toJson() throws JSONException {
