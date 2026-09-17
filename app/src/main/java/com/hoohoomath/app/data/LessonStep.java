@@ -2,67 +2,56 @@ package com.hoohoomath.app.data;
 
 import java.util.List;
 
-/** One step of a voice-narrated lesson: هوهو explains, then (sometimes) asks and checks understanding. */
+/**
+ * One step of a voice-narrated lesson: هوهو explains over a moving picture, then (on the
+ * interactive steps) asks the child and checks the answer.
+ *
+ * `audioKey` names the recorded narration file in res/raw; when that file isn't there yet the
+ * app speaks `say` with text-to-speech instead. Keys are listed in res/raw/audio_manifest.txt.
+ */
 public class LessonStep {
     public final LessonKind kind;
-    public final String say;      // what هوهو speaks (TTS)
+    public final String audioKey;
+    public final String say;      // exactly what هوهو says
     public final String caption;  // short on-screen caption reinforcing the spoken line
+    public final StageSpec stage; // the animation that plays while this line is spoken
     public final List<String> options; // MCQ only
     public final int correctIndex;     // MCQ only
     public final String answerFa;      // NUM only, expected Persian-digit answer
-    public final String why;           // feedback/explanation shown after answering
+    public final String why;           // feedback shown after answering
 
-    /**
-     * Optional counting visual, mirroring the book's "count in groups" pictures:
-     * `visualGroups` clusters of `perGroup` dots each, labelled with the running total
-     * (3 groups of 5 => ۵ ، ۱۰ ، ۱۵). Zero means this step has no picture.
-     */
-    public final int visualGroups;
-    public final int perGroup;
-
-    private LessonStep(LessonKind kind, String say, String caption, List<String> options, int correctIndex,
-                       String answerFa, String why, int visualGroups, int perGroup) {
+    private LessonStep(LessonKind kind, String audioKey, String say, String caption, StageSpec stage,
+                       List<String> options, int correctIndex, String answerFa, String why) {
         this.kind = kind;
+        this.audioKey = audioKey;
         this.say = say;
         this.caption = caption;
+        this.stage = stage == null ? StageSpec.NONE : stage;
         this.options = options;
         this.correctIndex = correctIndex;
         this.answerFa = answerFa;
         this.why = why;
-        this.visualGroups = visualGroups;
-        this.perGroup = perGroup;
     }
 
-    public boolean hasVisual() {
-        return visualGroups > 0 && perGroup > 0;
+    public boolean hasStage() {
+        return stage != null && !stage.isNone();
     }
 
-    public static LessonStep teach(String say, String caption) {
-        return teach(say, caption, 0, 0);
+    public static LessonStep teach(String audioKey, String say, String caption, StageSpec stage) {
+        return new LessonStep(LessonKind.TEACH, audioKey, say, caption, stage, null, -1, null, null);
     }
 
-    public static LessonStep teach(String say, String caption, int visualGroups, int perGroup) {
-        return new LessonStep(LessonKind.TEACH, say, caption, null, -1, null, null, visualGroups, perGroup);
+    public static LessonStep mcq(String audioKey, String say, String caption, StageSpec stage,
+                                 List<String> options, int correctIndex, String why) {
+        return new LessonStep(LessonKind.MCQ, audioKey, say, caption, stage, options, correctIndex, null, why);
     }
 
-    public static LessonStep mcq(String say, String caption, List<String> options, int correctIndex, String why) {
-        return mcq(say, caption, options, correctIndex, why, 0, 0);
+    public static LessonStep num(String audioKey, String say, String caption, StageSpec stage,
+                                 String answerFa, String why) {
+        return new LessonStep(LessonKind.NUM, audioKey, say, caption, stage, null, -1, answerFa, why);
     }
 
-    public static LessonStep mcq(String say, String caption, List<String> options, int correctIndex, String why,
-                                 int visualGroups, int perGroup) {
-        return new LessonStep(LessonKind.MCQ, say, caption, options, correctIndex, null, why, visualGroups, perGroup);
-    }
-
-    public static LessonStep num(String say, String caption, String answerFa, String why) {
-        return num(say, caption, answerFa, why, 0, 0);
-    }
-
-    public static LessonStep num(String say, String caption, String answerFa, String why, int visualGroups, int perGroup) {
-        return new LessonStep(LessonKind.NUM, say, caption, null, -1, answerFa, why, visualGroups, perGroup);
-    }
-
-    public static LessonStep done(String say, String caption) {
-        return new LessonStep(LessonKind.DONE, say, caption, null, -1, null, null, 0, 0);
+    public static LessonStep done(String audioKey, String say, String caption) {
+        return new LessonStep(LessonKind.DONE, audioKey, say, caption, StageSpec.NONE, null, -1, null, null);
     }
 }

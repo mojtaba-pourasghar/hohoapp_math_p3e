@@ -16,7 +16,6 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 
 import com.hoohoomath.app.R;
-import com.hoohoomath.app.data.PersianDigits;
 
 import java.util.function.Consumer;
 
@@ -158,46 +157,6 @@ public final class UiKit {
             keyView.setLayoutParams(lp);
             keyView.setOnClickListener(v -> onKey.accept(key));
             grid.addView(keyView);
-        }
-        return grid;
-    }
-
-    /**
-     * The book's "count in groups" picture: `groups` clusters of `perGroup` dots, each labelled
-     * with the running total (3 groups of 5 -> ۵ ، ۱۰ ، ۱۵), so the child can literally count along.
-     */
-    public static GridLayout buildCountingGroups(Context c, int groups, int perGroup) {
-        GridLayout grid = new GridLayout(c);
-        grid.setColumnCount(Math.min(Math.max(groups, 1), 4));
-        for (int g = 0; g < groups; g++) {
-            LinearLayout box = column(c);
-            box.setGravity(Gravity.CENTER);
-            box.setPadding(dp(c, 11), dp(c, 9), dp(c, 11), dp(c, 9));
-            box.setBackground(roundedBg(ContextCompat.getColor(c, R.color.bg_card_alt), ContextCompat.getColor(c, R.color.border_green), 14f, c));
-
-            LinearLayout dots = row(c);
-            dots.setGravity(Gravity.CENTER);
-            for (int i = 0; i < perGroup; i++) {
-                View dot = new View(c);
-                LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(c, 16), dp(c, 16));
-                dotLp.setMargins(dp(c, 2), 0, dp(c, 2), 0);
-                dot.setLayoutParams(dotLp);
-                int color = ContextCompat.getColor(c, i % 2 == 0 ? R.color.teal : R.color.orange);
-                dot.setBackground(roundedBg(color, 0, 999f, c));
-                dots.addView(dot);
-            }
-            box.addView(dots);
-
-            TextView label = text(c, PersianDigits.fa((g + 1) * perGroup), 12.5f, R.color.text_primary, true);
-            label.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            labelLp.topMargin = dp(c, 6);
-            box.addView(label, labelLp);
-
-            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-            lp.setMargins(dp(c, 4), dp(c, 4), dp(c, 4), dp(c, 4));
-            box.setLayoutParams(lp);
-            grid.addView(box);
         }
         return grid;
     }

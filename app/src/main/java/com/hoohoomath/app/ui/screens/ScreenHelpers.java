@@ -49,7 +49,6 @@ final class ScreenHelpers {
     static android.view.View buildLevelCard(Context c, Level level, String meta, Runnable onClick) {
         LinearLayout card = UiKit.column(c);
         card.setPadding(UiKit.dp(c, 16), UiKit.dp(c, 16), UiKit.dp(c, 16), UiKit.dp(c, 16));
-        UiKit.applyCardBg(card, c, 0, 0);
         card.setBackground(UiKit.roundedBg(level.bgColor, level.borderColor, 18f, c));
         card.setLayoutParams(UiKit.marginParams(c, 0, 11));
 

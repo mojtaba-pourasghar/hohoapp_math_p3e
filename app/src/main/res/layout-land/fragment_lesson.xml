@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Wide screens: هوهو's explanation sits beside the task instead of above it, as in the design. -->
+<!-- Wide screens: the moving picture sits beside the child's task instead of above it. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -66,19 +66,44 @@
             android:layout_marginTop="14dp"
             android:baselineAligned="false">
 
-            <!-- right-hand column in RTL: what هوهو says + the book picture -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_weight="1.15"
                 android:orientation="vertical"
                 android:layout_marginEnd="7dp">
+
+                <FrameLayout
+                    android:id="@+id/lesson_stage_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:background="@drawable/bg_card_white">
+
+                    <com.hoohoomath.app.ui.LessonStageView
+                        android:id="@+id/lesson_stage"
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/lesson_caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:padding="14dp"
+                    android:gravity="center"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:background="@drawable/bg_card_teal" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
+                    android:layout_marginTop="10dp"
                     android:padding="14dp"
                     android:background="@drawable/bg_card_orange">
 
@@ -92,56 +117,33 @@
                         android:textColor="@color/white"
                         android:background="@drawable/bg_circle_teal" />
 
-                    <TextView
-                        android:id="@+id/lesson_say"
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="12dp"
-                        android:textSize="15sp"
-                        android:lineSpacingExtra="6dp"
-                        android:textColor="@color/text_primary" />
-                </LinearLayout>
+                        android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/lesson_caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:padding="18dp"
-                    android:gravity="center"
-                    android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:background="@drawable/bg_card_teal" />
+                        <TextView
+                            android:id="@+id/lesson_phase"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/orange_text" />
 
-                <LinearLayout
-                    android:id="@+id/lesson_visual_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginTop="12dp"
-                    android:padding="14dp"
-                    android:visibility="gone"
-                    android:background="@drawable/bg_card_white">
-
-                    <TextView
-                        android:id="@+id/lesson_visual_caption"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_muted" />
-
-                    <FrameLayout
-                        android:id="@+id/lesson_visual_holder"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" />
+                        <TextView
+                            android:id="@+id/lesson_say"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textSize="14.5sp"
+                            android:lineSpacingExtra="6dp"
+                            android:textColor="@color/text_primary" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- left-hand column in RTL: the child's turn -->
             <LinearLayout
                 android:id="@+id/lesson_content"
                 android:layout_width="0dp"

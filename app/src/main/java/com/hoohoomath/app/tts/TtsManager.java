@@ -49,12 +49,24 @@ public class TtsManager {
         return instance;
     }
 
+    private boolean persianAvailable = false;
+
+    /** False when the device has no Persian voice installed — the app then has nothing to speak with. */
+    public boolean isPersianAvailable() {
+        return persianAvailable;
+    }
+
+    public boolean isReady() {
+        return ready;
+    }
+
     private void configureVoice() {
         Locale fa = new Locale("fa", "IR");
         int result = tts.setLanguage(fa);
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            tts.setLanguage(new Locale("fa"));
+            result = tts.setLanguage(new Locale("fa"));
         }
+        persianAvailable = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED;
 
         Voice best = null;
         try {

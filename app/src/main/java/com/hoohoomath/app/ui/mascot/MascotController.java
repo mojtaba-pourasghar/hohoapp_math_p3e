@@ -31,6 +31,18 @@ public class MascotController {
         this.bubble = bubble;
     }
 
+    /**
+     * Puts a line in the bubble without speaking it — for screens that drive their own audio
+     * (the lesson plays recorded narration) and just want هوهو's mouth to move along.
+     */
+    public void showBubble(String text, boolean speaking) {
+        if (bubble != null) {
+            bubble.setText(text);
+            bubble.setVisibility(View.VISIBLE);
+        }
+        owl.setSpeaking(speaking);
+    }
+
     /** هوهو speaks a line and its beak animates while the audio plays. */
     public void say(String text) {
         if (bubble != null) {

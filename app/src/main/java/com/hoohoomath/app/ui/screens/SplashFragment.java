@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.tts.TtsManager;
+import com.hoohoomath.app.tts.VoiceSetup;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.mascot.HooHooView;
@@ -53,6 +54,8 @@ public class SplashFragment extends BaseFragment {
         if (!isAdded()) return;
         handler.removeCallbacks(autoAdvance);
         nav().go(Screen.MAP);
+        // the lessons are spoken, so tell the parent right away if this device has no Persian voice
+        VoiceSetup.promptIfMissing(requireContext());
     }
 
     @Override
