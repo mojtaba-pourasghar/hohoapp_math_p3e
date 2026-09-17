@@ -3,6 +3,7 @@ package com.hoohoomath.app.ui;
 public enum Screen {
     SPLASH,
     MAP,
+    BOOK,
     CHAPTERS,
     LESSON,
     SECTIONS,

@@ -28,6 +28,7 @@
         app:layout_constraintBottom_toBottomOf="parent">
 
         <include layout="@layout/nav_item" android:id="@+id/nav_map" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        <include layout="@layout/nav_item" android:id="@+id/nav_book" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
         <include layout="@layout/nav_item" android:id="@+id/nav_sections" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
         <include layout="@layout/nav_item" android:id="@+id/nav_worksheet" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
         <include layout="@layout/nav_item" android:id="@+id/nav_exam" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />

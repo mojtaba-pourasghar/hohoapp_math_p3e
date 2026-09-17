@@ -61,6 +61,12 @@ public class SectionsFragment extends BaseFragment {
         for (int i = 0; i < ch.sections.size(); i++) {
             list.addView(buildRow(ch, i));
         }
+        list.addView(buildChapterLink("همین فصل را در کتاب بخوان ›", R.color.teal_bg, R.color.teal_border, R.color.teal_dark,
+            () -> {
+                Bundle args = new Bundle();
+                args.putInt("page", ch.firstPage);
+                nav().go(Screen.BOOK, args);
+            }));
         list.addView(buildChapterLink("کاربرگ‌های این فصل ›", R.color.orange_bg, R.color.orange_border, R.color.orange_text,
             () -> {
                 Bundle args = new Bundle();

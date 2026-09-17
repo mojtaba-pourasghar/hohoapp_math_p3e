@@ -237,6 +237,19 @@ public final class AppState {
         }
     }
 
+    /** Where the child was in «کتاب» mode: the page, and the line inside that page. */
+    public void saveBookPlace(int page, int line) {
+        prefs.edit().putInt("bookPage", page).putInt("bookLine", line).apply();
+    }
+
+    public int bookPage() {
+        return prefs.getInt("bookPage", 1);
+    }
+
+    public int bookLine() {
+        return prefs.getInt("bookLine", 0);
+    }
+
     /** Which step of a section's voice lesson the child had reached, so it resumes there. */
     public void saveLessonStep(int chapter, int section, int step) {
         prefs.edit().putInt("lesson_" + sectionKey(chapter, section), step).apply();

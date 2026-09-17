@@ -22,6 +22,7 @@ import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
 import com.hoohoomath.app.ui.mascot.HooHooView;
 import com.hoohoomath.app.ui.mascot.MascotController;
+import com.hoohoomath.app.ui.screens.BookFragment;
 import com.hoohoomath.app.ui.screens.ChaptersFragment;
 import com.hoohoomath.app.ui.screens.ExamIndexFragment;
 import com.hoohoomath.app.ui.screens.LessonFragment;
@@ -45,7 +46,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     private View mascotOverlay;
     private Screen currentScreen;
 
-    private View navMap, navSections, navWorksheet, navExam, navParent;
+    private View navMap, navBook, navSections, navWorksheet, navExam, navParent;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -74,12 +75,14 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         enableMascotDragging();
 
         navMap = findViewById(R.id.nav_map);
+        navBook = findViewById(R.id.nav_book);
         navSections = findViewById(R.id.nav_sections);
         navWorksheet = findViewById(R.id.nav_worksheet);
         navExam = findViewById(R.id.nav_exam);
         navParent = findViewById(R.id.nav_parent);
 
         bindNavItem(navMap, R.drawable.ic_pin, "نقشه", () -> go(Screen.MAP));
+        bindNavItem(navBook, R.drawable.ic_book, "کتاب", () -> go(Screen.BOOK));
         bindNavItem(navSections, R.drawable.ic_pencil, "تمرین", () -> go(Screen.SECTIONS));
         bindNavItem(navWorksheet, R.drawable.ic_sheet, "کاربرگ", () -> go(Screen.WORKSHEET_INDEX));
         bindNavItem(navExam, R.drawable.ic_target, "آزمون", () -> go(Screen.EXAM_INDEX));
@@ -249,6 +252,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         int active = getColor(R.color.orange);
         int inactive = getColor(R.color.text_faint);
         setNavColor(navMap, screen == Screen.MAP ? active : inactive);
+        setNavColor(navBook, screen == Screen.BOOK ? active : inactive);
         setNavColor(navSections, screen == Screen.SECTIONS ? active : inactive);
         setNavColor(navWorksheet, screen == Screen.WORKSHEET_INDEX ? active : inactive);
         setNavColor(navExam, screen == Screen.EXAM_INDEX ? active : inactive);
@@ -268,6 +272,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         switch (screen) {
             case SPLASH: f = new SplashFragment(); break;
             case MAP: f = new MapFragment(); break;
+            case BOOK: f = new BookFragment(); break;
             case CHAPTERS: f = new ChaptersFragment(); break;
             case LESSON: f = new LessonFragment(); break;
             case SECTIONS: f = new SectionsFragment(); break;
