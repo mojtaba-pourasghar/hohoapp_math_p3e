@@ -13,7 +13,7 @@ import androidx.annotation.Nullable;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
-import com.hoohoomath.app.data.Chapter1Lessons;
+import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.QuizMode;
 import com.hoohoomath.app.data.QuizSession;
 import com.hoohoomath.app.data.QuizSessionHolder;
@@ -112,7 +112,7 @@ public class ResultFragment extends BaseFragment {
             nextStep.setOnClickListener(v -> {
                 Bundle args = new Bundle();
                 args.putInt("chapter", res.chapter);
-                if (res.chapter == 0 && Chapter1Lessons.forSection(nextSection) != null) {
+                if (Lessons.has(res.chapter, nextSection)) {
                     args.putInt("section", nextSection);
                     nav().go(Screen.LESSON, args);
                 } else {

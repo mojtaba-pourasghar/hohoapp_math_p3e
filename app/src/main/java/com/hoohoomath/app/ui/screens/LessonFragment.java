@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
-import com.hoohoomath.app.data.Chapter1Lessons;
+import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.LessonKind;
 import com.hoohoomath.app.data.LessonScript;
 import com.hoohoomath.app.data.LessonStep;
@@ -59,7 +59,7 @@ public class LessonFragment extends BaseFragment {
         Bundle args = getArguments();
         chapter = args != null ? args.getInt("chapter", 0) : 0;
         section = args != null ? args.getInt("section", 0) : 0;
-        script = Chapter1Lessons.forSection(section);
+        script = Lessons.forSection(chapter, section);
 
         stage = view.findViewById(R.id.lesson_stage);
         view.findViewById(R.id.lesson_back).setOnClickListener(v -> {

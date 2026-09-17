@@ -38,6 +38,16 @@ jobs:
           echo "apk=hoohoo-math-$VERSION.apk" >> "$GITHUB_OUTPUT"
           echo "نسخه: $VERSION"
 
+      # The narration has to exist before the APK is packed, otherwise the lessons fall back
+      # to the device voice. make_voice.py skips every file that is already committed, so this
+      # only does real work when new lesson text has been added.
+      - name: Generate any missing narration
+        run: |
+          set -o pipefail
+          python3 -m pip install --quiet edge-tts
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          python3 tools/make_voice.py "--rate=-8%" 2>&1 | tail -n 40 | tee voice-run.log
+
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
 
@@ -64,11 +74,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/hoohoo-math.apk
+          git add -f dist/hoohoo-math.apk app/src/main/res/raw/
           if git diff --cached --quiet; then
-            echo "APK unchanged."
+            echo "Nothing changed."
           else
-            git commit -m "APK نسخه‌ی ${{ steps.version.outputs.version }}"
+            voices=$(git diff --cached --name-only | grep -c 'res/raw/.*\.ogg' || true)
+            git commit -m "APK نسخه‌ی ${{ steps.version.outputs.version }}${voices:+ (+$voices فایل گفتار)}"
             git pull --rebase --autostash origin main || true
             git push
           fi

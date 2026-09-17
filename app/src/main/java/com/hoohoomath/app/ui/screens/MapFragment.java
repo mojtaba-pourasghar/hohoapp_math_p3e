@@ -17,7 +17,7 @@ import androidx.core.content.ContextCompat;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
-import com.hoohoomath.app.data.Chapter1Lessons;
+import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.PathMapView;
 import com.hoohoomath.app.ui.Screen;
@@ -112,7 +112,7 @@ public class MapFragment extends BaseFragment {
         node.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putInt("chapter", ch.index);
-            if (ch.index == 0 && Chapter1Lessons.forSection(i) != null) {
+            if (Lessons.has(ch.index, i)) {
                 args.putInt("section", i);
                 nav().go(Screen.LESSON, args);
             } else {

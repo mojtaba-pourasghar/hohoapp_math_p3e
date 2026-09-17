@@ -16,7 +16,7 @@ import androidx.core.content.ContextCompat;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
-import com.hoohoomath.app.data.Chapter1Lessons;
+import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.PersianDigits;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
@@ -101,7 +101,7 @@ public class SectionsFragment extends BaseFragment {
 
         AppState s = state();
         boolean learned = s.isSectionLessonDone(ch.index, i);
-        boolean hasLesson = Chapter1Lessons.forSection(i) != null && ch.index == 0;
+        boolean hasLesson = Lessons.has(ch.index, i);
         String practiceKey = "PRACTICE_" + ch.index + "_" + i;
         int nextRound = s.getRound(practiceKey) + 1;
         boolean halfDone = s.hasAttempt(practiceKey);

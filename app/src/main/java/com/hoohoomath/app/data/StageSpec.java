@@ -18,41 +18,114 @@ public class StageSpec {
         /** A clock face whose hands turn to the hour, then the 24-hour number appears. */
         CLOCK,
         /** Half a shape is coloured, then mirrored across the fold line. */
-        MIRROR
+        MIRROR,
+        /** Thousand-cubes, hundred-plates, ten-rods and ones build a number up. */
+        PLACE_VALUE,
+        /** A number line with ticks; the marks land on it one after another. */
+        NUMBER_LINE,
+        /** ۵۰۰-toman notes and ۱۰۰-toman coins pile up with the running total. */
+        MONEY,
+        /** A bar or a circle divided into equal parts, some of them coloured. */
+        FRACTION,
+        /** Two fractions side by side, for equivalence and comparison. */
+        FRACTION_PAIR,
+        /** A rows × cols array of unit squares, optionally ringed into equal groups. */
+        ARRAY,
+        /** خط، نیم‌خط و پاره‌خط drawn one under the other. */
+        LINE_KINDS,
+        /** A rectangle whose sides are labelled and whose outline is traced (محیط, مساحت). */
+        PERIMETER,
+        /** Vertical addition or subtraction in place-value columns, carry and all. */
+        COLUMN_OP,
+        /** A bar chart growing out of its data. */
+        BAR_CHART,
+        /** A number and its ten-times answer, with the extra zero sliding in. */
+        TIMES_TEN
     }
 
     public final Kind kind;
-    public final int[] values;   // STEP_PATTERN: the sequence; others: unused
-    public final int a;          // COUNT_GROUPS groups | MACHINE rule | CLOCK hour | MIRROR cells per half
-    public final int b;          // COUNT_GROUPS per-group | MACHINE input | CLOCK pm flag (1/0)
+    public final int[] values;
+    public final int a;
+    public final int b;
+    public final int c;
 
-    private StageSpec(Kind kind, int[] values, int a, int b) {
+    private StageSpec(Kind kind, int[] values, int a, int b, int c) {
         this.kind = kind;
         this.values = values;
         this.a = a;
         this.b = b;
+        this.c = c;
     }
 
-    public static final StageSpec NONE = new StageSpec(Kind.NONE, null, 0, 0);
+    public static final StageSpec NONE = new StageSpec(Kind.NONE, null, 0, 0, 0);
 
     public static StageSpec countGroups(int groups, int perGroup) {
-        return new StageSpec(Kind.COUNT_GROUPS, null, groups, perGroup);
+        return new StageSpec(Kind.COUNT_GROUPS, null, groups, perGroup, 0);
     }
 
     public static StageSpec stepPattern(int... values) {
-        return new StageSpec(Kind.STEP_PATTERN, values, 0, 0);
+        return new StageSpec(Kind.STEP_PATTERN, values, 0, 0, 0);
     }
 
     public static StageSpec machine(int rule, int input) {
-        return new StageSpec(Kind.MACHINE, null, rule, input);
+        return new StageSpec(Kind.MACHINE, null, rule, input, 0);
     }
 
     public static StageSpec clock(int hour12, boolean pm) {
-        return new StageSpec(Kind.CLOCK, null, hour12, pm ? 1 : 0);
+        return new StageSpec(Kind.CLOCK, null, hour12, pm ? 1 : 0, 0);
     }
 
     public static StageSpec mirror(int cellsPerHalf) {
-        return new StageSpec(Kind.MIRROR, null, cellsPerHalf, 0);
+        return new StageSpec(Kind.MIRROR, null, cellsPerHalf, 0, 0);
+    }
+
+    /** Builds `number` out of thousands, hundreds, tens and ones. */
+    public static StageSpec placeValue(int number) {
+        return new StageSpec(Kind.PLACE_VALUE, null, number, 0, 0);
+    }
+
+    /** A number line from `from` to `to`, with each of `marks` landing in turn. */
+    public static StageSpec numberLine(int from, int to, int... marks) {
+        return new StageSpec(Kind.NUMBER_LINE, marks, from, to, 0);
+    }
+
+    public static StageSpec money(int notes500, int coins100) {
+        return new StageSpec(Kind.MONEY, null, notes500, coins100, 0);
+    }
+
+    /** A bar (circle = false) or a pie (circle = true) split into `parts`, `shaded` coloured. */
+    public static StageSpec fraction(int parts, int shaded, boolean circle) {
+        return new StageSpec(Kind.FRACTION, null, parts, shaded, circle ? 1 : 0);
+    }
+
+    public static StageSpec fractionPair(int parts1, int shaded1, int parts2, int shaded2) {
+        return new StageSpec(Kind.FRACTION_PAIR, new int[]{parts1, shaded1, parts2, shaded2}, 0, 0, 0);
+    }
+
+    /** `groupSize` > 0 rings the squares into equal groups, the way تقسیم is drawn. */
+    public static StageSpec array(int rows, int cols, int groupSize) {
+        return new StageSpec(Kind.ARRAY, null, rows, cols, groupSize);
+    }
+
+    public static StageSpec lineKinds() {
+        return new StageSpec(Kind.LINE_KINDS, null, 0, 0, 0);
+    }
+
+    /** A `length` × `width` rectangle; `showArea` fills it with unit squares instead of tracing it. */
+    public static StageSpec perimeter(int length, int width, boolean showArea) {
+        return new StageSpec(Kind.PERIMETER, null, length, width, showArea ? 1 : 0);
+    }
+
+    public static StageSpec columnOp(int x, int y, boolean subtract) {
+        return new StageSpec(Kind.COLUMN_OP, null, x, y, subtract ? 1 : 0);
+    }
+
+    public static StageSpec barChart(int... values) {
+        return new StageSpec(Kind.BAR_CHART, values, 0, 0, 0);
+    }
+
+    public static StageSpec timesTen(int n) {
+        return new StageSpec(Kind.TIMES_TEN, null, n, 0, 0);
     }
 
     public boolean isNone() {
