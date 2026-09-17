@@ -41,11 +41,13 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
 
+      # Two names on purpose: a versioned one for the permanent release, and a fixed
+      # "hoohoo-math.apk" so the download link on the latest release never changes.
       - name: Collect the APK
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk "dist/${{ steps.version.outputs.apk }}"
-          cp app/build/outputs/apk/debug/app-debug.apk dist/hoohoo-math-latest.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/hoohoo-math.apk
           ls -lh dist/
 
       - name: Upload as workflow artifact
@@ -62,7 +64,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/hoohoo-math-latest.apk
+          git add -f dist/hoohoo-math.apk
           if git diff --cached --quiet; then
             echo "APK unchanged."
           else
@@ -87,7 +89,10 @@ jobs:
               --title "نسخه‌ی $V" --notes "$NOTES"
           fi
 
-          # …and a moving "latest" so the download link never changes
+          # …and the fixed address the app is always published to:
+          #   github.com/<repo>/releases/tag/latest
+          #   github.com/<repo>/releases/download/latest/hoohoo-math.apk
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest "dist/${{ steps.version.outputs.apk }}" \
+          gh release create latest \
+            dist/hoohoo-math.apk "dist/${{ steps.version.outputs.apk }}" \
             --title "آخرین نسخه ($V)" --notes "$NOTES" --prerelease
