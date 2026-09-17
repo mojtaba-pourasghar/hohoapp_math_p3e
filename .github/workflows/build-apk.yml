@@ -73,26 +73,61 @@ jobs:
             git push
           fi
 
+      # The fixed «latest» release is edited in place rather than deleted and recreated —
+      # deleting the tag and immediately creating it again raced with GitHub and failed the
+      # publish (the APK itself had already built and been committed).
       - name: Tag and publish the release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          V="${{ steps.version.outputs.version }}"
-          NOTES="نسخه‌ی $V — ساخته‌شده از ${GITHUB_SHA::7}. نسخه‌ی دیباگ، مستقیم روی گوشی یا تبلت نصب می‌شود."
+          set -o pipefail
+          publish() {
+            V="${{ steps.version.outputs.version }}"
+            APK="dist/${{ steps.version.outputs.apk }}"
+            NOTES="نسخه‌ی $V — ساخته‌شده از ${GITHUB_SHA::7}. نسخه‌ی دیباگ، مستقیم روی گوشی یا تبلت نصب می‌شود."
 
-          # a permanent release per version…
-          if gh release view "v$V" >/dev/null 2>&1; then
-            gh release upload "v$V" "dist/${{ steps.version.outputs.apk }}" --clobber
-          else
-            gh release create "v$V" "dist/${{ steps.version.outputs.apk }}" \
-              --title "نسخه‌ی $V" --notes "$NOTES"
-          fi
+            # a permanent release per version…
+            if gh release view "v$V" >/dev/null 2>&1; then
+              gh release upload "v$V" "$APK" --clobber
+            else
+              gh release create "v$V" "$APK" --title "نسخه‌ی $V" --notes "$NOTES"
+            fi
 
-          # …and the fixed address the app is always published to:
-          #   github.com/<repo>/releases/tag/latest
-          #   github.com/<repo>/releases/download/latest/hoohoo-math.apk
-          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest \
-            dist/hoohoo-math.apk "dist/${{ steps.version.outputs.apk }}" \
-            --title "آخرین نسخه ($V)" --notes "$NOTES" --prerelease
+            # …and the fixed address the app is always published to:
+            #   github.com/<repo>/releases/tag/latest
+            #   github.com/<repo>/releases/download/latest/hoohoo-math.apk
+            if gh release view latest >/dev/null 2>&1; then
+              # drop the previous version's file so «latest» only ever carries the current one
+              gh release view latest --json assets --jq '.assets[].name' \
+                | grep -E '^hoohoo-math-.*\.apk$' \
+                | grep -v -F "hoohoo-math-$V.apk" \
+                | while read -r stale; do gh release delete-asset latest "$stale" --yes || true; done
+              gh release upload latest dist/hoohoo-math.apk "$APK" --clobber
+              gh release edit latest --title "آخرین نسخه ($V)" --notes "$NOTES" --prerelease
+            else
+              gh release create latest dist/hoohoo-math.apk "$APK" \
+                --title "آخرین نسخه ($V)" --notes "$NOTES" --prerelease
+            fi
+          }
+
+          for attempt in 1 2 3; do
+            if publish 2>&1 | tee -a /tmp/release.log; then
+              exit 0
+            fi
+            echo "تلاش $attempt ناموفق بود؛ ۱۵ ثانیه صبر می‌کنم." | tee -a /tmp/release.log
+            sleep 15
+          done
+          exit 1
+
+      # Actions logs live on storage the dev environment cannot reach, so a failed publish
+      # writes its own reason somewhere readable: an issue.
+      - name: Report a failed publish
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAIL=$(tail -c 4000 /tmp/release.log 2>/dev/null || echo "بدون لاگ")
+          gh issue create \
+            --title "انتشار نسخه‌ی ${{ steps.version.outputs.version }} ناموفق بود" \
+            --body "$(printf 'ران: %s\n\n```\n%s\n```\n' "$GITHUB_RUN_ID" "$TAIL")" || true
