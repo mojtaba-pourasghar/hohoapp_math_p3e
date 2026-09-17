@@ -62,14 +62,15 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        navBar = findViewById(R.id.nav_bar);
+        mascotOverlay = findViewById(R.id.mascot_overlay);
+
         HooHooView mascotView = findViewById(R.id.mascot_view);
         View bubbleWrap = findViewById(R.id.mascot_bubble_wrap);
         TextView bubbleText = findViewById(R.id.mascot_bubble);
-        mascotController = new MascotController(mascotView, bubbleWrap, bubbleText);
+        mascotController = new MascotController(mascotView, mascotOverlay, bubbleWrap, bubbleText);
         findViewById(R.id.mascot_bubble_close).setOnClickListener(v -> mascotController.hideBubble());
 
-        navBar = findViewById(R.id.nav_bar);
-        mascotOverlay = findViewById(R.id.mascot_overlay);
         enableMascotDragging();
 
         navMap = findViewById(R.id.nav_map);
@@ -145,7 +146,15 @@ public class MainActivity extends AppCompatActivity implements Navigator {
             }
         });
 
-        mascotOverlay.post(this::restoreMascotPosition);
+        // wait for a real layout pass before restoring, otherwise the sizes are all zero
+        mascotOverlay.getViewTreeObserver().addOnGlobalLayoutListener(
+            new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    mascotOverlay.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    restoreMascotPosition();
+                }
+            });
     }
 
     private float clampX(ViewGroup parent, View view, float translation) {
@@ -167,11 +176,17 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         AppState.get().setMascotPosition(x, y);
     }
 
+    /**
+     * Puts هوهو back where the child left her. Anything that would land her off-screen — a saved
+     * spot from a different screen size, say — is ignored so she can never go missing.
+     */
     private void restoreMascotPosition() {
         AppState s = AppState.get();
         if (s.mascotX < 0 || s.mascotY < 0) return;
         ViewGroup parent = (ViewGroup) mascotOverlay.getParent();
-        if (parent == null || parent.getWidth() == 0) return;
+        if (parent == null || parent.getWidth() == 0 || mascotOverlay.getWidth() == 0) return;
+        if (s.mascotX > 0.97f || s.mascotY > 0.97f) return;
+
         float targetX = s.mascotX * parent.getWidth();
         float targetY = s.mascotY * parent.getHeight();
         mascotOverlay.setTranslationX(clampX(parent, mascotOverlay, targetX - mascotOverlay.getLeft()));
@@ -205,6 +220,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         navBar.setVisibility(chromeVisible ? View.VISIBLE : View.GONE);
         mascotOverlay.setVisibility(screen == Screen.SPLASH ? View.GONE : View.VISIBLE);
         mascotController.hideBubble();
+        mascotController.returnHome(); // don't leave her parked next to the last screen's content
 
         if (screen != Screen.SPLASH && currentScreen != null) {
             mascotController.onScreenTransition();

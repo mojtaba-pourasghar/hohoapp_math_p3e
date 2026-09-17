@@ -126,19 +126,35 @@ public class LessonFragment extends BaseFragment {
     /** Speaks the current line and runs its animation for exactly as long as the voice lasts. */
     private void narrateCurrentStep() {
         LessonStep step = script.steps.get(stepIndex);
+        narrate(step.audioKey, step.say, true);
+    }
+
+    /** The extra explanation the child asked for with "یک مثال دیگر". */
+    private void narrateExample() {
+        LessonStep step = script.steps.get(stepIndex);
+        if (!step.hasExample()) return;
+        narrate(step.exampleAudioKey, step.exampleSay, false);
+    }
+
+    private void narrate(String audioKey, String text, boolean replayStage) {
         narrating = true;
         updateContinueEnabled();
-        mascot().showBubble(step.say, true);
+        mascot().showBubble(text, true);
 
-        LessonAudio.play(requireContext(), step.audioKey, step.say, new LessonAudio.PlaybackListener() {
+        // fly over to the picture being explained, so the child looks where هوهو is looking
+        View stageCard = rootView.findViewById(R.id.lesson_stage_card);
+        if (stageCard.getVisibility() == View.VISIBLE) mascot().flyTo(stageCard);
+
+        LessonAudio.play(requireContext(), audioKey, text, new LessonAudio.PlaybackListener() {
             @Override public void onStarted(long durationMs) {
                 if (!isAdded()) return;
-                stage.play(durationMs);
+                if (replayStage) stage.play(durationMs);
             }
             @Override public void onFinished() {
                 if (!isAdded()) return;
                 narrating = false;
-                mascot().showBubble(step.say, false);
+                mascot().showBubble(text, false);
+                mascot().returnHome();
                 updateContinueEnabled();
             }
         });
@@ -171,6 +187,16 @@ public class LessonFragment extends BaseFragment {
                 buttons.addView(continueButton, left);
                 buttons.addView(again, right);
                 content.addView(buttons);
+
+                if (step.hasExample()) {
+                    TextView example = bigButton("یک مثال دیگر بزن", R.color.orange_bg, R.color.orange_text);
+                    example.setBackground(UiKit.roundedBg(
+                        ContextCompat.getColor(requireContext(), R.color.orange_bg),
+                        ContextCompat.getColor(requireContext(), R.color.orange_border), 16f, requireContext()));
+                    example.setOnClickListener(v -> narrateExample());
+                    content.addView(example, UiKit.marginParams(requireContext(), 10, 0));
+                }
+
                 updateContinueEnabled();
                 break;
             }

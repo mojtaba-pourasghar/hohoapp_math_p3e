@@ -1,6 +1,5 @@
 package com.hoohoomath.app.ui.mascot;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -9,7 +8,6 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.animation.LinearInterpolator;
 
 /**
  * هوهو the owl, hand-drawn on a Canvas so no image assets are needed. Draws itself fresh
@@ -43,7 +41,16 @@ public class HooHooView extends View {
     private long blinkStartedAtMs = -1;
     private float eyeOpenness = 1f;
 
-    private ValueAnimator loopAnimator;
+    private final android.view.Choreographer.FrameCallback frameCallback = new android.view.Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
+            if (!running) return;
+            tick();
+            invalidate();
+            android.view.Choreographer.getInstance().postFrameCallback(this);
+        }
+    };
+    private boolean running = false;
 
     public HooHooView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -65,23 +72,22 @@ public class HooHooView extends View {
         smilePaint.setStrokeCap(Paint.Cap.ROUND);
     }
 
+    /*
+     * Driven by the Choreographer rather than a ValueAnimator on purpose: an animator obeys the
+     * system "animator duration scale", so on a device where animations are switched off هوهو
+     * would freeze. The frame callback keeps breathing regardless.
+     */
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        loopAnimator = ValueAnimator.ofFloat(0f, 1f);
-        loopAnimator.setDuration(16);
-        loopAnimator.setRepeatCount(ValueAnimator.INFINITE);
-        loopAnimator.setInterpolator(new LinearInterpolator());
-        loopAnimator.addUpdateListener(a -> {
-            tick();
-            invalidate();
-        });
-        loopAnimator.start();
+        running = true;
+        android.view.Choreographer.getInstance().postFrameCallback(frameCallback);
     }
 
     @Override
     protected void onDetachedFromWindow() {
-        if (loopAnimator != null) loopAnimator.cancel();
+        running = false;
+        android.view.Choreographer.getInstance().removeFrameCallback(frameCallback);
         super.onDetachedFromWindow();
     }
 
@@ -135,8 +141,9 @@ public class HooHooView extends View {
         double bobPeriod = flying ? 0.9 : 2.8;
         float bob = (float) (Math.sin(t / bobPeriod * 2 * Math.PI) * scale * (flying ? 0.018 : 0.03));
 
-        double flapPeriod = flying ? 0.4 : 3.6;
-        double flapAmpDeg = flying ? 24 : 4;
+        // while explaining, the wings gesture along with the beak — a teacher talking with her hands
+        double flapPeriod = flying ? 0.4 : speaking ? 0.85 : 3.6;
+        double flapAmpDeg = flying ? 24 : speaking ? 11 : 4;
         double flapBaseDeg = flying ? 4 : -6;
         float flapL = (float) (flapBaseDeg + Math.sin(t / flapPeriod * 2 * Math.PI) * flapAmpDeg);
         float flapR = -flapL;

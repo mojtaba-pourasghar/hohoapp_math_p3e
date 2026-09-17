@@ -50,13 +50,16 @@ def read_manifest(prefix=None):
     return lines
 
 
-async def synthesize(edge_tts, key, text, voice, rate, pitch):
+async def synthesize(edge_tts, key, text, voice, rate, pitch, to_ogg):
     mp3_path = os.path.join(RAW, key + ".mp3")
-    ogg_path = os.path.join(RAW, key + ".ogg")
 
     communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
     await communicate.save(mp3_path)
 
+    if not to_ogg:
+        return mp3_path  # Android plays mp3 from res/raw just as happily
+
+    ogg_path = os.path.join(RAW, key + ".ogg")
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", mp3_path,
          "-c:a", "libvorbis", "-qscale:a", "4", "-ar", "24000", "-ac", "1", ogg_path],
@@ -72,21 +75,23 @@ async def main_async(args):
     except ImportError:
         sys.exit("edge-tts is not installed.  pip install edge-tts")
 
-    if not shutil.which("ffmpeg"):
-        sys.exit("ffmpeg is not on PATH — needed to convert mp3 to ogg.")
+    to_ogg = args.format == "ogg" or (args.format == "auto" and shutil.which("ffmpeg"))
+    if args.format == "ogg" and not shutil.which("ffmpeg"):
+        sys.exit("ffmpeg is not on PATH — needed for ogg. Use --format mp3 instead.")
 
     lines = read_manifest(args.prefix)
     if not lines:
         sys.exit("No lines matched. Check the prefix, e.g. ch1_s0")
 
-    print("Generating %d line(s) with %s\n" % (len(lines), args.voice))
+    ext = ".ogg" if to_ogg else ".mp3"
+    print("Generating %d line(s) with %s as %s\n" % (len(lines), args.voice, ext))
     for index, (key, text) in enumerate(lines, 1):
-        target = os.path.join(RAW, key + ".ogg")
-        if os.path.exists(target) and not args.force:
+        already = [e for e in (".ogg", ".mp3", ".wav") if os.path.exists(os.path.join(RAW, key + e))]
+        if already and not args.force:
             print("  %2d/%d  %-14s skipped (already there)" % (index, len(lines), key))
             continue
         try:
-            path = await synthesize(edge_tts, key, text, args.voice, args.rate, args.pitch)
+            path = await synthesize(edge_tts, key, text, args.voice, args.rate, args.pitch, to_ogg)
             print("  %2d/%d  %-14s %6.1f KB  %s" % (
                 index, len(lines), key, os.path.getsize(path) / 1024, text[:42] + "…"))
         except Exception as exc:  # keep going; one bad line shouldn't stop the batch
@@ -101,6 +106,8 @@ def main():
     parser.add_argument("--voice", default="fa-IR-DilaraNeural")
     parser.add_argument("--rate", default="-8%", help="speaking rate, slower suits young children")
     parser.add_argument("--pitch", default="+0Hz")
+    parser.add_argument("--format", default="auto", choices=["auto", "ogg", "mp3"],
+                        help="auto uses ogg when ffmpeg is available, otherwise mp3")
     parser.add_argument("--force", action="store_true", help="regenerate files that already exist")
     asyncio.run(main_async(parser.parse_args()))
 

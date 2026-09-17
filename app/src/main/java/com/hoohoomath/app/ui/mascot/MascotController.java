@@ -24,15 +24,19 @@ import java.util.Random;
  */
 public class MascotController {
     private final HooHooView owl;
+    private final View overlay;      // the draggable container holding bubble + owl
     private final View bubbleWrap;
     private final TextView bubbleText;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Random random = new Random();
 
     private Runnable pendingRevert;
+    private boolean awayFromHome = false;
+    private float homeTranslationX, homeTranslationY;
 
-    public MascotController(HooHooView owl, View bubbleWrap, TextView bubbleText) {
+    public MascotController(HooHooView owl, View overlay, View bubbleWrap, TextView bubbleText) {
         this.owl = owl;
+        this.overlay = overlay;
         this.bubbleWrap = bubbleWrap;
         this.bubbleText = bubbleText;
     }
@@ -107,6 +111,56 @@ public class MascotController {
         if (encouragementText != null) say(encouragementText);
         pendingRevert = () -> owl.setMood(HooHooView.Mood.IDLE);
         handler.postDelayed(pendingRevert, 2600);
+    }
+
+    /**
+     * Flies over to whatever is being explained and hovers beside it, so the child's eye follows
+     * the owl to the right part of the screen. Call returnHome() when the explanation is over.
+     */
+    public void flyTo(View target) {
+        if (overlay == null || target == null || target.getWidth() == 0) return;
+
+        int[] targetPos = new int[2];
+        int[] ownPos = new int[2];
+        target.getLocationInWindow(targetPos);
+        overlay.getLocationInWindow(ownPos);
+
+        if (!awayFromHome) {
+            homeTranslationX = overlay.getTranslationX();
+            homeTranslationY = overlay.getTranslationY();
+            awayFromHome = true;
+        }
+
+        // sit near the lower start-side corner of the target, leaving room for the bubble above
+        float wantedCx = targetPos[0] + target.getWidth() * 0.22f;
+        float wantedCy = targetPos[1] + target.getHeight() * 0.68f;
+        float currentCx = ownPos[0] + overlay.getWidth() / 2f;
+        float currentCy = ownPos[1] + overlay.getHeight() / 2f;
+
+        glide(overlay.getTranslationX() + (wantedCx - currentCx),
+              overlay.getTranslationY() + (wantedCy - currentCy));
+    }
+
+    /** Settles back wherever the owl was before it flew off to explain something. */
+    public void returnHome() {
+        if (overlay == null || !awayFromHome) return;
+        awayFromHome = false;
+        glide(homeTranslationX, homeTranslationY);
+    }
+
+    private void glide(float toX, float toY) {
+        cancelPendingRevert();
+        owl.setFlying(true);
+        ObjectAnimator x = ObjectAnimator.ofFloat(overlay, View.TRANSLATION_X, toX);
+        ObjectAnimator y = ObjectAnimator.ofFloat(overlay, View.TRANSLATION_Y, toY);
+        x.setDuration(750);
+        y.setDuration(750);
+        x.setInterpolator(new AccelerateDecelerateInterpolator());
+        y.setInterpolator(new AccelerateDecelerateInterpolator());
+        x.start();
+        y.start();
+        pendingRevert = () -> owl.setFlying(false);
+        handler.postDelayed(pendingRevert, 800);
     }
 
     /** Brief flutter when navigating between screens. */
