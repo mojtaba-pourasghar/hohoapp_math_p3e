@@ -75,6 +75,13 @@ public class LessonFragment extends BaseFragment {
         Book.Chapter ch = Book.chapter(chapter);
         ((TextView) view.findViewById(R.id.lesson_title)).setText("درس " + fa(section + 1) + ": " + ch.sections.get(section));
         view.findViewById(R.id.lesson_replay).setOnClickListener(v -> narrateCurrentStep());
+        // the lesson names the book page it teaches; tapping it opens that page in «کتاب»
+        view.findViewById(R.id.lesson_step_count).setOnClickListener(v -> {
+            LessonAudio.stop();
+            Bundle bookArgs = new Bundle();
+            bookArgs.putInt("page", script.bookPage);
+            nav().go(Screen.BOOK, bookArgs);
+        });
         view.findViewById(R.id.lesson_prev).setOnClickListener(v -> goToStep(stepIndex - 1));
         view.findViewById(R.id.lesson_next).setOnClickListener(v -> goToStep(stepIndex + 1));
 
@@ -100,7 +107,8 @@ public class LessonFragment extends BaseFragment {
         typed.setLength(0);
 
         ((TextView) rootView.findViewById(R.id.lesson_step_count)).setText(
-            "صفحه‌ی " + fa(script.bookPage) + " کتاب · گام " + fa(stepIndex + 1) + " از " + fa(script.steps.size()));
+            "صفحه‌ی " + fa(script.bookPage) + " کتاب (برای دیدنش بزن) · گام "
+                + fa(stepIndex + 1) + " از " + fa(script.steps.size()));
         ((TextView) rootView.findViewById(R.id.lesson_say)).setText(step.say);
         ((TextView) rootView.findViewById(R.id.lesson_caption)).setText(step.caption);
 

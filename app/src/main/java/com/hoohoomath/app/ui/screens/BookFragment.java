@@ -68,10 +68,6 @@ public class BookFragment extends BaseFragment {
             line = s.bookLine();
         }
 
-        FrameLayout chips = view.findViewById(R.id.book_chip_container);
-        chips.addView(ScreenHelpers.buildChapterChipRow(requireContext(), s, chapterOfPage(page),
-            i -> goToPage(Book.chapter(i).firstPage)));
-
         view.findViewById(R.id.book_prev_page).setOnClickListener(v -> goToPage(page - 1));
         view.findViewById(R.id.book_next_page).setOnClickListener(v -> goToPage(page + 1));
         view.findViewById(R.id.book_prev_line).setOnClickListener(v -> goToLine(line - 1, false));
@@ -214,6 +210,13 @@ public class BookFragment extends BaseFragment {
         if (line >= lines.size()) line = 0;
 
         Book.Chapter ch = Book.chapter(chapterOfPage(page));
+
+        // rebuilt on every page turn, so the highlighted chip is always the chapter being read
+        FrameLayout chips = rootView.findViewById(R.id.book_chip_container);
+        chips.removeAllViews();
+        chips.addView(ScreenHelpers.buildChapterChipRow(requireContext(), state(), ch.index,
+            i -> goToPage(Book.chapter(i).firstPage)));
+
         ((TextView) rootView.findViewById(R.id.book_subtitle)).setText(
             "صفحه‌ی " + fa(page) + " از " + fa(book.pageCount())
                 + " · فصل " + ch.numberFa + ": " + ch.title

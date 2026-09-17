@@ -91,6 +91,11 @@ def normalize(text):
     # «می کند» as two separate words
     text = re.sub(r"(^|\s)(می|نمی) ([\u0600-\u06FF])", "\\1\\2\u200c\\3", text)
     text = re.sub(r"([\u0600-\u06FF]) (ها|های|هایی|تر|ترین)(?=\s|$)", "\\1\u200c\\2", text)
+    # a shadda is drawn as its own run, which leaves «توجّ ه» with a space inside the word
+    text = re.sub(r"([\u064b-\u0652]) (?=[\u0621-\u063a\u0641-\u064a\u0670-\u06d3])", "\\1", text)
+    # the chapter opener is typeset as «فصل:1» / «فصل1 :»
+    text = re.sub(r"فصل\s*:\s*([0-9\u06f0-\u06f9\u0660-\u0669]+)", "فصل \\1", text)
+    text = re.sub(r"فصل\s*([0-9\u06f0-\u06f9\u0660-\u0669]+)\s*:", "فصل \\1", text)
     return fix_ligatures(text).strip(" ‌")
 
 
