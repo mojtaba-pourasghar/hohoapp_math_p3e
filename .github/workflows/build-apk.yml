@@ -30,33 +30,64 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      - name: Read the version
+        id: version
+        run: |
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "apk=hoohoo-math-$VERSION.apk" >> "$GITHUB_OUTPUT"
+          echo "نسخه: $VERSION"
+
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
 
-      - name: Name the APK
-        id: apk
+      - name: Collect the APK
         run: |
-          mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk "out/hoohoo-math-${GITHUB_SHA::7}.apk"
-          echo "path=out/hoohoo-math-${GITHUB_SHA::7}.apk" >> "$GITHUB_OUTPUT"
-          ls -lh out/
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/${{ steps.version.outputs.apk }}"
+          cp app/build/outputs/apk/debug/app-debug.apk dist/hoohoo-math-latest.apk
+          ls -lh dist/
 
       - name: Upload as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hoohoo-math-apk
-          path: out/*.apk
+          name: hoohoo-math-${{ steps.version.outputs.version }}
+          path: dist/*.apk
           retention-days: 30
 
-      # A "latest" pre-release so the APK can be downloaded from the Releases page
-      # without signing in to GitHub — handy for installing straight onto a tablet.
-      - name: Publish to the latest release
+      # The built APK is committed to the repo (dist/) so it can be grabbed straight
+      # from the file tree, and tagged as a release so every version stays downloadable.
+      - name: Commit the APK into the repo
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f dist/hoohoo-math-latest.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged."
+          else
+            git commit -m "APK نسخه‌ی ${{ steps.version.outputs.version }}"
+            git pull --rebase --autostash origin main || true
+            git push
+          fi
+
+      - name: Tag and publish the release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          V="${{ steps.version.outputs.version }}"
+          NOTES="نسخه‌ی $V — ساخته‌شده از ${GITHUB_SHA::7}. نسخه‌ی دیباگ، مستقیم روی گوشی یا تبلت نصب می‌شود."
+
+          # a permanent release per version…
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" "dist/${{ steps.version.outputs.apk }}" --clobber
+          else
+            gh release create "v$V" "dist/${{ steps.version.outputs.apk }}" \
+              --title "نسخه‌ی $V" --notes "$NOTES"
+          fi
+
+          # …and a moving "latest" so the download link never changes
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest "${{ steps.apk.outputs.path }}" \
-            --title "آخرین نسخه‌ی APK" \
-            --notes "ساخته‌شده از کامیت ${GITHUB_SHA::7} — نسخه‌ی دیباگ، مستقیم روی گوشی یا تبلت نصب می‌شود." \
-            --prerelease
+          gh release create latest "dist/${{ steps.version.outputs.apk }}" \
+            --title "آخرین نسخه ($V)" --notes "$NOTES" --prerelease

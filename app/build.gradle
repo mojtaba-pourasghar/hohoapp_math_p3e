@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+// Single source of truth for the version: the VERSION file at the repo root.
+// versionCode is derived from it so it always climbs with the name.
+def appVersionName = rootProject.file('VERSION').exists()
+    ? rootProject.file('VERSION').text.trim()
+    : '0.0.1'
+def (vMajor, vMinor, vPatch) = (appVersionName.tokenize('.') + ['0', '0', '0'])[0..2]*.toInteger()
+
 android {
     namespace 'com.hoohoomath.app'
     compileSdk 34
@@ -10,8 +17,8 @@ android {
         applicationId "com.hoohoomath.app"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode vMajor * 10000 + vMinor * 100 + vPatch
+        versionName appVersionName
     }
 
     buildTypes {
