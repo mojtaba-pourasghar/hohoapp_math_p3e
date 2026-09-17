@@ -41,12 +41,30 @@ jobs:
           python -m pip install --quiet edge-tts
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
 
+      # --rate=-8% must use the equals form: argparse reads a bare "-8%" as another flag
       - name: Generate the narration
         run: |
+          set -o pipefail
           python3 tools/make_voice.py \
-            --voice "${{ inputs.voice }}" \
-            --rate "${{ inputs.rate }}" \
-            ${{ inputs.force && '--force' || '' }}
+            "--voice=${{ inputs.voice }}" \
+            "--rate=${{ inputs.rate }}" \
+            ${{ inputs.force && '--force' || '' }} 2>&1 | tee voice-run.log
+
+      # CI logs live on storage this project's author cannot reach, so failures are
+      # reported back as an issue instead of disappearing into the run.
+      - name: Report a failure as an issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "ساخت فایل‌های صوتی شکست خورد."
+            echo
+            echo '```'
+            tail -c 30000 voice-run.log 2>/dev/null || echo "(no log captured)"
+            echo '```'
+          } > issue.md
+          gh issue create --title "ساخت صدای هوهو شکست خورد" --body-file issue.md
 
       - name: Commit the audio
         run: |
