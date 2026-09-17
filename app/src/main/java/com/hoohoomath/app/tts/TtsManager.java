@@ -68,25 +68,27 @@ public class TtsManager {
         }
         persianAvailable = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED;
 
+        // هوهو is voiced by a woman, so prefer a female Persian voice when the device has one
         Voice best = null;
         try {
             Set<Voice> voices = tts.getVoices();
             if (voices != null) {
                 for (Voice v : voices) {
                     if (v.getLocale() == null) continue;
-                    String lang = v.getLocale().getLanguage();
-                    if (!"fa".equals(lang)) continue;
+                    if (!"fa".equals(v.getLocale().getLanguage())) continue;
                     String name = v.getName() == null ? "" : v.getName().toLowerCase(Locale.US);
-                    boolean male = name.contains("male") && !name.contains("female");
-                    if (male) { best = v; break; }
+                    if (name.contains("female") || name.contains("#female") || name.endsWith("-f")) {
+                        best = v;
+                        break;
+                    }
                     if (best == null) best = v; // fall back to any Persian voice
                 }
             }
         } catch (Exception ignored) {}
         if (best != null) tts.setVoice(best);
 
-        tts.setPitch(0.86f);   // a touch lower = warmer, more owl-like
-        tts.setSpeechRate(0.94f);
+        tts.setPitch(1.06f);      // bright and friendly rather than deep
+        tts.setSpeechRate(0.92f); // a little slower than normal, so a third-grader can follow
     }
 
     private final java.util.Map<String, Callback> callbacks = new java.util.concurrent.ConcurrentHashMap<>();

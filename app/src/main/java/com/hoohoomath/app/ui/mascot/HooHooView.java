@@ -32,7 +32,10 @@ public class HooHooView extends View {
     private final Paint eyeWhitePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pupilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint beakPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint hatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint flowerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint flowerCenterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint lashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint blushPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint smilePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final long startTimeNanos = System.nanoTime();
@@ -50,7 +53,12 @@ public class HooHooView extends View {
         eyeWhitePaint.setColor(Color.WHITE);
         pupilPaint.setColor(Color.parseColor("#3B3027"));
         beakPaint.setColor(Color.parseColor("#D8811F"));
-        hatPaint.setColor(Color.parseColor("#2F6FB3"));
+        flowerPaint.setColor(Color.parseColor("#D94F7A"));
+        flowerCenterPaint.setColor(Color.parseColor("#F7C94B"));
+        lashPaint.setColor(Color.parseColor("#3B3027"));
+        lashPaint.setStyle(Paint.Style.STROKE);
+        lashPaint.setStrokeCap(Paint.Cap.ROUND);
+        blushPaint.setColor(Color.parseColor("#66E78BA6"));
         smilePaint.setColor(Color.parseColor("#3B3027"));
         smilePaint.setStyle(Paint.Style.STROKE);
         smilePaint.setStrokeWidth(4f);
@@ -158,6 +166,10 @@ public class HooHooView extends View {
         drawEye(canvas, bodyCx - eyeDX, eyeY, eyeR, eyeOpenness, thinking);
         drawEye(canvas, bodyCx + eyeDX, eyeY, eyeR, eyeOpenness, thinking);
 
+        // rosy cheeks either side of the beak
+        canvas.drawCircle(bodyCx - bodyR * 0.62f, eyeY + eyeR * 0.95f, bodyR * 0.13f, blushPaint);
+        canvas.drawCircle(bodyCx + bodyR * 0.62f, eyeY + eyeR * 0.95f, bodyR * 0.13f, blushPaint);
+
         float talkPulse = speaking ? (float) (0.22 * Math.abs(Math.sin(t * 2 * Math.PI / 0.22))) : 0f;
         float beakY = bodyCy + bodyR * 0.12f;
         float beakH = bodyR * 0.22f * (1f + talkPulse);
@@ -173,7 +185,7 @@ public class HooHooView extends View {
             canvas.drawArc(smileRect, 20, 140, false, smilePaint);
         }
 
-        canvas.drawRoundRect(bodyCx - bodyR * 0.62f, bodyCy - bodyR * 0.98f, bodyCx + bodyR * 0.62f, bodyCy - bodyR * 0.82f, 6f, 6f, hatPaint);
+        drawFlower(canvas, bodyCx - bodyR * 0.72f, bodyCy - bodyR * 0.74f, bodyR * 0.17f);
 
         canvas.restore();
     }
@@ -184,6 +196,30 @@ public class HooHooView extends View {
         canvas.drawCircle(ex, ey, r, eyeWhitePaint);
         float pupilOffsetY = thinking ? -r * 0.15f : 0;
         canvas.drawCircle(ex, ey + pupilOffsetY, r * 0.42f, pupilPaint);
+
+        // three lashes swept up and outwards
+        lashPaint.setStrokeWidth(r * 0.14f);
+        float dir = ex < getWidth() / 2f ? -1f : 1f;
+        for (int i = 0; i < 3; i++) {
+            double angle = Math.toRadians(-118 + i * 26) * (dir > 0 ? 1 : -1);
+            float sx = ex + (float) Math.cos(angle) * r * 0.95f;
+            float sy = ey + (float) Math.sin(angle) * r * 0.95f;
+            float lx = ex + (float) Math.cos(angle) * r * 1.42f;
+            float ly = ey + (float) Math.sin(angle) * r * 1.42f;
+            canvas.drawLine(sx, sy, lx, ly, lashPaint);
+        }
         canvas.restore();
+    }
+
+    /** The little flower tucked over one ear — quickest way to read the character as female. */
+    private void drawFlower(Canvas canvas, float cx, float cy, float petalR) {
+        for (int i = 0; i < 5; i++) {
+            double angle = Math.toRadians(i * 72 - 90);
+            canvas.drawCircle(
+                cx + (float) Math.cos(angle) * petalR,
+                cy + (float) Math.sin(angle) * petalR,
+                petalR * 0.78f, flowerPaint);
+        }
+        canvas.drawCircle(cx, cy, petalR * 0.62f, flowerCenterPaint);
     }
 }

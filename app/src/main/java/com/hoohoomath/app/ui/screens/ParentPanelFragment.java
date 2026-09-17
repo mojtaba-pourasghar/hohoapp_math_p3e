@@ -38,7 +38,7 @@ import static com.hoohoomath.app.data.PersianDigits.fa;
 
 public class ParentPanelFragment extends BaseFragment {
     private static final String[] SETTING_LABELS = {
-        "خواندن صوتی سؤال‌ها", "یادآور تمرین روزانه", "رقابت با هم‌کلاسی‌ها", "محدودیت ۲۰ دقیقه در روز"
+        "خواندن صوتی سؤال‌ها", "صدای دکمه‌ها و تشویق‌ها", "موسیقی ملایم پس‌زمینه", "نمایش پیام‌های هوهو"
     };
 
     private int browseChapter;
@@ -222,7 +222,10 @@ public class ParentPanelFragment extends BaseFragment {
         Switch sw = new Switch(requireContext());
         sw.setChecked(s.settings[index]);
         sw.setOnCheckedChangeListener((btn, checked) -> {
-            if (checked != s.settings[index]) s.toggleSetting(index);
+            if (checked == s.settings[index]) return;
+            s.toggleSetting(index);
+            com.hoohoomath.app.tts.SoundManager sound = com.hoohoomath.app.tts.SoundManager.get();
+            if (sound != null) sound.applySettings(); // music starts/stops as soon as it's flipped
         });
 
         row.addView(text);

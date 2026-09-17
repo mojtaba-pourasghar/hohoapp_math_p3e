@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""
+Turns every narration line in res/raw/audio_manifest.txt into an .ogg file with a Persian
+female voice, ready for the app to play.
+
+The app already speaks every line through the device's text-to-speech engine, so it works
+without these files — running this just replaces that with a consistent recorded voice.
+
+Usage
+-----
+    pip install edge-tts
+    python3 tools/make_voice.py                 # all lines
+    python3 tools/make_voice.py ch1_s0          # just one section
+    python3 tools/make_voice.py --voice fa-IR-DilaraNeural --rate -10%
+
+Voices (Microsoft Edge TTS, free, no key):
+    fa-IR-DilaraNeural   female  <- default
+    fa-IR-FaridNeural    male
+
+Output lands in app/src/main/res/raw/<key>.ogg. Android picks the file up automatically;
+nothing in the code needs changing, because lines are looked up by name.
+
+Requires ffmpeg on PATH (edge-tts writes mp3; res/raw is happier with ogg).
+"""
+
+import argparse
+import asyncio
+import os
+import shutil
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RAW = os.path.join(ROOT, "app", "src", "main", "res", "raw")
+MANIFEST = os.path.join(RAW, "audio_manifest.txt")
+
+
+def read_manifest(prefix=None):
+    lines = []
+    with open(MANIFEST, encoding="utf-8") as fh:
+        for raw in fh:
+            raw = raw.strip()
+            if not raw or raw.startswith("#") or "|" not in raw:
+                continue
+            key, text = raw.split("|", 1)
+            key, text = key.strip(), text.strip()
+            if prefix and not key.startswith(prefix):
+                continue
+            lines.append((key, text))
+    return lines
+
+
+async def synthesize(edge_tts, key, text, voice, rate, pitch):
+    mp3_path = os.path.join(RAW, key + ".mp3")
+    ogg_path = os.path.join(RAW, key + ".ogg")
+
+    communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+    await communicate.save(mp3_path)
+
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", mp3_path,
+         "-c:a", "libvorbis", "-qscale:a", "4", "-ar", "24000", "-ac", "1", ogg_path],
+        check=True,
+    )
+    os.remove(mp3_path)
+    return ogg_path
+
+
+async def main_async(args):
+    try:
+        import edge_tts
+    except ImportError:
+        sys.exit("edge-tts is not installed.  pip install edge-tts")
+
+    if not shutil.which("ffmpeg"):
+        sys.exit("ffmpeg is not on PATH — needed to convert mp3 to ogg.")
+
+    lines = read_manifest(args.prefix)
+    if not lines:
+        sys.exit("No lines matched. Check the prefix, e.g. ch1_s0")
+
+    print("Generating %d line(s) with %s\n" % (len(lines), args.voice))
+    for index, (key, text) in enumerate(lines, 1):
+        target = os.path.join(RAW, key + ".ogg")
+        if os.path.exists(target) and not args.force:
+            print("  %2d/%d  %-14s skipped (already there)" % (index, len(lines), key))
+            continue
+        try:
+            path = await synthesize(edge_tts, key, text, args.voice, args.rate, args.pitch)
+            print("  %2d/%d  %-14s %6.1f KB  %s" % (
+                index, len(lines), key, os.path.getsize(path) / 1024, text[:42] + "…"))
+        except Exception as exc:  # keep going; one bad line shouldn't stop the batch
+            print("  %2d/%d  %-14s FAILED: %s" % (index, len(lines), key, exc))
+
+    print("\nDone. Rebuild the app and the lessons will use these recordings.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("prefix", nargs="?", help="only keys starting with this, e.g. ch1_s2")
+    parser.add_argument("--voice", default="fa-IR-DilaraNeural")
+    parser.add_argument("--rate", default="-8%", help="speaking rate, slower suits young children")
+    parser.add_argument("--pitch", default="+0Hz")
+    parser.add_argument("--force", action="store_true", help="regenerate files that already exist")
+    asyncio.run(main_async(parser.parse_args()))
+
+
+if __name__ == "__main__":
+    main()

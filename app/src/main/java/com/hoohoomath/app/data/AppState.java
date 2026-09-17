@@ -40,8 +40,19 @@ public final class AppState {
     public int taughtChapter;
     public int taughtSection;
 
-    // --- settings toggles: [صوتی سؤال‌ها, یادآور روزانه, رقابت هم‌کلاسی, محدودیت زمانی] ---
+    // --- settings toggles, all of which actually do something ---
+    public static final int SETTING_READ_ALOUD = 0;    // هوهو reads questions out loud
+    public static final int SETTING_SOUND_EFFECTS = 1; // taps, praise, stars
+    public static final int SETTING_MUSIC = 2;         // the quiet background loop
+    public static final int SETTING_TIPS = 3;          // هوهو's speech bubble
+    private static final int SETTINGS_VERSION = 2;
+
     public boolean[] settings = {true, true, false, true};
+
+    public boolean readAloud() { return settings[SETTING_READ_ALOUD]; }
+    public boolean soundEffects() { return settings[SETTING_SOUND_EFFECTS]; }
+    public boolean music() { return settings[SETTING_MUSIC]; }
+    public boolean tipsEnabled() { return settings[SETTING_TIPS]; }
 
     // --- parent gate ---
     private String pinHash; // null until parent sets one up
@@ -124,6 +135,19 @@ public final class AppState {
         persist();
     }
 
+    /**
+     * Where the child has dragged هوهو to, as a fraction of the screen. -1 means "never moved",
+     * so the mascot stays in its default corner.
+     */
+    public float mascotX = -1f;
+    public float mascotY = -1f;
+
+    public void setMascotPosition(float xFraction, float yFraction) {
+        this.mascotX = xFraction;
+        this.mascotY = yFraction;
+        prefs.edit().putFloat("mascotX", xFraction).putFloat("mascotY", yFraction).apply();
+    }
+
     public List<QuizResult> getHistory() {
         return Collections.unmodifiableList(history);
     }
@@ -202,7 +226,12 @@ public final class AppState {
         learnerName = prefs.getString("learnerName", "");
         taughtChapter = prefs.getInt("taughtChapter", 0);
         taughtSection = prefs.getInt("taughtSection", 0);
-        for (int i = 0; i < settings.length; i++) settings[i] = prefs.getBoolean("setting" + i, settings[i]);
+        // the toggles changed meaning in version 2, so old values are dropped rather than carried over
+        if (prefs.getInt("settingsVersion", 1) == SETTINGS_VERSION) {
+            for (int i = 0; i < settings.length; i++) settings[i] = prefs.getBoolean("setting" + i, settings[i]);
+        } else {
+            prefs.edit().putInt("settingsVersion", SETTINGS_VERSION).apply();
+        }
         pinHash = prefs.getString("pinHash", null);
         recoveryQuestionIndex = prefs.getInt("recIdx", 0);
         recoveryAnswerHash = prefs.getString("recAnswerHash", null);
@@ -210,6 +239,8 @@ public final class AppState {
         completedSections.clear();
         Set<String> saved = prefs.getStringSet("completedSections", null);
         if (saved != null) completedSections.addAll(saved);
+        mascotX = prefs.getFloat("mascotX", -1f);
+        mascotY = prefs.getFloat("mascotY", -1f);
     }
 
     private String historyToJson() {

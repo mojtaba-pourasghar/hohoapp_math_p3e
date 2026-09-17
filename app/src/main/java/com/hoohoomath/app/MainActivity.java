@@ -1,10 +1,13 @@
 package com.hoohoomath.app;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.PorterDuff;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -13,8 +16,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.hoohoomath.app.data.AppState;
+import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.ui.Navigator;
 import com.hoohoomath.app.ui.Screen;
+import com.hoohoomath.app.ui.UiKit;
 import com.hoohoomath.app.ui.mascot.HooHooView;
 import com.hoohoomath.app.ui.mascot.MascotController;
 import com.hoohoomath.app.ui.screens.ChaptersFragment;
@@ -58,11 +63,14 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         setContentView(R.layout.activity_main);
 
         HooHooView mascotView = findViewById(R.id.mascot_view);
-        TextView bubble = findViewById(R.id.mascot_bubble);
-        mascotController = new MascotController(mascotView, bubble);
+        View bubbleWrap = findViewById(R.id.mascot_bubble_wrap);
+        TextView bubbleText = findViewById(R.id.mascot_bubble);
+        mascotController = new MascotController(mascotView, bubbleWrap, bubbleText);
+        findViewById(R.id.mascot_bubble_close).setOnClickListener(v -> mascotController.hideBubble());
 
         navBar = findViewById(R.id.nav_bar);
         mascotOverlay = findViewById(R.id.mascot_overlay);
+        enableMascotDragging();
 
         navMap = findViewById(R.id.nav_map);
         navSections = findViewById(R.id.nav_sections);
@@ -81,6 +89,95 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        SoundManager sound = SoundManager.get();
+        if (sound != null) sound.startMusic();
+    }
+
+    @Override
+    protected void onPause() {
+        SoundManager sound = SoundManager.get();
+        if (sound != null) sound.pauseMusic();
+        super.onPause();
+    }
+
+    /**
+     * Lets the child pick هوهو up and put it wherever it isn't in the way. The spot is kept as a
+     * fraction of the screen so it survives rotation and comes back next time.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void enableMascotDragging() {
+        final float[] down = new float[2];
+        final float[] origin = new float[2];
+        final boolean[] dragging = {false};
+
+        mascotOverlay.setOnTouchListener((view, event) -> {
+            ViewGroup parent = (ViewGroup) view.getParent();
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    down[0] = event.getRawX();
+                    down[1] = event.getRawY();
+                    origin[0] = view.getTranslationX();
+                    origin[1] = view.getTranslationY();
+                    dragging[0] = false;
+                    return true;
+                case MotionEvent.ACTION_MOVE: {
+                    float dx = event.getRawX() - down[0];
+                    float dy = event.getRawY() - down[1];
+                    if (!dragging[0] && Math.hypot(dx, dy) < UiKit.dp(this, 8)) return true;
+                    dragging[0] = true;
+                    view.setTranslationX(clampX(parent, view, origin[0] + dx));
+                    view.setTranslationY(clampY(parent, view, origin[1] + dy));
+                    return true;
+                }
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (dragging[0]) {
+                        saveMascotPosition(parent, view);
+                    } else {
+                        view.performClick();
+                    }
+                    return true;
+                default:
+                    return false;
+            }
+        });
+
+        mascotOverlay.post(this::restoreMascotPosition);
+    }
+
+    private float clampX(ViewGroup parent, View view, float translation) {
+        float min = -view.getLeft();
+        float max = parent.getWidth() - view.getLeft() - view.getWidth();
+        return Math.max(min, Math.min(translation, max));
+    }
+
+    private float clampY(ViewGroup parent, View view, float translation) {
+        float min = -view.getTop();
+        float max = parent.getHeight() - view.getTop() - view.getHeight();
+        return Math.max(min, Math.min(translation, max));
+    }
+
+    private void saveMascotPosition(ViewGroup parent, View view) {
+        if (parent.getWidth() == 0 || parent.getHeight() == 0) return;
+        float x = (view.getLeft() + view.getTranslationX()) / parent.getWidth();
+        float y = (view.getTop() + view.getTranslationY()) / parent.getHeight();
+        AppState.get().setMascotPosition(x, y);
+    }
+
+    private void restoreMascotPosition() {
+        AppState s = AppState.get();
+        if (s.mascotX < 0 || s.mascotY < 0) return;
+        ViewGroup parent = (ViewGroup) mascotOverlay.getParent();
+        if (parent == null || parent.getWidth() == 0) return;
+        float targetX = s.mascotX * parent.getWidth();
+        float targetY = s.mascotY * parent.getHeight();
+        mascotOverlay.setTranslationX(clampX(parent, mascotOverlay, targetX - mascotOverlay.getLeft()));
+        mascotOverlay.setTranslationY(clampY(parent, mascotOverlay, targetY - mascotOverlay.getTop()));
+    }
+
     private interface Action { void run(); }
 
     private void bindNavItem(View item, int iconRes, String label, Action onClick) {
@@ -89,6 +186,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         icon.setImageResource(iconRes);
         text.setText(label);
         item.setOnClickListener(v -> onClick.run());
+        UiKit.tapSound(item);
     }
 
     @Override
@@ -106,9 +204,12 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         boolean chromeVisible = screen != Screen.SPLASH && screen != Screen.PARENT_GATE;
         navBar.setVisibility(chromeVisible ? View.VISIBLE : View.GONE);
         mascotOverlay.setVisibility(screen == Screen.SPLASH ? View.GONE : View.VISIBLE);
+        mascotController.hideBubble();
 
         if (screen != Screen.SPLASH && currentScreen != null) {
             mascotController.onScreenTransition();
+            SoundManager sound = SoundManager.get();
+            if (sound != null) sound.page();
         }
         currentScreen = screen;
         updateNavHighlight(screen);

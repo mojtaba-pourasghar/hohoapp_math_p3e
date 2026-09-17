@@ -49,6 +49,21 @@ public final class UiKit {
         if (tf != null) tv.setTypeface(tf);
     }
 
+    /**
+     * Gives a control the little wooden tap sound. Attached as a touch listener that never
+     * consumes the event, so whatever click handling the view already has keeps working.
+     */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    public static void tapSound(View v) {
+        v.setOnTouchListener((view, event) -> {
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                com.hoohoomath.app.tts.SoundManager sm = com.hoohoomath.app.tts.SoundManager.get();
+                if (sm != null) sm.tap();
+            }
+            return false;
+        });
+    }
+
     public static int dp(Context c, float dp) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, c.getResources().getDisplayMetrics());
     }
@@ -156,6 +171,7 @@ public final class UiKit {
             lp.setMargins(dp(c, 5), dp(c, 5), dp(c, 5), dp(c, 5));
             keyView.setLayoutParams(lp);
             keyView.setOnClickListener(v -> onKey.accept(key));
+            tapSound(keyView);
             grid.addView(keyView);
         }
         return grid;

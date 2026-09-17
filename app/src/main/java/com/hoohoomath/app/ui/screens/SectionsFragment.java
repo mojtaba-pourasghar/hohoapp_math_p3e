@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
+import com.hoohoomath.app.data.Chapter1Lessons;
+import com.hoohoomath.app.data.PersianDigits;
 import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
@@ -67,34 +69,68 @@ public class SectionsFragment extends BaseFragment {
             boolean open = allowed.contains(i);
             list.addView(buildRow(ch, i, open));
         }
+        list.addView(buildChapterLink("کاربرگ‌های این فصل ›", R.color.orange_bg, R.color.orange_border, R.color.orange_text,
+            () -> {
+                Bundle args = new Bundle();
+                args.putInt("chapter", ch.index);
+                nav().go(Screen.WORKSHEET_INDEX, args);
+            }));
+        list.addView(buildChapterLink("آزمون این فصل ›", R.color.pink_bg, R.color.pink_border, R.color.pink_dark,
+            () -> {
+                Bundle args = new Bundle();
+                args.putInt("chapter", ch.index);
+                nav().go(Screen.EXAM_INDEX, args);
+            }));
+    }
+
+    /** Shortcut off the bottom of the section list, so a finished chapter stays one tap away. */
+    private View buildChapterLink(String label, int bgRes, int borderRes, int textRes, Runnable onClick) {
+        TextView link = UiKit.text(requireContext(), label, 13.5f, textRes, true);
+        link.setGravity(Gravity.CENTER);
+        link.setPadding(0, UiKit.dp(requireContext(), 14), 0, UiKit.dp(requireContext(), 14));
+        UiKit.applyCardBg(link, requireContext(), bgRes, borderRes);
+        link.setLayoutParams(UiKit.marginParams(requireContext(), 0, 8));
+        link.setOnClickListener(v -> onClick.run());
+        UiKit.tapSound(link);
+        return link;
     }
 
     private View buildRow(Book.Chapter ch, int i, boolean open) {
-        LinearLayout row = UiKit.row(requireContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14));
-        UiKit.applyCardBg(row, requireContext(), open ? R.color.bg_card : R.color.bg_card_muted, open ? R.color.border_green : R.color.border_muted);
-        row.setLayoutParams(UiKit.marginParams(requireContext(), 0, 10));
+        LinearLayout card = UiKit.column(requireContext());
+        card.setPadding(UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14), UiKit.dp(requireContext(), 14));
+        UiKit.applyCardBg(card, requireContext(), open ? R.color.bg_card : R.color.bg_card_muted, open ? R.color.border_green : R.color.border_muted);
+        card.setLayoutParams(UiKit.marginParams(requireContext(), 0, 10));
 
-        LinearLayout textCol = UiKit.column(requireContext());
-        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        textCol.setLayoutParams(textLp);
         AppState s = state();
         boolean learned = s.isSectionLessonDone(ch.index, i);
+        boolean hasLesson = Chapter1Lessons.forSection(i) != null && ch.index == 0;
         int nextRound = s.getRound("PRACTICE_" + ch.index + "_" + i) + 1;
-        String title = com.hoohoomath.app.data.PersianDigits.fa(i + 1) + ". " + ch.sections.get(i) + (learned ? "  ✓" : "");
+
+        String title = PersianDigits.fa(i + 1) + ". " + ch.sections.get(i) + (learned ? "  ✓" : "");
         String sub = !open ? "هنوز درس داده نشده"
-            : "۱۵ سؤال تازه در هر دور · دور " + com.hoohoomath.app.data.PersianDigits.fa(nextRound);
-        textCol.addView(UiKit.text(requireContext(), title, 14.5f, R.color.text_primary, true));
-        textCol.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
+            : "۱۵ سؤال تازه در هر دور · دور " + PersianDigits.fa(nextRound);
+        card.addView(UiKit.text(requireContext(), title, 14.5f, R.color.text_primary, true));
+        card.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
 
-        TextView cta = UiKit.text(requireContext(), open ? "تمرین کن" : "قفل است", 13f, R.color.white, true);
-        cta.setGravity(Gravity.CENTER);
-        cta.setPadding(UiKit.dp(requireContext(), 16), UiKit.dp(requireContext(), 10), UiKit.dp(requireContext(), 16), UiKit.dp(requireContext(), 10));
-        cta.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), open ? R.color.teal : R.color.lock_bg), 0, 999f, requireContext()));
-        if (!open) cta.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_faint));
+        LinearLayout buttons = UiKit.row(requireContext());
+        buttons.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
 
-        cta.setOnClickListener(v -> {
+        if (open && hasLesson) {
+            TextView lesson = pill(learned ? "دوباره ببین" : "درس هوهو", R.color.orange, R.color.white);
+            lesson.setOnClickListener(v -> {
+                Bundle args = new Bundle();
+                args.putInt("chapter", ch.index);
+                args.putInt("section", i);
+                nav().go(Screen.LESSON, args);
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lp.setMarginEnd(UiKit.dp(requireContext(), 6));
+            buttons.addView(lesson, lp);
+        }
+
+        TextView practice = pill(open ? "تمرین کن" : "قفل است", open ? R.color.teal : R.color.lock_bg,
+            open ? R.color.white : R.color.text_faint);
+        practice.setOnClickListener(v -> {
             if (!open) {
                 mascot().comfort("این بخش هنوز درس داده نشده است.");
                 return;
@@ -105,10 +141,19 @@ public class SectionsFragment extends BaseFragment {
             args.putInt("option", i);
             nav().go(Screen.QUIZ, args);
         });
+        buttons.addView(practice, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        row.addView(textCol);
-        row.addView(cta);
-        return row;
+        card.addView(buttons);
+        return card;
+    }
+
+    private TextView pill(String label, int bgRes, int textRes) {
+        TextView tv = UiKit.text(requireContext(), label, 13f, textRes, true);
+        tv.setGravity(Gravity.CENTER);
+        tv.setPadding(0, UiKit.dp(requireContext(), 11), 0, UiKit.dp(requireContext(), 11));
+        tv.setBackground(UiKit.roundedBg(ContextCompat.getColor(requireContext(), bgRes), 0, 999f, requireContext()));
+        UiKit.tapSound(tv);
+        return tv;
     }
 
     @Override

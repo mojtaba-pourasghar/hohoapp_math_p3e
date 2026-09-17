@@ -20,6 +20,12 @@ public final class FeedbackDialog {
     private FeedbackDialog() {}
 
     public static void show(Context ctx, boolean ok, String message, String buttonLabel, Runnable onDismiss) {
+        com.hoohoomath.app.tts.SoundManager sound = com.hoohoomath.app.tts.SoundManager.get();
+        if (sound != null) {
+            if (ok) sound.correct();
+            else sound.wrong();
+        }
+
         BottomSheetDialog dialog = new BottomSheetDialog(ctx);
         View content = LayoutInflater.from(ctx).inflate(R.layout.dialog_feedback, null);
 

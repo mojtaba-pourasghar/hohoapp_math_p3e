@@ -44,6 +44,9 @@ public class ResultFragment extends BaseFragment {
         boolean good = res.rightCount >= res.items.size() * 0.8;
         boolean passed = res.rightCount >= res.items.size() * 0.7;
 
+        com.hoohoomath.app.tts.SoundManager sound = com.hoohoomath.app.tts.SoundManager.get();
+        if (sound != null && good) sound.win();
+
         ((TextView) view.findViewById(R.id.result_score)).setText(fa(res.rightCount) + "/" + fa(res.items.size()));
         ((TextView) view.findViewById(R.id.result_title)).setText(good ? "عالی بود!" : passed ? "خوب بود!" : "خوب شروع کردی");
         ((TextView) view.findViewById(R.id.result_msg)).setText(good

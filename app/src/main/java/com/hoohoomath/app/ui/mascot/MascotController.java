@@ -7,28 +7,57 @@ import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.TextView;
 
+import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.tts.HootSoundPlayer;
+import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.tts.TtsManager;
 
 import java.util.Random;
 
 /**
- * Ties the owl view + its speech bubble + TTS together into the handful of things the
- * rest of the app asks هوهو to do: say a line, celebrate a right answer, comfort a wrong
- * one, or fly a little on screen/loading transitions. هوهو does NOT fly nonstop — only on
- * these specific moments (per the design brief), otherwise it just breathes/blinks in place.
+ * Ties the owl view + its speech bubble + TTS together into the handful of things the rest of the
+ * app asks هوهو to do: say a line, celebrate a right answer, comfort a wrong one, or fly a little
+ * on screen and loading transitions. هوهو does NOT fly nonstop — only at those moments.
+ *
+ * The bubble can be closed with its × and switched off entirely from the parent panel, because a
+ * character who talks over everything gets annoying fast.
  */
 public class MascotController {
     private final HooHooView owl;
-    private final TextView bubble;
+    private final View bubbleWrap;
+    private final TextView bubbleText;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Random random = new Random();
 
     private Runnable pendingRevert;
 
-    public MascotController(HooHooView owl, TextView bubble) {
+    public MascotController(HooHooView owl, View bubbleWrap, TextView bubbleText) {
         this.owl = owl;
-        this.bubble = bubble;
+        this.bubbleWrap = bubbleWrap;
+        this.bubbleText = bubbleText;
+    }
+
+    private boolean bubblesAllowed() {
+        try {
+            return AppState.get().tipsEnabled();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private void setBubble(String text) {
+        if (bubbleWrap == null || bubbleText == null) return;
+        if (!bubblesAllowed() || text == null || text.isEmpty()) {
+            bubbleWrap.setVisibility(View.GONE);
+            return;
+        }
+        bubbleText.setText(text);
+        bubbleWrap.setVisibility(View.VISIBLE);
+    }
+
+    /** The × on the bubble — closes whatever هوهو is currently showing. */
+    public void hideBubble() {
+        if (bubbleWrap != null) bubbleWrap.setVisibility(View.GONE);
     }
 
     /**
@@ -36,19 +65,13 @@ public class MascotController {
      * (the lesson plays recorded narration) and just want هوهو's mouth to move along.
      */
     public void showBubble(String text, boolean speaking) {
-        if (bubble != null) {
-            bubble.setText(text);
-            bubble.setVisibility(View.VISIBLE);
-        }
+        setBubble(text);
         owl.setSpeaking(speaking);
     }
 
     /** هوهو speaks a line and its beak animates while the audio plays. */
     public void say(String text) {
-        if (bubble != null) {
-            bubble.setText(text);
-            bubble.setVisibility(View.VISIBLE);
-        }
+        setBubble(text);
         owl.setSpeaking(true);
         TtsManager tts = TtsManager.get();
         if (tts != null) {
@@ -59,13 +82,15 @@ public class MascotController {
         }
     }
 
-    /** Correct answer: happy bounce, sometimes a hoot, then settles back to idle. */
+    /** Correct answer: happy bounce, a sparkle, sometimes a hoot, then back to idle. */
     public void celebrate(String praiseText) {
         cancelPendingRevert();
         owl.setMood(HooHooView.Mood.HAPPY);
         owl.setFlying(true);
         bounce();
-        if (random.nextFloat() < 0.35f) HootSoundPlayer.playHoot();
+        SoundManager sound = SoundManager.get();
+        if (sound != null) sound.star();
+        if (random.nextFloat() < 0.3f) HootSoundPlayer.playHoot();
         if (praiseText != null) say(praiseText);
         pendingRevert = () -> {
             owl.setMood(HooHooView.Mood.IDLE);

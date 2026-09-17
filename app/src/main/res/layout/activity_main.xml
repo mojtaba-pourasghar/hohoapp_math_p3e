@@ -44,20 +44,40 @@
         android:layout_marginStart="10dp"
         android:layout_marginBottom="8dp">
 
-        <TextView
-            android:id="@+id/mascot_bubble"
+        <LinearLayout
+            android:id="@+id/mascot_bubble_wrap"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
             android:layout_marginBottom="64dp"
             android:layout_marginStart="8dp"
-            android:maxWidth="220dp"
+            android:orientation="horizontal"
+            android:gravity="top"
             android:background="@drawable/bg_speech_bubble"
             android:padding="10dp"
-            android:textColor="@color/text_primary"
-            android:textSize="12.5sp"
-            android:visibility="gone"
-            tools:text="سلام! من هوهو هستم." />
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/mascot_bubble_close"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:gravity="center"
+                android:text="×"
+                android:textSize="17sp"
+                android:textColor="@color/text_muted"
+                android:background="@drawable/bg_bubble_close"
+                android:contentDescription="بستن پیام" />
+
+            <TextView
+                android:id="@+id/mascot_bubble"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:maxWidth="210dp"
+                android:textColor="@color/text_primary"
+                android:textSize="12.5sp"
+                tools:text="سلام! من هوهو هستم." />
+        </LinearLayout>
 
         <com.hoohoomath.app.ui.mascot.HooHooView
             android:id="@+id/mascot_view"
