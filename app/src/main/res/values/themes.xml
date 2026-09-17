@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!--
-      The design prototype uses the "Vazirmatn" Persian webfont. We default to the
-      system sans-serif here (renders Persian correctly via Noto Sans Arabic fallback
-      on all Android versions) since no font binary was available to embed. Drop a
-      vazirmatn.ttf into res/font and switch fontFamily below to upgrade the look.
-    -->
+    <!-- Vazirmatn Persian font embedded in res/font, applied app-wide. -->
     <style name="Theme.HooHooMath" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/teal</item>
         <item name="colorPrimaryDark">@color/teal_dark</item>
@@ -13,7 +8,18 @@
         <item name="android:windowBackground">@color/bg_page</item>
         <item name="android:statusBarColor">@color/bg_page</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:fontFamily">sans-serif</item>
-        <item name="fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:textViewStyle">@style/HooHooTextView</item>
+        <item name="android:buttonStyle">@style/HooHooButton</item>
+        <item name="materialButtonStyle">@style/HooHooButton</item>
+    </style>
+
+    <style name="HooHooTextView" parent="android:Widget.TextView">
+        <item name="android:fontFamily">@font/vazirmatn</item>
+    </style>
+
+    <style name="HooHooButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:fontFamily">@font/vazirmatn</item>
     </style>
 </resources>

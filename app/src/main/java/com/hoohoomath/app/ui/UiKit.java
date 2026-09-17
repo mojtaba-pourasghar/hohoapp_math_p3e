@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.core.content.ContextCompat;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.PersianDigits;
@@ -25,6 +26,29 @@ import java.util.function.Consumer;
  */
 public final class UiKit {
     private UiKit() {}
+
+    private static Typeface regularCache;
+    private static Typeface boldCache;
+
+    /** Vazirmatn embedded in res/font — the app's single Persian typeface. */
+    public static Typeface font(Context c, boolean bold) {
+        try {
+            if (bold) {
+                if (boldCache == null) boldCache = ResourcesCompat.getFont(c, R.font.vazirmatn_bold);
+                if (boldCache != null) return boldCache;
+            } else {
+                if (regularCache == null) regularCache = ResourcesCompat.getFont(c, R.font.vazirmatn_regular);
+                if (regularCache != null) return regularCache;
+            }
+        } catch (Exception ignored) {
+        }
+        return bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT;
+    }
+
+    public static void applyFont(android.widget.TextView tv, boolean bold) {
+        Typeface tf = font(tv.getContext(), bold);
+        if (tf != null) tv.setTypeface(tf);
+    }
 
     public static int dp(Context c, float dp) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, c.getResources().getDisplayMetrics());
@@ -60,7 +84,7 @@ public final class UiKit {
         tv.setText(s);
         tv.setTextSize(sizeSp);
         tv.setTextColor(ContextCompat.getColor(c, colorRes));
-        if (bold) tv.setTypeface(Typeface.DEFAULT_BOLD);
+        applyFont(tv, bold);
         return tv;
     }
 
@@ -88,6 +112,7 @@ public final class UiKit {
         b.setText(label);
         b.setAllCaps(false);
         b.setTextColor(ContextCompat.getColor(c, textColorRes));
+        applyFont(b, true);
         b.setTextSize(14.5f);
         b.setPadding(dp(c, 20), dp(c, 12), dp(c, 20), dp(c, 12));
         b.setBackground(roundedBg(bgColor, 0, 14f, c));
@@ -119,6 +144,7 @@ public final class UiKit {
             TextView keyView = new TextView(c);
             keyView.setText(key);
             keyView.setTextSize(18f);
+            applyFont(keyView, true);
             keyView.setGravity(Gravity.CENTER);
             keyView.setTextColor(ContextCompat.getColor(c, R.color.text_primary));
             boolean special = key.equals("⌫") || key.equals("C");
@@ -180,7 +206,7 @@ public final class UiKit {
         TextView tv = new TextView(c);
         tv.setText(label);
         tv.setTextSize(12.5f);
-        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        applyFont(tv, true);
         tv.setTextColor(textColor);
         tv.setPadding(dp(c, 14), dp(c, 7), dp(c, 14), dp(c, 7));
         tv.setBackground(pillBg(fillColor, strokeColor, c));

@@ -57,6 +57,7 @@ final class ScreenHelpers {
         headRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView numChip = new TextView(c);
         numChip.setText(level.numberFa);
+        UiKit.applyFont(numChip, true);
         numChip.setTextColor(Color.WHITE);
         numChip.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(UiKit.dp(c, 34), UiKit.dp(c, 34));

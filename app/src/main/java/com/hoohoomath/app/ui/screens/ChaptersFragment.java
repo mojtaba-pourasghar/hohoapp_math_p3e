@@ -61,6 +61,7 @@ public class ChaptersFragment extends BaseFragment {
 
         TextView chip = new TextView(requireContext());
         chip.setText(ch.numberFa);
+        UiKit.applyFont(chip, true);
         chip.setTextColor(Color.WHITE);
         chip.setGravity(Gravity.CENTER);
         chip.setTextSize(17f);
