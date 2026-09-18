@@ -19,6 +19,26 @@ import java.util.List;
 public final class QuestionVoice {
     private QuestionVoice() {}
 
+    /**
+     * How each symbol is said out loud. A speech engine cannot read «×» or «⬜», so the recording
+     * for a piece of wording is made from the spoken form — and a piece that is only punctuation
+     * is skipped altogether. tools/make_manifest.py holds the very same table; change one and you
+     * must change the other, or the app will look for a clip that was never recorded.
+     */
+    private static final String[][] SPOKEN = {
+        {"⬜", "چند"}, {"×", "ضربدر"}, {"÷", "تقسیم بر"}, {"−", "منهای"}, {"–", "منهای"},
+        {"+", "به‌اضافه‌ی"}, {"=", "مساوی"}, {"→", "می‌شود"}, {"/", "روی"},
+        {"«", " "}, {"»", " "}, {"،", " "}, {".", " "}, {"؟", " "}, {"!", " "}, {":", " "},
+        {"؛", " "}, {"(", " "}, {")", " "}, {"—", " "}, {"…", " "}, {"⌫", " "},
+    };
+
+    /** The words a piece of wording is read as; empty when there is nothing to say. */
+    public static String spokenForm(String piece) {
+        String out = piece;
+        for (String[] pair : SPOKEN) out = out.replace(pair[0], " " + pair[1] + " ");
+        return out.replaceAll("\\s+", " ").trim();
+    }
+
     /** The clips that read this question, or null when it has something we cannot say. */
     public static List<String> clips(String question) {
         if (question == null || question.isEmpty()) return null;
@@ -39,7 +59,8 @@ public final class QuestionVoice {
                 int start = i;
                 while (i < n && !isDigit(question.charAt(i))) i++;
                 String piece = question.substring(start, i).trim();
-                if (!piece.isEmpty()) out.add(phraseKey(piece));
+                // punctuation on its own is a pause, not a word — nothing to play
+                if (!piece.isEmpty() && !spokenForm(piece).isEmpty()) out.add(phraseKey(piece));
             }
         }
         return out.isEmpty() ? null : out;

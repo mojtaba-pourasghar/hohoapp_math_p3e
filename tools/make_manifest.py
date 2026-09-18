@@ -50,6 +50,22 @@ def number_word(value):
     return None
 
 
+# the same table as tts/QuestionVoice.SPOKEN — a speech engine cannot read «×» or «⬜»
+SPOKEN = [
+    ("⬜", "چند"), ("×", "ضربدر"), ("÷", "تقسیم بر"), ("−", "منهای"), ("–", "منهای"),
+    ("+", "به‌اضافه‌ی"), ("=", "مساوی"), ("→", "می‌شود"), ("/", "روی"),
+    ("«", " "), ("»", " "), ("،", " "), (".", " "), ("؟", " "), ("!", " "), (":", " "),
+    ("؛", " "), ("(", " "), (")", " "), ("—", " "), ("…", " "), ("⌫", " "),
+]
+
+
+def spoken_form(piece):
+    out = piece
+    for symbol, word in SPOKEN:
+        out = out.replace(symbol, " " + word + " ")
+    return re.sub(r"\s+", " ", out).strip()
+
+
 def phrase_key(piece):
     return "q_" + hashlib.sha1(piece.encode("utf-8")).hexdigest()[:10]
 
@@ -74,12 +90,15 @@ def question_words():
                 piece = piece.strip()
                 if not piece or piece in seen:
                     continue
+                said = spoken_form(piece)
+                if not said:          # only punctuation: the app skips it too
+                    continue
                 seen.add(piece)
-                pieces.append(piece)
+                pieces.append((piece, said))
 
     lines.append("\n# ---- تکه‌های متنِ سؤال‌ها ----")
-    for piece in pieces:
-        lines.append("%s | %s" % (phrase_key(piece), piece))
+    for piece, said in pieces:
+        lines.append("%s | %s" % (phrase_key(piece), said))
     return "\n".join(lines), 102 + 8 + 1 + 1 + len(pieces) - 1
 
 
