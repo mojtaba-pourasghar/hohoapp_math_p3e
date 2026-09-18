@@ -84,7 +84,8 @@ async def main_async(args):
         sys.exit("No lines matched. Check the prefix, e.g. ch1_s0")
 
     ext = ".ogg" if to_ogg else ".mp3"
-    print("Generating %d line(s) with %s as %s\n" % (len(lines), args.voice, ext))
+    print("Generating %d line(s) with %s as %s (examples at %s)\n"
+          % (len(lines), args.voice, ext, args.example_rate))
     for index, (key, text) in enumerate(lines, 1):
         # a zero-byte file is a leftover from a failed run, not a recording — treat it as missing,
         # otherwise that line stays silent for ever because the generator keeps skipping it
@@ -101,7 +102,9 @@ async def main_async(args):
             print("  %2d/%d  %-14s skipped (already there)" % (index, len(lines), key))
             continue
         try:
-            path = await synthesize(edge_tts, key, text, args.voice, args.rate, args.pitch, to_ogg)
+            # an example is the second try at an idea, so هوهو takes her time over it
+            rate = args.example_rate if key.endswith("x") else args.rate
+            path = await synthesize(edge_tts, key, text, args.voice, rate, args.pitch, to_ogg)
             print("  %2d/%d  %-14s %6.1f KB  %s" % (
                 index, len(lines), key, os.path.getsize(path) / 1024, text[:42] + "…"))
         except Exception as exc:  # keep going; one bad line shouldn't stop the batch
@@ -120,6 +123,8 @@ def main():
     parser.add_argument("prefix", nargs="?", help="only keys starting with this, e.g. ch1_s2")
     parser.add_argument("--voice", default="fa-IR-DilaraNeural")
     parser.add_argument("--rate", default="-8%", help="speaking rate, slower suits young children")
+    parser.add_argument("--example-rate", default="-25%",
+                        help="rate for the «یک مثال دیگر» lines (keys ending in x), slower still")
     parser.add_argument("--pitch", default="+0Hz")
     parser.add_argument("--format", default="auto", choices=["auto", "ogg", "mp3"],
                         help="auto uses ogg when ffmpeg is available, otherwise mp3")

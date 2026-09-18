@@ -39,8 +39,11 @@ public class LessonStageView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private StageSpec spec = StageSpec.NONE;
-    /** While a question is on screen the scene must not give the answer away. */
-    private boolean answersHidden = false;
+    /**
+     * While a question is on screen the scene must not give the answer away. Hidden by default,
+     * so a screen that forgets to say otherwise can never leak it.
+     */
+    private boolean answersHidden = true;
     private float progress = 0f;
     private ValueAnimator animator;
 
@@ -1100,10 +1103,15 @@ public class LessonStageView extends View {
             stroke.setStrokeWidth(dp(2));
             canvas.drawRoundRect(cell, dp(8), dp(8), stroke);
 
-            if (appear > 0f) {
+            boolean isAnswerCell = answersHidden && i == values.length - 1 && values.length > 1;
+            if (appear > 0f && !isAnswerCell) {
                 textPaint.setColor(INK);
                 textPaint.setTextSize(sp(17) * (0.7f + 0.3f * appear));
                 canvas.drawText(PersianDigits.fa(values[i]), cell.centerX(), cell.centerY() + dp(6), textPaint);
+            } else if (isAnswerCell) {
+                textPaint.setColor(PINK);
+                textPaint.setTextSize(sp(18));
+                canvas.drawText("؟", cell.centerX(), cell.centerY() + dp(6), textPaint);
             }
 
             // the jump arrow to the next cell, labelled with the real difference — patterns like
@@ -1517,9 +1525,15 @@ public class LessonStageView extends View {
         int maxRows = rowsFor(biggest).length;
         float cell = Math.min(slot / (maxRows + 0.6f), (h - band - pad * 2) / (maxRows + 0.6f));
 
+        // the last figure of a pattern is what the child is being asked for
+        int shownFigures = answersHidden && counts.length > 1 ? counts.length - 1 : counts.length;
         for (int i = 0; i < counts.length; i++) {
             float appear = clamp(progress * counts.length - i, 0f, 1f);
             if (appear <= 0f) continue;
+            if (i >= shownFigures) {
+                drawEmptySlot(canvas, w - pad - i * slot - dp(6), pad + (h - band - pad * 2), cell);
+                continue;
+            }
             int[] rows = rowsFor(counts[i]);
             float rightEdge = w - pad - i * slot - dp(6);
             float bottom = pad + (h - band - pad * 2);
@@ -1550,6 +1564,16 @@ public class LessonStageView extends View {
                 canvas.drawText("+" + PersianDigits.fa(counts[i + 1] - counts[i]), ax, h - dp(40), textPaint);
             }
         }
+    }
+
+    /** A dashed box where the answer would be, so the child sees there is something to find. */
+    private void drawEmptySlot(Canvas canvas, float rightEdge, float bottom, float cell) {
+        float size = cell * 1.6f;
+        RectF box = new RectF(rightEdge - size, bottom - size, rightEdge, bottom);
+        canvas.drawRoundRect(box, dp(6), dp(6), dashed);
+        textPaint.setColor(PINK);
+        textPaint.setTextSize(sp(18));
+        canvas.drawText("؟", box.centerX(), box.centerY() + dp(6), textPaint);
     }
 
     /** Squares per row of the staircase figure that holds `count` squares. */

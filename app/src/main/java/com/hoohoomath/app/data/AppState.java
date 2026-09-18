@@ -46,9 +46,11 @@ public final class AppState {
     public static final int SETTING_MUSIC = 2;         // the quiet background loop
     public static final int SETTING_TIPS = 3;          // هوهو's speech bubble
     public static final int SETTING_FLY = 4;           // هوهو flies over to what she explains
-    private static final int SETTINGS_VERSION = 3;
+    private static final int SETTINGS_VERSION = 4;
 
-    public boolean[] settings = {true, true, false, true, true};
+    // the tooltip is off by default: the lesson already prints what هوهو says, and the bubble
+    // only gets in the way unless a parent asks for it
+    public boolean[] settings = {true, true, false, false, true};
 
     public boolean readAloud() { return settings[SETTING_READ_ALOUD]; }
     public boolean soundEffects() { return settings[SETTING_SOUND_EFFECTS]; }
