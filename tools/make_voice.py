@@ -86,7 +86,17 @@ async def main_async(args):
     ext = ".ogg" if to_ogg else ".mp3"
     print("Generating %d line(s) with %s as %s\n" % (len(lines), args.voice, ext))
     for index, (key, text) in enumerate(lines, 1):
-        already = [e for e in (".ogg", ".mp3", ".wav") if os.path.exists(os.path.join(RAW, key + e))]
+        # a zero-byte file is a leftover from a failed run, not a recording — treat it as missing,
+        # otherwise that line stays silent for ever because the generator keeps skipping it
+        already = []
+        for e in (".ogg", ".mp3", ".wav"):
+            path = os.path.join(RAW, key + e)
+            if not os.path.exists(path):
+                continue
+            if os.path.getsize(path) < 512:
+                os.remove(path)
+                continue
+            already.append(e)
         if already and not args.force:
             print("  %2d/%d  %-14s skipped (already there)" % (index, len(lines), key))
             continue
@@ -95,6 +105,11 @@ async def main_async(args):
             print("  %2d/%d  %-14s %6.1f KB  %s" % (
                 index, len(lines), key, os.path.getsize(path) / 1024, text[:42] + "…"))
         except Exception as exc:  # keep going; one bad line shouldn't stop the batch
+            # never leave a half-written file behind — it would be mistaken for a recording
+            for e in (".ogg", ".mp3"):
+                stale = os.path.join(RAW, key + e)
+                if os.path.exists(stale) and os.path.getsize(stale) < 512:
+                    os.remove(stale)
             print("  %2d/%d  %-14s FAILED: %s" % (index, len(lines), key, exc))
 
     print("\nDone. Rebuild the app and the lessons will use these recordings.")
