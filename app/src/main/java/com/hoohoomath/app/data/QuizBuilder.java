@@ -26,6 +26,18 @@ public final class QuizBuilder {
      * `round` shifts the generator's question index, so asking for round 1, 2, 3… of the same
      * section yields a fresh set each time instead of repeating the first fifteen.
      */
+    /**
+     * Each mode starts the generator at a different place, so the exam never repeats the
+     * worksheet's questions — before this they shared the first fifteen.
+     */
+    private static int seedOffset(QuizMode mode) {
+        switch (mode) {
+            case WORKSHEET: return 137;
+            case EXAM: return 613;
+            default: return 0;
+        }
+    }
+
     public static QuizSession build(QuizMode mode, int ch, int option, int round) {
         List<Integer> secs = allSections();
         int lv = mode == QuizMode.PRACTICE ? 0 : option;
@@ -34,9 +46,14 @@ public final class QuizBuilder {
 
         List<QuestionItem> items = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            int sec = mode == QuizMode.PRACTICE ? option : secs.get(i % secs.size());
+            // the worksheet walks the sections in order; the exam jumps between them, so even
+            // the running order feels like a different paper
+            int sec = mode == QuizMode.PRACTICE ? option
+                : mode == QuizMode.EXAM ? secs.get((i * 3 + 1) % secs.size())
+                : secs.get(i % secs.size());
             int itemLv = mode == QuizMode.PRACTICE ? (i < 5 ? 0 : i < 10 ? 1 : 2) : lv;
-            QuestionItem it = QuestionGenerator.item(ch, sec, i + round * count, itemLv);
+            QuestionItem it = QuestionGenerator.item(ch, sec,
+                seedOffset(mode) + i + round * count, itemLv);
 
             if (mode == QuizMode.EXAM) {
                 long base = it.rawAnswer;

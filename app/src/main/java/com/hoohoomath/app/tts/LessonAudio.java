@@ -67,6 +67,53 @@ public final class LessonAudio {
         });
     }
 
+    /**
+     * Plays a run of clips one after another — how a generated question is read in هوهو's own
+     * voice. If even one clip is missing the whole line goes to the device voice instead, so the
+     * child never hears half a sentence.
+     */
+    public static void playSequence(Context context, java.util.List<String> keys, String text,
+                                    PlaybackListener listener) {
+        stop();
+        if (keys == null || keys.isEmpty()) {
+            play(context, null, text, listener);
+            return;
+        }
+
+        final int[] ids = new int[keys.size()];
+        for (int i = 0; i < ids.length; i++) {
+            ids[i] = resolveRaw(context, keys.get(i));
+            if (ids[i] == 0) {          // not recorded yet — read the whole line with the device voice
+                play(context, null, text, listener);
+                return;
+            }
+        }
+
+        if (listener != null) listener.onStarted(estimateSpokenMs(text));
+        playFrom(context.getApplicationContext(), ids, 0, listener);
+    }
+
+    private static void playFrom(Context context, int[] ids, int at, PlaybackListener listener) {
+        if (at >= ids.length) {
+            release();
+            if (listener != null) listener.onFinished();
+            return;
+        }
+        try {
+            release();
+            player = MediaPlayer.create(context, ids[at]);
+            if (player == null) {
+                if (listener != null) listener.onFinished();
+                return;
+            }
+            player.setOnCompletionListener(mp -> playFrom(context, ids, at + 1, listener));
+            player.start();
+        } catch (Exception e) {
+            release();
+            if (listener != null) listener.onFinished();
+        }
+    }
+
     public static void stop() {
         release();
         TtsManager tts = TtsManager.get();

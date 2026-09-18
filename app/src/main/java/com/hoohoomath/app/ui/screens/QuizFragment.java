@@ -22,7 +22,8 @@ import com.hoohoomath.app.data.QuizBuilder;
 import com.hoohoomath.app.data.QuizMode;
 import com.hoohoomath.app.data.QuizSession;
 import com.hoohoomath.app.data.QuizSessionHolder;
-import com.hoohoomath.app.tts.TtsManager;
+import com.hoohoomath.app.tts.LessonAudio;
+import com.hoohoomath.app.tts.QuestionVoice;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.FeedbackDialog;
 import com.hoohoomath.app.ui.Screen;
@@ -90,7 +91,15 @@ public class QuizFragment extends BaseFragment {
 
         view.findViewById(R.id.quiz_hint).setOnClickListener(v -> {
             QuestionItem it = session.current();
-            mascot().say(it.hint);
+            // the hint is هوهو's own voice too, not the phone's
+            mascot().showBubble(it.hint, true);
+            LessonAudio.playSequence(requireContext(), QuestionVoice.clips(it.hint), it.hint,
+                new LessonAudio.PlaybackListener() {
+                    @Override public void onStarted(long durationMs) {}
+                    @Override public void onFinished() {
+                        if (isAdded()) mascot().showBubble(it.hint, false);
+                    }
+                });
         });
         view.findViewById(R.id.quiz_reveal).setOnClickListener(v -> {
             if (state().parentUnlockedThisSession) {
@@ -127,12 +136,14 @@ public class QuizFragment extends BaseFragment {
         state().saveAttempt(attemptKey, session.index, session.answers());
     }
 
+    /** هوهو reads the question herself, from her recorded words. */
     private void readQuestionAloud() {
-        TtsManager tts = TtsManager.get();
-        if (tts != null) tts.speak(session.current().question);
+        String question = session.current().question;
+        LessonAudio.playSequence(requireContext(), QuestionVoice.clips(question), question, null);
     }
 
     private void exitQuiz() {
+        LessonAudio.stop();
         saveAttempt();
         if (session.mode == QuizMode.PRACTICE) nav().go(Screen.SECTIONS);
         else if (session.mode == QuizMode.WORKSHEET) nav().go(Screen.WORKSHEET_INDEX);
@@ -142,6 +153,7 @@ public class QuizFragment extends BaseFragment {
     @Override
     public void onPause() {
         super.onPause();
+        LessonAudio.stop();
         if (session != null && attemptKey != null) saveAttempt();
     }
 
