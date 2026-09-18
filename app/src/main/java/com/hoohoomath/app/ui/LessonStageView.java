@@ -125,6 +125,8 @@ public class LessonStageView extends View {
             case MACHINE_CHAIN: drawMachineChain(canvas, w, h); break;
             case SYMMETRY_LINES: drawSymmetryLines(canvas, w, h); break;
             case CUBE_NET: drawCubeNet(canvas, w, h); break;
+            case SHAPE_PATTERN: drawShapePattern(canvas, w, h); break;
+            case FIGURE_GROUPS: drawFigureGroups(canvas, w, h); break;
             default: break;
         }
     }
@@ -1460,6 +1462,114 @@ public class LessonStageView extends View {
             textPaint.setColor(ORANGE_DARK);
             textPaint.setTextSize(sp(14));
             canvas.drawText("۶ مربّع، یک مکعّب", w / 2, h - dp(8), textPaint);
+        }
+    }
+
+
+    /** The book's own growing figures — ۱، ۳، ۶، ۱۰ squares — with the jumps drawn between them. */
+    private void drawShapePattern(Canvas canvas, float w, float h) {
+        int[] counts = spec.values;
+        if (counts == null || counts.length == 0) return;
+
+        float pad = dp(8);
+        float band = dp(30);
+        float slot = (w - pad * 2) / counts.length;
+        int biggest = 0;
+        for (int c : counts) biggest = Math.max(biggest, c);
+        int maxRows = rowsFor(biggest).length;
+        float cell = Math.min(slot / (maxRows + 0.6f), (h - band - pad * 2) / (maxRows + 0.6f));
+
+        for (int i = 0; i < counts.length; i++) {
+            float appear = clamp(progress * counts.length - i, 0f, 1f);
+            if (appear <= 0f) continue;
+            int[] rows = rowsFor(counts[i]);
+            float rightEdge = w - pad - i * slot - dp(6);
+            float bottom = pad + (h - band - pad * 2);
+
+            int drawn = 0;
+            for (int r = 0; r < rows.length; r++) {
+                for (int c = 0; c < rows[r]; c++) {
+                    float cellAppear = clamp(counts[i] * appear - drawn, 0f, 1f);
+                    drawn++;
+                    if (cellAppear <= 0f) continue;
+                    drawCell(canvas, rightEdge - (c + 1) * cell, bottom - (r + 1) * cell, cell, TEAL, cellAppear);
+                }
+            }
+
+            textPaint.setColor(INK);
+            textPaint.setTextSize(sp(13));
+            canvas.drawText(PersianDigits.fa(counts[i]), rightEdge - cell / 2, h - dp(10), textPaint);
+
+            // the jump to the next figure, the way the book writes it above the arrow
+            if (i < counts.length - 1 && appear > 0.6f) {
+                float ax = w - pad - (i + 1) * slot;
+                Path arc = new Path();
+                arc.moveTo(ax + dp(10), h - dp(22));
+                arc.quadTo(ax, h - dp(38), ax - dp(10), h - dp(22));
+                canvas.drawPath(arc, dashed);
+                textPaint.setColor(PINK);
+                textPaint.setTextSize(sp(11));
+                canvas.drawText("+" + PersianDigits.fa(counts[i + 1] - counts[i]), ax, h - dp(40), textPaint);
+            }
+        }
+    }
+
+    /** Squares per row of the staircase figure that holds `count` squares. */
+    private static int[] rowsFor(int count) {
+        int n = 0;
+        while ((n + 1) * (n + 2) / 2 <= count) n++;
+        int used = n * (n + 1) / 2;
+        int extra = count - used;
+        int[] rows = new int[extra > 0 ? n + 1 : Math.max(n, 1)];
+        for (int i = 0; i < n; i++) rows[i] = n - i;
+        if (extra > 0) rows[n] = extra;
+        if (n == 0 && rows.length > 0) rows[0] = count;
+        return rows;
+    }
+
+    /** One figure of squares, ringed into equal groups with its addition written underneath. */
+    private void drawFigureGroups(Canvas canvas, float w, float h) {
+        int[] rowCounts = spec.values;
+        if (rowCounts == null || rowCounts.length == 0) return;
+        int group = Math.max(1, spec.a);
+
+        int total = 0, widest = 0;
+        for (int r : rowCounts) { total += r; widest = Math.max(widest, r); }
+        int groups = (int) Math.ceil(total / (float) group);
+
+        float pad = dp(10);
+        float band = dp(36);
+        float cell = Math.min((w - pad * 2) / widest, (h - band - pad * 2) / rowCounts.length);
+        float startX = w / 2 + (widest * cell) / 2f;
+        float startY = pad + ((h - band - pad * 2) - rowCounts.length * cell) / 2f;
+
+        float shown = progress * total;
+        int index = 0;
+        for (int r = 0; r < rowCounts.length; r++) {
+            for (int c = 0; c < rowCounts[r]; c++) {
+                float appear = clamp(shown - index, 0f, 1f);
+                int groupIndex = index / group;
+                index++;
+                if (appear <= 0f) {
+                    drawCell(canvas, startX - (c + 1) * cell, startY + r * cell, cell, CARD_EDGE, 1f);
+                    continue;
+                }
+                drawCell(canvas, startX - (c + 1) * cell, startY + r * cell, cell,
+                    groupIndex % 2 == 0 ? TEAL : ORANGE, appear);
+            }
+        }
+
+        int doneGroups = Math.min(groups, (int) Math.floor(shown / group));
+        if (doneGroups > 0) {
+            StringBuilder sum = new StringBuilder();
+            for (int g = 0; g < doneGroups; g++) {
+                if (g > 0) sum.append(" + ");
+                sum.append(PersianDigits.fa(Math.min(group, total - g * group)));
+            }
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(13.5f));
+            canvas.drawText(sum + " = " + PersianDigits.fa(Math.min(total, doneGroups * group)),
+                w / 2, h - dp(10), textPaint);
         }
     }
 

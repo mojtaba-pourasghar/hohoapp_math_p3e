@@ -21,6 +21,7 @@ import com.hoohoomath.app.data.LessonKind;
 import com.hoohoomath.app.data.LessonScript;
 import com.hoohoomath.app.data.LessonStep;
 import com.hoohoomath.app.tts.LessonAudio;
+import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.FeedbackDialog;
 import com.hoohoomath.app.ui.LessonStageView;
@@ -263,6 +264,10 @@ public class LessonFragment extends BaseFragment {
                 }
                 break;
             }
+            case BUILD: {
+                content.addView(buildGrid(step));
+                break;
+            }
             case NUM: {
                 content.addView(heading("عدد را بنویس"));
 
@@ -293,6 +298,100 @@ public class LessonFragment extends BaseFragment {
                 break;
             }
         }
+    }
+
+    /**
+     * The child's own drawing board: a grid of squares they tap to colour in, the way the book
+     * asks them to draw the next figure of a pattern. هوهو counts along with them and checks.
+     */
+    private View buildGrid(LessonStep step) {
+        LinearLayout box = UiKit.column(requireContext());
+        box.addView(heading("خودت شکل بعدی را بساز — روی خانه‌ها بزن"));
+
+        final boolean[][] filled = new boolean[step.buildRows][step.buildCols];
+        final int[] count = {0};
+
+        TextView counter = UiKit.text(requireContext(), "تا حالا: ۰ خانه", 14f, R.color.text_muted, true);
+        counter.setGravity(Gravity.CENTER);
+
+        LinearLayout grid = UiKit.column(requireContext());
+        grid.setGravity(Gravity.CENTER_HORIZONTAL);
+        int cellDp = Math.max(22, Math.min(38, 300 / Math.max(1, step.buildCols)));
+        final TextView[][] cells = new TextView[step.buildRows][step.buildCols];
+
+        for (int r = 0; r < step.buildRows; r++) {
+            LinearLayout rowView = UiKit.row(requireContext());
+            rowView.setGravity(Gravity.CENTER);
+            for (int c = 0; c < step.buildCols; c++) {
+                final int rr = r, cc = c;
+                TextView cell = new TextView(requireContext());
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    UiKit.dp(requireContext(), cellDp), UiKit.dp(requireContext(), cellDp));
+                lp.setMargins(UiKit.dp(requireContext(), 2), UiKit.dp(requireContext(), 2),
+                    UiKit.dp(requireContext(), 2), UiKit.dp(requireContext(), 2));
+                cell.setLayoutParams(lp);
+                paintCell(cell, false);
+                cell.setOnClickListener(v -> {
+                    if (answered) return;
+                    filled[rr][cc] = !filled[rr][cc];
+                    count[0] += filled[rr][cc] ? 1 : -1;
+                    paintCell(cell, filled[rr][cc]);
+                    counter.setText("تا حالا: " + fa(count[0]) + " خانه");
+                    SoundManager sound = SoundManager.get();
+                    if (sound != null) sound.tap();
+                });
+                cells[r][c] = cell;
+                rowView.addView(cell);
+            }
+            grid.addView(rowView);
+        }
+        box.addView(grid);
+        box.addView(counter, UiKit.marginParams(requireContext(), 8, 0));
+
+        TextView check = bigButton("تمام شد، نگاه کن", R.color.orange, R.color.white);
+        check.setOnClickListener(v -> {
+            if (answered) return;
+            if (count[0] == 0) {
+                mascot().say("هنوز هیچ خانه‌ای رنگ نکرده‌ای. روی خانه‌ها بزن تا شکل ساخته شود.");
+                return;
+            }
+            boolean right = count[0] == step.buildTarget;
+            if (right) {
+                answered = true;
+                showBookShape(cells, step);
+            } else {
+                String hint = count[0] < step.buildTarget
+                    ? "کمی کم است؛ " + fa(step.buildTarget - count[0]) + " خانه‌ی دیگر لازم داری."
+                    : "کمی زیاد شد؛ " + fa(count[0] - step.buildTarget) + " خانه را بردار.";
+                mascot().comfort(hint);
+            }
+            onLessonAnswer(right, right ? step.why : "شکل بعدی " + fa(step.buildTarget) + " خانه دارد. دوباره بشمار.");
+        });
+        box.addView(check, UiKit.marginParams(requireContext(), 12, 0));
+        return box;
+    }
+
+    /** Once the count is right, the book's own arrangement is laid over the child's grid. */
+    private void showBookShape(TextView[][] cells, LessonStep step) {
+        if (step.buildShape == null) return;
+        for (int r = 0; r < cells.length; r++) {
+            int fromBottom = cells.length - 1 - r;
+            int inRow = fromBottom < step.buildShape.length ? step.buildShape[fromBottom] : 0;
+            for (int c = 0; c < cells[r].length; c++) {
+                boolean inBookShape = c < inRow;
+                cells[r][c].setBackground(UiKit.roundedBg(
+                    ContextCompat.getColor(requireContext(), inBookShape ? R.color.orange : R.color.bg_card),
+                    ContextCompat.getColor(requireContext(), inBookShape ? R.color.orange_dark : R.color.border_input),
+                    6f, requireContext()));
+            }
+        }
+    }
+
+    private void paintCell(TextView cell, boolean on) {
+        cell.setBackground(UiKit.roundedBg(
+            ContextCompat.getColor(requireContext(), on ? R.color.teal : R.color.bg_card),
+            ContextCompat.getColor(requireContext(), on ? R.color.teal_dark : R.color.border_input),
+            6f, requireContext()));
     }
 
     private View buildDoneCard() {

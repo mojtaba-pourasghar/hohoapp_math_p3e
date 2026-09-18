@@ -64,7 +64,11 @@ public class StageSpec {
         /** A shape with its line of symmetry drawn, then folded over it. */
         SYMMETRY_LINES,
         /** The unfolded net of a cube, folding itself up into the cube. */
-        CUBE_NET
+        CUBE_NET,
+        /** The book's growing figures of squares, side by side, with the +n jumps between them. */
+        SHAPE_PATTERN,
+        /** One figure of squares, ringed into equal groups, with the addition written underneath. */
+        FIGURE_GROUPS
     }
 
     public final Kind kind;
@@ -204,6 +208,16 @@ public class StageSpec {
 
     public static StageSpec cubeNet() {
         return new StageSpec(Kind.CUBE_NET, null, 0, 0, 0);
+    }
+
+    /** The successive figures of a shape pattern, given how many squares each one has. */
+    public static StageSpec shapePattern(int... counts) {
+        return new StageSpec(Kind.SHAPE_PATTERN, counts, 0, 0, 0);
+    }
+
+    /** A figure given as squares per row, ringed into groups of `groupSize`. */
+    public static StageSpec figureGroups(int groupSize, int... rowCounts) {
+        return new StageSpec(Kind.FIGURE_GROUPS, rowCounts, groupSize, 0, 0);
     }
 
     public boolean isNone() {
