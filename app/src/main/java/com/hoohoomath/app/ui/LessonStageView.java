@@ -39,6 +39,8 @@ public class LessonStageView extends View {
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private StageSpec spec = StageSpec.NONE;
+    /** While a question is on screen the scene must not give the answer away. */
+    private boolean answersHidden = false;
     private float progress = 0f;
     private ValueAnimator animator;
 
@@ -65,6 +67,19 @@ public class LessonStageView extends View {
 
     public StageSpec getSpec() {
         return spec;
+    }
+
+    /**
+     * Hides the line where each scene writes its result. The child is supposed to work the answer
+     * out, so it only comes back when they have answered — or when a parent asks to see it.
+     */
+    public void setRevealAnswers(boolean reveal) {
+        this.answersHidden = !reveal;
+        invalidate();
+    }
+
+    public boolean answersHidden() {
+        return answersHidden;
     }
 
     /** Runs the scene once over the given duration. */
@@ -97,6 +112,11 @@ public class LessonStageView extends View {
         float w = getWidth(), h = getHeight();
         if (w <= 0 || h <= 0 || spec.isNone()) return;
 
+        // every scene writes its result along the bottom; with the answer hidden that band is
+        // simply not drawn, so the picture still teaches without handing over the number
+        int saved = canvas.save();
+        if (answersHidden) canvas.clipRect(0f, 0f, w, h - dp(26));
+
         switch (spec.kind) {
             case COUNT_GROUPS: drawCountGroups(canvas, w, h); break;
             case STEP_PATTERN: drawStepPattern(canvas, w, h); break;
@@ -128,6 +148,13 @@ public class LessonStageView extends View {
             case SHAPE_PATTERN: drawShapePattern(canvas, w, h); break;
             case FIGURE_GROUPS: drawFigureGroups(canvas, w, h); break;
             default: break;
+        }
+        canvas.restoreToCount(saved);
+
+        if (answersHidden) {
+            textPaint.setColor(MUTED);
+            textPaint.setTextSize(sp(13));
+            canvas.drawText("جوابش را تو پیدا کن", w / 2, h - dp(7), textPaint);
         }
     }
 
@@ -309,7 +336,8 @@ public class LessonStageView extends View {
         } else if (progress >= 0.62f) {
             float t = clamp((progress - 0.62f) / 0.38f, 0f, 1f);
             float x = (w / 2 - bw / 2) - t * ((w / 2 - bw / 2) - trackLeft);
-            drawNumberChip(canvas, x, cy, PersianDigits.fa(output), PINK);
+            // the number coming out is the answer, so it stays a blank box until the child says it
+            drawNumberChip(canvas, x, cy, answersHidden ? "⬜" : PersianDigits.fa(output), PINK);
         }
     }
 
@@ -871,7 +899,7 @@ public class LessonStageView extends View {
         canvas.drawLine(startX - places * colW, pad + rowH * 2.3f, startX, pad + rowH * 2.3f, stroke);
 
         // the answer arrives column by column, starting from the ones
-        for (int i = 0; i < places; i++) {
+        for (int i = 0; i < places && !answersHidden; i++) {
             float appear = clamp(progress * places - i, 0f, 1f);
             if (appear <= 0f) continue;
             float cx = startX - (i + 0.5f) * colW;
@@ -966,9 +994,10 @@ public class LessonStageView extends View {
         float slot = (w - pad * 2) / count;
         float r = Math.min(slot * 0.38f, h * 0.28f);
         float cy = h * 0.45f;
-        String[] names = {"هلال", "نیمه", "کامل", "نیمه", "هلال"};
-        // how much of the disc is lit at each phase
-        float[] lit = {0.15f, 0.5f, 1f, 0.5f, 0.15f};
+        String[] names = {"شب ۱", "شب ۷", "شب ۱۴", "شب ۲۱", "شب ۲۹"};
+        String[] shapes = {"هلال", "نیمه", "کامل", "نیمه", "هلال"};
+        // how much of the disc is lit on each of those nights
+        float[] lit = {0.10f, 0.5f, 1f, 0.5f, 0.10f};
 
         for (int i = 0; i < count; i++) {
             float appear = clamp(progress * count - i, 0f, 1f);
@@ -980,19 +1009,27 @@ public class LessonStageView extends View {
             canvas.drawCircle(cx, cy, r, fill);
             fill.setAlpha(255);
 
-            // the lit part, drawn as a slice of the disc
+            // the lit part: a slice that grows from one edge, so the crescent really fills up
             fill.setColor(Color.parseColor("#F6E7B4"));
             RectF oval = new RectF(cx - r, cy - r, cx + r, cy + r);
             float sweep = 360f * lit[i] * appear;
             canvas.drawArc(oval, -90 - sweep / 2, sweep, true, fill);
+            if (lit[i] < 0.95f) {   // round off the inner edge so it reads as a crescent
+                fill.setColor(Color.parseColor("#1F2A44"));
+                float inset = r * (1f - lit[i] * 1.6f);
+                canvas.drawOval(new RectF(cx - r + inset * 0.2f, cy - r, cx + r - inset, cy + r), fill);
+            }
 
             stroke.setColor(CARD_EDGE);
             stroke.setStrokeWidth(dp(1.5f));
             canvas.drawCircle(cx, cy, r, stroke);
 
-            textPaint.setColor(MUTED);
+            textPaint.setColor(INK);
             textPaint.setTextSize(sp(10.5f));
-            canvas.drawText(names[i], cx, cy + r + dp(16), textPaint);
+            canvas.drawText(shapes[i], cx, cy + r + dp(15), textPaint);
+            textPaint.setColor(MUTED);
+            textPaint.setTextSize(sp(9.5f));
+            canvas.drawText(names[i], cx, cy + r + dp(28), textPaint);
         }
 
         if (progress > 0.85f) {
@@ -1046,7 +1083,6 @@ public class LessonStageView extends View {
     private void drawTablePattern(Canvas canvas, float w, float h) {
         int[] values = spec.values;
         if (values == null || values.length == 0) return;
-        int step = spec.a;
 
         float pad = dp(10);
         float cellW = (w - pad * 2) / values.length;
@@ -1070,8 +1106,10 @@ public class LessonStageView extends View {
                 canvas.drawText(PersianDigits.fa(values[i]), cell.centerX(), cell.centerY() + dp(6), textPaint);
             }
 
-            // the jump arrow to the next cell
-            if (i > 0 && step != 0 && appear > 0.3f) {
+            // the jump arrow to the next cell, labelled with the real difference — patterns like
+            // ۰ ، ۱ ، ۴ ، ۹ do not grow by a fixed amount
+            if (i > 0 && appear > 0.3f) {
+                int jump = values[i - 1] - values[i];
                 float ax = cell.right, bx = cell.right + cellW - dp(6);
                 float ay = top - dp(12);
                 Path arc = new Path();
@@ -1080,7 +1118,7 @@ public class LessonStageView extends View {
                 canvas.drawPath(arc, dashed);
                 textPaint.setColor(PINK);
                 textPaint.setTextSize(sp(11));
-                canvas.drawText((step > 0 ? "+" : "−") + PersianDigits.fa(Math.abs(step)),
+                canvas.drawText((jump >= 0 ? "+" : "−") + PersianDigits.fa(Math.abs(jump)),
                     (ax + bx) / 2, ay - dp(20), textPaint);
             }
         }
@@ -1281,7 +1319,7 @@ public class LessonStageView extends View {
         fill.setColor(ORANGE_DARK);
         canvas.drawCircle(cx, cy, dp(4.5f), fill);
 
-        if (progress > 0.7f) {
+        if (progress > 0.7f && !answersHidden) {
             textPaint.setColor(afternoon ? PINK : TEAL);
             textPaint.setTextSize(sp(14));
             String label = afternoon
@@ -1373,7 +1411,7 @@ public class LessonStageView extends View {
         }
 
         float outAppear = clamp((progress - 0.6f) / 0.4f, 0f, 1f);
-        if (outAppear > 0f) {
+        if (outAppear > 0f && !answersHidden) {
             textPaint.setColor(ORANGE_DARK);
             textPaint.setTextSize(sp(20) * (0.6f + 0.4f * outAppear));
             canvas.drawText(PersianDigits.fa(out), w * 0.10f, cy + dp(6), textPaint);

@@ -41,6 +41,14 @@ public class MascotController {
         this.bubbleText = bubbleText;
     }
 
+    private boolean flyingAllowed() {
+        try {
+            return AppState.get().mascotFlies();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
     private boolean bubblesAllowed() {
         try {
             return AppState.get().tipsEnabled();
@@ -119,6 +127,7 @@ public class MascotController {
      */
     public void flyTo(View target) {
         if (overlay == null || target == null || target.getWidth() == 0) return;
+        if (!flyingAllowed()) return;
 
         int[] targetPos = new int[2];
         int[] ownPos = new int[2];
@@ -131,9 +140,10 @@ public class MascotController {
             awayFromHome = true;
         }
 
-        // sit near the lower start-side corner of the target, leaving room for the bubble above
-        float wantedCx = targetPos[0] + target.getWidth() * 0.22f;
-        float wantedCy = targetPos[1] + target.getHeight() * 0.68f;
+        // stand just under the picture, not on it — the child has to be able to see what هوهو
+        // is explaining, and the tooltip sits above her head
+        float wantedCx = targetPos[0] + target.getWidth() * 0.18f;
+        float wantedCy = targetPos[1] + target.getHeight() + overlay.getHeight() * 0.55f;
         float currentCx = ownPos[0] + overlay.getWidth() / 2f;
         float currentCy = ownPos[1] + overlay.getHeight() / 2f;
 

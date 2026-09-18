@@ -74,22 +74,22 @@ public class QuizFragment extends BaseFragment {
             session.index = savedIndex >= 0 && savedIndex < session.items.size() ? savedIndex : 0;
         }
 
-        view.findViewById(R.id.quiz_exit).setOnClickListener(v -> exitQuiz());
+        onTap(view, R.id.quiz_exit, this::exitQuiz);
 
         Book.Chapter ch = Book.chapter(chapter);
         String modeTitle = mode == QuizMode.PRACTICE ? "تمرین بخش" : mode == QuizMode.WORKSHEET ? "کاربرگ" : "آزمون";
-        ((TextView) view.findViewById(R.id.quiz_title)).setText(modeTitle + " — فصل " + ch.numberFa + ": " + ch.title);
+        setText(view, R.id.quiz_title, modeTitle + " — فصل " + ch.numberFa + ": " + ch.title);
 
         String sub = mode == QuizMode.PRACTICE ? ch.sections.get(option) : Level.fromIndex(option).title;
-        ((TextView) view.findViewById(R.id.quiz_subtitle)).setText(sub + " · دور " + fa(round + 1));
+        setText(view, R.id.quiz_subtitle, sub + " · دور " + fa(round + 1));
 
-        view.findViewById(R.id.quiz_read_aloud).setOnClickListener(v -> readQuestionAloud());
-        view.findViewById(R.id.quiz_repeat).setOnClickListener(v -> readQuestionAloud());
-        view.findViewById(R.id.quiz_prev).setOnClickListener(v -> goTo(view, session.index - 1));
-        view.findViewById(R.id.quiz_next).setOnClickListener(v -> goTo(view, session.index + 1));
-        view.findViewById(R.id.quiz_finish).setOnClickListener(v -> finish());
+        onTap(view, R.id.quiz_read_aloud, this::readQuestionAloud);
+        onTap(view, R.id.quiz_repeat, this::readQuestionAloud);
+        onTap(view, R.id.quiz_prev, () -> goTo(view, session.index - 1));
+        onTap(view, R.id.quiz_next, () -> goTo(view, session.index + 1));
+        onTap(view, R.id.quiz_finish, this::finish);
 
-        view.findViewById(R.id.quiz_hint).setOnClickListener(v -> {
+        onTap(view, R.id.quiz_hint, () -> {
             QuestionItem it = session.current();
             // the hint is هوهو's own voice too, not the phone's
             mascot().showBubble(it.hint, true);
@@ -101,7 +101,7 @@ public class QuizFragment extends BaseFragment {
                     }
                 });
         });
-        view.findViewById(R.id.quiz_reveal).setOnClickListener(v -> {
+        onTap(view, R.id.quiz_reveal, () -> {
             if (state().parentUnlockedThisSession) {
                 QuestionItem it = session.current();
                 FeedbackDialog.info(requireContext(), "پاسخ درست: " + it.answerFa + " — " + it.hint);
@@ -111,6 +111,17 @@ public class QuizFragment extends BaseFragment {
         });
 
         renderQuestion(view);
+    }
+
+    /** Binds a tap only when that layout actually has the control. */
+    private void onTap(View root, int id, Runnable action) {
+        View target = root.findViewById(id);
+        if (target != null) target.setOnClickListener(v -> action.run());
+    }
+
+    private void setText(View root, int id, String value) {
+        TextView target = root.findViewById(id);
+        if (target != null) target.setText(value);
     }
 
     private static String roundKey(QuizMode mode, int chapter, int option) {
@@ -162,33 +173,34 @@ public class QuizFragment extends BaseFragment {
         QuestionItem it = session.current();
         String mine = session.currentAnswer();
 
-        ((TextView) root.findViewById(R.id.quiz_number)).setText("سؤال " + fa(session.index + 1));
-        ((TextView) root.findViewById(R.id.quiz_count)).setText(fa(session.index + 1) + " / " + fa(session.items.size()));
-        ((ProgressBar) root.findViewById(R.id.quiz_progress)).setProgress(
-            Math.round((session.answeredCount() / (float) session.items.size()) * 100));
-        ((TextView) root.findViewById(R.id.quiz_question)).setText(it.question);
+        setText(root, R.id.quiz_number, "سؤال " + fa(session.index + 1));
+        setText(root, R.id.quiz_count, fa(session.index + 1) + " / " + fa(session.items.size()));
+        ProgressBar bar = root.findViewById(R.id.quiz_progress);
+        if (bar != null) bar.setProgress(Math.round((session.answeredCount() / (float) session.items.size()) * 100));
+        setText(root, R.id.quiz_question, it.question);
 
         AppState s = state();
-        TextView reveal = root.findViewById(R.id.quiz_reveal);
-        reveal.setText(s.parentUnlockedThisSession ? "نمایش پاسخ (باز است)" : "نمایش پاسخ — ورود والدین");
-        ((TextView) root.findViewById(R.id.quiz_reveal_note)).setText(s.parentUnlockedThisSession
+        setText(root, R.id.quiz_reveal,
+            s.parentUnlockedThisSession ? "نمایش پاسخ (باز است)" : "نمایش پاسخ — ورود والدین");
+        setText(root, R.id.quiz_reveal_note, s.parentUnlockedThisSession
             ? "دسترسی والدین باز است؛ پاسخ‌ها نشان داده می‌شوند."
             : "پاسخ‌ها فقط با رمز والدین دیده می‌شوند تا خودت تمرین کنی.");
 
         int remaining = session.items.size() - session.answeredCount();
-        ((TextView) root.findViewById(R.id.quiz_progress_note)).setText(
+        setText(root, R.id.quiz_progress_note,
             "جواب داده‌ای: " + fa(session.answeredCount()) + " از " + fa(session.items.size())
                 + " · درست: " + fa(session.rightCount())
                 + (remaining == 0 ? " · همه را جواب دادی!" : " · " + fa(remaining) + " سؤال مانده")
                 + "\nمی‌توانی با «سؤال قبل» و «سؤال بعد» آزادانه جابه‌جا شوی و جوابت را عوض کنی.");
 
-        TextView finish = root.findViewById(R.id.quiz_finish);
-        finish.setText(remaining == 0
+        setText(root, R.id.quiz_finish, remaining == 0
             ? "پایان و دیدن کارنامه"
             : "پایان و دیدن کارنامه (" + fa(remaining) + " سؤال بی‌جواب)");
 
-        root.findViewById(R.id.quiz_prev).setVisibility(session.index == 0 ? View.INVISIBLE : View.VISIBLE);
-        root.findViewById(R.id.quiz_next).setVisibility(session.isLast() ? View.INVISIBLE : View.VISIBLE);
+        View prev = root.findViewById(R.id.quiz_prev);
+        if (prev != null) prev.setVisibility(session.index == 0 ? View.INVISIBLE : View.VISIBLE);
+        View next = root.findViewById(R.id.quiz_next);
+        if (next != null) next.setVisibility(session.isLast() ? View.INVISIBLE : View.VISIBLE);
 
         LinearLayout area = root.findViewById(R.id.quiz_answer_area);
         area.removeAllViews();
@@ -238,8 +250,9 @@ public class QuizFragment extends BaseFragment {
             area.addView(submit, UiKit.marginParams(requireContext(), 12, 0));
         }
 
-        // a 3rd-grader may not read fluently yet, so هوهو reads every question out loud
-        if (s.readAloud()) readQuestionAloud();
+        // a 3rd-grader may not read fluently yet, so هوهو reads every question out loud —
+        // on the next frame, so an outgoing screen's teardown cannot stop it
+        if (s.readAloud()) root.post(this::readQuestionAloud);
     }
 
     private void onAnswer(View root, String candidate) {

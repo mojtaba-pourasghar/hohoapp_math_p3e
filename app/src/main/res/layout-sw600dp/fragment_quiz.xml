@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Wide screens: question on one side, هوهو's help panel on the other, as in the design. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:clipToPadding="false"
+    android:paddingBottom="150dp"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_card_alt">
@@ -191,5 +193,68 @@
                     android:background="@drawable/bg_card_orange" />
             </LinearLayout>
         </LinearLayout>
+
+            <!-- same controls as the phone layout; without them the screen crashed on tablets -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layoutDirection="rtl"
+                android:layout_marginTop="12dp">
+
+                <TextView
+                    android:id="@+id/quiz_prev"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="7dp"
+                    android:gravity="center"
+                    android:padding="13dp"
+                    android:text="‹ سؤال قبل"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:background="@drawable/bg_help_button" />
+
+                <TextView
+                    android:id="@+id/quiz_repeat"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="7dp"
+                    android:gravity="center"
+                    android:padding="13dp"
+                    android:text="تکرار سؤال 🔊"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/orange_text"
+                    android:background="@drawable/bg_card_orange" />
+
+                <TextView
+                    android:id="@+id/quiz_next"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:padding="13dp"
+                    android:text="سؤال بعد ›"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:background="@drawable/bg_help_button" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/quiz_finish"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
+                android:gravity="center"
+                android:padding="14dp"
+                android:text="پایان و دیدن کارنامه"
+                android:textSize="13.5sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:background="@drawable/bg_button_teal" />
     </LinearLayout>
 </ScrollView>

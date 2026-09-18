@@ -12,12 +12,22 @@ public final class QuestionGenerator {
 
     private QuestionGenerator() {}
 
-    /** Deterministic pseudo-random integer in [lo, hi] derived from the question index i and a seed k. */
+    /**
+     * Deterministic pseudo-random integer in [lo, hi] from the question index i and a seed k.
+     *
+     * The first version was a plain linear formula, and for some (k, span) pairs the i term
+     * cancelled out entirely — every question in the set came out identical, which is exactly what
+     * a child saw in the practice sets. This mixes the bits properly, so consecutive questions
+     * always differ while staying perfectly repeatable.
+     */
     private static int seeded(int i, int k, int lo, int hi) {
         int span = hi - lo + 1;
-        int val = ((i + 1) * 7 + (k + 1) * 13 + i * k) % span;
-        if (val < 0) val += span;
-        return lo + val;
+        if (span <= 0) return lo;
+        int h = (i + 1) * 0x9E3779B1 ^ (k + 1) * 0x85EBCA77;
+        h ^= h >>> 15;
+        h *= 0x2545F491;
+        h ^= h >>> 13;
+        return lo + (h >>> 1) % span;
     }
 
     public static QuestionItem item(int ch, int sec, int i, int lv) {

@@ -71,7 +71,7 @@ public class LessonFragment extends BaseFragment {
         if (script != null) section = script.section;
 
         stage = view.findViewById(R.id.lesson_stage);
-        view.findViewById(R.id.lesson_back).setOnClickListener(v -> {
+        onTap(view, R.id.lesson_back, () -> {
             LessonAudio.stop();
             nav().go(Screen.MAP);
         });
@@ -85,9 +85,9 @@ public class LessonFragment extends BaseFragment {
         ((TextView) view.findViewById(R.id.lesson_title)).setText(page > 0
             ? "کتاب، صفحه‌ی " + fa(page) + " — " + ch.sections.get(section)
             : "درس " + fa(section + 1) + ": " + ch.sections.get(section));
-        view.findViewById(R.id.lesson_replay).setOnClickListener(v -> narrateCurrentStep());
-        view.findViewById(R.id.lesson_prev).setOnClickListener(v -> goToStep(stepIndex - 1));
-        view.findViewById(R.id.lesson_next).setOnClickListener(v -> goToStep(stepIndex + 1));
+        onTap(view, R.id.lesson_replay, this::togglePlayback);
+        onTap(view, R.id.lesson_prev, () -> goToStep(stepIndex - 1));
+        onTap(view, R.id.lesson_next, () -> goToStep(stepIndex + 1));
 
         // come back to the step the child had reached instead of starting the lesson over
         int saved = page > 0 ? state().pageStep(page) : state().lessonStep(chapter, section);
@@ -110,27 +110,68 @@ public class LessonFragment extends BaseFragment {
         answered = false;
         typed.setLength(0);
 
-        ((TextView) rootView.findViewById(R.id.lesson_step_count)).setText(
+        setText(R.id.lesson_step_count,
             "صفحه‌ی " + fa(script.bookPage) + " کتاب · گام " + fa(stepIndex + 1) + " از " + fa(script.steps.size()));
-        ((TextView) rootView.findViewById(R.id.lesson_say)).setText(step.say);
-        ((TextView) rootView.findViewById(R.id.lesson_caption)).setText(step.caption);
+        setText(R.id.lesson_say, step.say);
+        setText(R.id.lesson_caption, step.caption);
 
         boolean teaching = step.kind == LessonKind.TEACH || step.kind == LessonKind.DONE;
-        ((TextView) rootView.findViewById(R.id.lesson_phase)).setText(teaching ? "هوهو توضیح می‌دهد" : "نوبت توست");
+        setText(R.id.lesson_phase, teaching ? "هوهو توضیح می‌دهد" : "نوبت توست");
 
-        rootView.findViewById(R.id.lesson_stage_card).setVisibility(step.hasStage() ? View.VISIBLE : View.GONE);
-        stage.setSpec(step.stage);
+        View stageCard = rootView.findViewById(R.id.lesson_stage_card);
+        if (stageCard != null) stageCard.setVisibility(step.hasStage() ? View.VISIBLE : View.GONE);
+        if (stage != null) {
+            stage.setSpec(step.stage);
+            // on a question, the picture keeps its answer to itself until the child has answered
+            stage.setRevealAnswers(teaching || answered || state().parentUnlockedThisSession);
+        }
 
-        rootView.findViewById(R.id.lesson_prev).setVisibility(stepIndex == 0 ? View.INVISIBLE : View.VISIBLE);
-        rootView.findViewById(R.id.lesson_next).setVisibility(
-            stepIndex >= script.steps.size() - 1 ? View.INVISIBLE : View.VISIBLE);
+        setShown(R.id.lesson_prev, stepIndex != 0);
+        setShown(R.id.lesson_next, stepIndex < script.steps.size() - 1);
 
         if (page > 0) state().savePageStep(page, stepIndex);
         else state().saveLessonStep(chapter, section, stepIndex);
 
         renderDots();
         buildContent(step);
-        narrateCurrentStep();
+        // on the next frame: an outgoing screen's teardown stops audio, and that would kill the
+        // line that the page we just arrived at is trying to say
+        rootView.post(this::narrateCurrentStep);
+    }
+
+    /** Binds a tap only when that layout actually has the control. */
+    private void onTap(View root, int id, Runnable action) {
+        View target = root.findViewById(id);
+        if (target != null) target.setOnClickListener(v -> action.run());
+    }
+
+    private void setText(int id, String value) {
+        TextView target = rootView == null ? null : rootView.findViewById(id);
+        if (target != null) target.setText(value);
+    }
+
+    private void setShown(int id, boolean shown) {
+        View target = rootView == null ? null : rootView.findViewById(id);
+        if (target != null) target.setVisibility(shown ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    /** ▶ starts the line again; ⏸ stops both the voice and the moving picture. */
+    private void togglePlayback() {
+        if (narrating) {
+            LessonAudio.stop();
+            if (stage != null) stage.stop();
+            narrating = false;
+            mascot().showBubble(script.steps.get(stepIndex).say, false);
+            updateContinueEnabled();
+            updateReplayButton();
+        } else {
+            narrateCurrentStep();
+        }
+    }
+
+    private void updateReplayButton() {
+        TextView replay = rootView == null ? null : rootView.findViewById(R.id.lesson_replay);
+        if (replay != null) replay.setText(narrating ? "⏸" : "▶");
     }
 
     /** Free movement through the lesson, in either direction, at any time. */
@@ -173,6 +214,7 @@ public class LessonFragment extends BaseFragment {
     private void narrate(String audioKey, String text, boolean replayStage) {
         narrating = true;
         updateContinueEnabled();
+        updateReplayButton();
         mascot().showBubble(text, true);
 
         // fly over to the picture being explained, so the child looks where هوهو is looking
@@ -190,6 +232,7 @@ public class LessonFragment extends BaseFragment {
                 mascot().showBubble(text, false);
                 mascot().returnHome();
                 updateContinueEnabled();
+                updateReplayButton();
             }
         });
     }
@@ -247,6 +290,7 @@ public class LessonFragment extends BaseFragment {
             }
             case MCQ: {
                 content.addView(heading("جواب را انتخاب کن"));
+                content.addView(revealButton());
                 for (int i = 0; i < step.options.size(); i++) {
                     int idx = i;
                     TextView btn = UiKit.text(requireContext(), step.options.get(i), 24f, R.color.text_primary, true);
@@ -270,6 +314,7 @@ public class LessonFragment extends BaseFragment {
             }
             case NUM: {
                 content.addView(heading("عدد را بنویس"));
+                content.addView(revealButton());
 
                 TextView display = UiKit.text(requireContext(), "⬜", 30f, R.color.text_primary, true);
                 display.setGravity(Gravity.CENTER);
@@ -304,12 +349,41 @@ public class LessonFragment extends BaseFragment {
      * The child's own drawing board: a grid of squares they tap to colour in, the way the book
      * asks them to draw the next figure of a pattern. هوهو counts along with them and checks.
      */
+    /** The colours the child can group with, the way they use coloured pencils in the book. */
+    private static final int[] BUILD_COLOURS = {
+        R.color.teal, R.color.orange, R.color.pink, R.color.teal_light, R.color.orange_dark,
+    };
+
     private View buildGrid(LessonStep step) {
         LinearLayout box = UiKit.column(requireContext());
         box.addView(heading("خودت شکل بعدی را بساز — روی خانه‌ها بزن"));
 
         final boolean[][] filled = new boolean[step.buildRows][step.buildCols];
         final int[] count = {0};
+        final int[] colour = {BUILD_COLOURS[0]};
+
+        // a row of pencils: pick a colour, then paint a group with it
+        LinearLayout palette = UiKit.row(requireContext());
+        palette.setGravity(Gravity.CENTER);
+        final TextView[] swatches = new TextView[BUILD_COLOURS.length];
+        for (int c = 0; c < BUILD_COLOURS.length; c++) {
+            final int colourRes = BUILD_COLOURS[c];
+            TextView swatch = new TextView(requireContext());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                UiKit.dp(requireContext(), 34), UiKit.dp(requireContext(), 34));
+            lp.setMargins(UiKit.dp(requireContext(), 4), 0, UiKit.dp(requireContext(), 4), 0);
+            swatch.setLayoutParams(lp);
+            swatches[c] = swatch;
+            swatch.setOnClickListener(v -> {
+                colour[0] = colourRes;
+                for (int k = 0; k < swatches.length; k++) paintSwatch(swatches[k], BUILD_COLOURS[k], BUILD_COLOURS[k] == colourRes);
+                SoundManager sound = SoundManager.get();
+                if (sound != null) sound.tap();
+            });
+            paintSwatch(swatch, colourRes, c == 0);
+            palette.addView(swatch);
+        }
+        box.addView(palette, UiKit.marginParams(requireContext(), 4, 6));
 
         TextView counter = UiKit.text(requireContext(), "تا حالا: ۰ خانه", 14f, R.color.text_muted, true);
         counter.setGravity(Gravity.CENTER);
@@ -330,12 +404,12 @@ public class LessonFragment extends BaseFragment {
                 lp.setMargins(UiKit.dp(requireContext(), 2), UiKit.dp(requireContext(), 2),
                     UiKit.dp(requireContext(), 2), UiKit.dp(requireContext(), 2));
                 cell.setLayoutParams(lp);
-                paintCell(cell, false);
+                paintCell(cell, false, colour[0]);
                 cell.setOnClickListener(v -> {
                     if (answered) return;
                     filled[rr][cc] = !filled[rr][cc];
                     count[0] += filled[rr][cc] ? 1 : -1;
-                    paintCell(cell, filled[rr][cc]);
+                    paintCell(cell, filled[rr][cc], colour[0]);
                     counter.setText("تا حالا: " + fa(count[0]) + " خانه");
                     SoundManager sound = SoundManager.get();
                     if (sound != null) sound.tap();
@@ -387,11 +461,20 @@ public class LessonFragment extends BaseFragment {
         }
     }
 
-    private void paintCell(TextView cell, boolean on) {
+    private void paintCell(TextView cell, boolean on, int colourRes) {
         cell.setBackground(UiKit.roundedBg(
-            ContextCompat.getColor(requireContext(), on ? R.color.teal : R.color.bg_card),
-            ContextCompat.getColor(requireContext(), on ? R.color.teal_dark : R.color.border_input),
+            ContextCompat.getColor(requireContext(), on ? colourRes : R.color.bg_card),
+            ContextCompat.getColor(requireContext(), on ? R.color.text_primary : R.color.border_input),
             6f, requireContext()));
+    }
+
+    private void paintSwatch(TextView swatch, int colourRes, boolean picked) {
+        swatch.setBackground(UiKit.roundedBg(
+            ContextCompat.getColor(requireContext(), colourRes),
+            ContextCompat.getColor(requireContext(), picked ? R.color.text_primary : R.color.border_input),
+            999f, requireContext()));
+        swatch.setScaleX(picked ? 1.12f : 1f);
+        swatch.setScaleY(picked ? 1.12f : 1f);
     }
 
     private View buildDoneCard() {
@@ -475,6 +558,34 @@ public class LessonFragment extends BaseFragment {
         continueButton.setText(ready ? "فهمیدم، برویم!" : "هوهو دارد توضیح می‌دهد…");
     }
 
+    /**
+     * The answer belongs to the child until they have tried. This only opens it once a parent has
+     * signed in, exactly like the answers in the quiz.
+     */
+    private View revealButton() {
+        boolean unlocked = state().parentUnlockedThisSession;
+        TextView button = UiKit.text(requireContext(),
+            unlocked ? "نمایش پاسخ (باز است)" : "نمایش پاسخ — ورود والدین", 12.5f,
+            R.color.pink_dark, true);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(0, UiKit.dp(requireContext(), 11), 0, UiKit.dp(requireContext(), 11));
+        button.setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.bg_help_button_pink));
+        button.setLayoutParams(UiKit.marginParams(requireContext(), 0, 10));
+        button.setOnClickListener(v -> {
+            if (!state().parentUnlockedThisSession) {
+                LessonAudio.stop();
+                nav().goParent();
+                return;
+            }
+            if (stage != null) {
+                stage.setRevealAnswers(true);
+                stage.play(1600);
+            }
+        });
+        UiKit.tapSound(button);
+        return button;
+    }
+
     private TextView heading(String label) {
         TextView tv = UiKit.text(requireContext(), label, 15f, R.color.text_primary, true);
         tv.setLayoutParams(UiKit.marginParams(requireContext(), 0, 10));
@@ -494,6 +605,7 @@ public class LessonFragment extends BaseFragment {
     private void onLessonAnswer(boolean correct, String why) {
         LessonAudio.stop();
         AppState s = state();
+        if (stage != null) stage.setRevealAnswers(true);
         if (correct) {
             s.addStars(1);
             starsThisLesson++;

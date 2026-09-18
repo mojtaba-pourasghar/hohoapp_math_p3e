@@ -38,7 +38,8 @@ import static com.hoohoomath.app.data.PersianDigits.fa;
 
 public class ParentPanelFragment extends BaseFragment {
     private static final String[] SETTING_LABELS = {
-        "خواندن صوتی سؤال‌ها", "صدای دکمه‌ها و تشویق‌ها", "موسیقی ملایم پس‌زمینه", "نمایش پیام‌های هوهو"
+        "خواندن صوتی سؤال‌ها", "صدای دکمه‌ها و تشویق‌ها", "موسیقی ملایم پس‌زمینه",
+        "نمایش تولتیپ هوهو", "پرواز هوهو روی صفحه"
     };
 
     private int browseChapter;

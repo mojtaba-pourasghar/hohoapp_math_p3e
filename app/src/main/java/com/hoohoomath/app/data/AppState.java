@@ -45,14 +45,16 @@ public final class AppState {
     public static final int SETTING_SOUND_EFFECTS = 1; // taps, praise, stars
     public static final int SETTING_MUSIC = 2;         // the quiet background loop
     public static final int SETTING_TIPS = 3;          // هوهو's speech bubble
-    private static final int SETTINGS_VERSION = 2;
+    public static final int SETTING_FLY = 4;           // هوهو flies over to what she explains
+    private static final int SETTINGS_VERSION = 3;
 
-    public boolean[] settings = {true, true, false, true};
+    public boolean[] settings = {true, true, false, true, true};
 
     public boolean readAloud() { return settings[SETTING_READ_ALOUD]; }
     public boolean soundEffects() { return settings[SETTING_SOUND_EFFECTS]; }
     public boolean music() { return settings[SETTING_MUSIC]; }
     public boolean tipsEnabled() { return settings[SETTING_TIPS]; }
+    public boolean mascotFlies() { return settings[SETTING_FLY]; }
 
     // --- parent gate ---
     private String pinHash; // null until parent sets one up
