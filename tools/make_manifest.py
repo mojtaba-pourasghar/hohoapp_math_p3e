@@ -16,8 +16,9 @@ import re
 SRC = "app/src/main/java/com/hoohoomath/app/data"
 OUT = "app/src/main/res/raw/audio_manifest.txt"
 
-KEY = re.compile(r'"(ch\d+_s\d+_\d+x?)"\s*,\s*\n?\s*"((?:[^"\\]|\\.)*)"', re.S)
-SECTION = re.compile(r'^\s*//\s*(۰|[۱-۹][۰-۹]*|\d+)\.\s*(.+?)\s*$', re.M)
+KEY = re.compile(r'"((?:ch\d+_s\d+_\d+|p\d{3}_\d+)x?)"\s*,\s*\n?\s*"((?:[^"\\]|\\.)*)"', re.S)
+# «// ۱. ...» in the section lessons, «// ── صفحه‌ی ۷ — ... ──» in the page lessons
+SECTION = re.compile(r'^\s*//\s*(?:(?:۰|[۱-۹][۰-۹]*|\d+)\.\s*(.+?)|──\s*(.+?)\s*──)\s*$', re.M)
 
 HEADER = """# فهرست گفتارهای درس — هوهو ریاضی
 #
@@ -45,9 +46,11 @@ HEADER = """# فهرست گفتارهای درس — هوهو ریاضی
 def main():
     blocks = []
     total = 0
-    for path in sorted(glob.glob(os.path.join(SRC, "Chapter*Lessons.java"))):
+    sources = sorted(glob.glob(os.path.join(SRC, "Chapter*Lessons.java")))
+    sources += sorted(glob.glob(os.path.join(SRC, "Chapter*Pages.java")))
+    for path in sources:
         src = open(path, encoding="utf-8").read()
-        marks = [(m.start(), "section", m.group(0).strip().lstrip("/").strip())
+        marks = [(m.start(), "section", (m.group(1) or m.group(2)).strip())
                  for m in SECTION.finditer(src)]
         marks += [(m.start(), "line", (m.group(1), m.group(2))) for m in KEY.finditer(src)]
         marks.sort(key=lambda t: t[0])

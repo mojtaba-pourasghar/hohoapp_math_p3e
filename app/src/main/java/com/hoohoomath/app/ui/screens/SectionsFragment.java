@@ -6,7 +6,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
+import java.util.List;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -17,6 +19,7 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Lessons;
+import com.hoohoomath.app.data.PageLessons;
 import com.hoohoomath.app.data.PersianDigits;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
@@ -54,19 +57,15 @@ public class SectionsFragment extends BaseFragment {
         }));
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
-        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("هر بخش تمرین جدا دارد و همه‌شان باز است.");
+        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText(PageLessons.hasPages(ch.index)
+            ? "هوهو همین صفحه‌های کتاب را یکی‌یکی درس می‌دهد."
+            : "هر بخش تمرین جدا دارد و همه‌شان باز است.");
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
         for (int i = 0; i < ch.sections.size(); i++) {
             list.addView(buildRow(ch, i));
         }
-        list.addView(buildChapterLink("همین فصل را در کتاب بخوان ›", R.color.teal_bg, R.color.teal_border, R.color.teal_dark,
-            () -> {
-                Bundle args = new Bundle();
-                args.putInt("page", ch.firstPage);
-                nav().go(Screen.BOOK, args);
-            }));
         list.addView(buildChapterLink("کاربرگ‌های این فصل ›", R.color.orange_bg, R.color.orange_border, R.color.orange_text,
             () -> {
                 Bundle args = new Bundle();
@@ -113,11 +112,19 @@ public class SectionsFragment extends BaseFragment {
         card.addView(UiKit.text(requireContext(), title, 14.5f, R.color.text_primary, true));
         card.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
 
+        // the book's own pages, in book order — the main teaching for this section
+        List<Integer> pages = PageLessons.pagesOfSection(ch.index, i);
+        if (!pages.isEmpty()) {
+            card.addView(UiKit.text(requireContext(), "صفحه‌های کتاب:", 11.5f, R.color.teal_dark, true),
+                UiKit.marginParams(requireContext(), 9, 0));
+            card.addView(buildPageRow(ch.index, pages));
+        }
+
         LinearLayout buttons = UiKit.row(requireContext());
         buttons.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
 
         if (hasLesson) {
-            TextView lesson = pill(learned ? "دوباره ببین" : "درس هوهو", R.color.orange, R.color.white);
+            TextView lesson = pill(learned ? "خلاصه‌ی بخش ✓" : "خلاصه‌ی بخش", R.color.orange, R.color.white);
             lesson.setOnClickListener(v -> {
                 Bundle args = new Bundle();
                 args.putInt("chapter", ch.index);
@@ -141,6 +148,38 @@ public class SectionsFragment extends BaseFragment {
 
         card.addView(buttons);
         return card;
+    }
+
+    /** One chip per page of the book, so the child walks the pages the way the book prints them. */
+    private View buildPageRow(int chapter, List<Integer> pages) {
+        AppState s = state();
+        HorizontalScrollView scroll = new HorizontalScrollView(requireContext());
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = UiKit.row(requireContext());
+        row.setPadding(0, UiKit.dp(requireContext(), 6), 0, UiKit.dp(requireContext(), 2));
+
+        for (int page : pages) {
+            boolean done = s.isPageDone(page);
+            TextView chip = UiKit.chip(requireContext(),
+                "صفحه‌ی " + PersianDigits.fa(page) + (done ? " ✓" : ""),
+                ContextCompat.getColor(requireContext(), done ? R.color.teal_bg : R.color.orange_bg),
+                ContextCompat.getColor(requireContext(), done ? R.color.teal_border : R.color.orange_border),
+                ContextCompat.getColor(requireContext(), done ? R.color.teal_dark : R.color.orange_text));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMarginEnd(UiKit.dp(requireContext(), 6));
+            chip.setLayoutParams(lp);
+            chip.setOnClickListener(v -> {
+                Bundle args = new Bundle();
+                args.putInt("chapter", chapter);
+                args.putInt("page", page);
+                nav().go(Screen.LESSON, args);
+            });
+            UiKit.tapSound(chip);
+            row.addView(chip);
+        }
+        scroll.addView(row);
+        return scroll;
     }
 
     private TextView pill(String label, int bgRes, int textRes) {

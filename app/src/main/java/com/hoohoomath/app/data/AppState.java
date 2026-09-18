@@ -66,6 +66,9 @@ public final class AppState {
     /** Sections whose lesson the child has finished, as "chapter:section" keys. */
     private final Set<String> completedSections = new HashSet<>();
 
+    /** Book pages whose lesson the child has finished, as page numbers. */
+    private final Set<String> completedPages = new HashSet<>();
+
     public static final String[] RECOVERY_QUESTIONS = {
         "نام مدرسه‌ی فرزندم چیست؟",
         "نام معلم کلاس سوم فرزندم چیست؟",
@@ -237,17 +240,23 @@ public final class AppState {
         }
     }
 
-    /** Where the child was in «کتاب» mode: the page, and the line inside that page. */
-    public void saveBookPlace(int page, int line) {
-        prefs.edit().putInt("bookPage", page).putInt("bookLine", line).apply();
+    /** Which step of a book page's lesson the child had reached, so it resumes there. */
+    public void savePageStep(int page, int step) {
+        prefs.edit().putInt("pageStep_" + page, step).apply();
     }
 
-    public int bookPage() {
-        return prefs.getInt("bookPage", 1);
+    public int pageStep(int page) {
+        return prefs.getInt("pageStep_" + page, 0);
     }
 
-    public int bookLine() {
-        return prefs.getInt("bookLine", 0);
+    /** The book pages whose lesson the child has finished, so the list can tick them off. */
+    public void markPageDone(int page) {
+        completedPages.add(String.valueOf(page));
+        persist();
+    }
+
+    public boolean isPageDone(int page) {
+        return completedPages.contains(String.valueOf(page));
     }
 
     /** Which step of a section's voice lesson the child had reached, so it resumes there. */
@@ -290,6 +299,7 @@ public final class AppState {
         e.putString("recAnswerHash", recoveryAnswerHash);
         e.putString("history", historyToJson());
         e.putStringSet("completedSections", new HashSet<>(completedSections));
+        e.putStringSet("completedPages", new HashSet<>(completedPages));
         e.apply();
     }
 
@@ -313,6 +323,9 @@ public final class AppState {
         completedSections.clear();
         Set<String> saved = prefs.getStringSet("completedSections", null);
         if (saved != null) completedSections.addAll(saved);
+        completedPages.clear();
+        Set<String> savedPages = prefs.getStringSet("completedPages", null);
+        if (savedPages != null) completedPages.addAll(savedPages);
         mascotX = prefs.getFloat("mascotX", -1f);
         mascotY = prefs.getFloat("mascotY", -1f);
     }

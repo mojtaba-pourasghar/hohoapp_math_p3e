@@ -16,6 +16,7 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Lessons;
+import com.hoohoomath.app.data.PageLessons;
 import com.hoohoomath.app.data.LessonKind;
 import com.hoohoomath.app.data.LessonScript;
 import com.hoohoomath.app.data.LessonStep;
@@ -25,6 +26,8 @@ import com.hoohoomath.app.ui.FeedbackDialog;
 import com.hoohoomath.app.ui.LessonStageView;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
+
+import java.util.List;
 
 import static com.hoohoomath.app.data.PersianDigits.fa;
 
@@ -36,6 +39,8 @@ import static com.hoohoomath.app.data.PersianDigits.fa;
 public class LessonFragment extends BaseFragment {
 
     private int chapter, section;
+    /** > 0 when this is a lesson for one page of the printed book. */
+    private int page;
     private LessonScript script;
     private int stepIndex = 0;
     private final StringBuilder typed = new StringBuilder();
@@ -59,7 +64,10 @@ public class LessonFragment extends BaseFragment {
         Bundle args = getArguments();
         chapter = args != null ? args.getInt("chapter", 0) : 0;
         section = args != null ? args.getInt("section", 0) : 0;
-        script = Lessons.forSection(chapter, section);
+        page = args != null ? args.getInt("page", 0) : 0;
+        // a page of the book, or the section's own summary lesson
+        script = page > 0 ? PageLessons.forPage(page) : Lessons.forSection(chapter, section);
+        if (script != null) section = script.section;
 
         stage = view.findViewById(R.id.lesson_stage);
         view.findViewById(R.id.lesson_back).setOnClickListener(v -> {
@@ -73,20 +81,15 @@ public class LessonFragment extends BaseFragment {
         }
 
         Book.Chapter ch = Book.chapter(chapter);
-        ((TextView) view.findViewById(R.id.lesson_title)).setText("درس " + fa(section + 1) + ": " + ch.sections.get(section));
+        ((TextView) view.findViewById(R.id.lesson_title)).setText(page > 0
+            ? "کتاب، صفحه‌ی " + fa(page) + " — " + ch.sections.get(section)
+            : "درس " + fa(section + 1) + ": " + ch.sections.get(section));
         view.findViewById(R.id.lesson_replay).setOnClickListener(v -> narrateCurrentStep());
-        // the lesson names the book page it teaches; tapping it opens that page in «کتاب»
-        view.findViewById(R.id.lesson_step_count).setOnClickListener(v -> {
-            LessonAudio.stop();
-            Bundle bookArgs = new Bundle();
-            bookArgs.putInt("page", script.bookPage);
-            nav().go(Screen.BOOK, bookArgs);
-        });
         view.findViewById(R.id.lesson_prev).setOnClickListener(v -> goToStep(stepIndex - 1));
         view.findViewById(R.id.lesson_next).setOnClickListener(v -> goToStep(stepIndex + 1));
 
         // come back to the step the child had reached instead of starting the lesson over
-        int saved = state().lessonStep(chapter, section);
+        int saved = page > 0 ? state().pageStep(page) : state().lessonStep(chapter, section);
         stepIndex = saved > 0 && saved < script.steps.size() ? saved : 0;
 
         renderStep();
@@ -107,8 +110,7 @@ public class LessonFragment extends BaseFragment {
         typed.setLength(0);
 
         ((TextView) rootView.findViewById(R.id.lesson_step_count)).setText(
-            "صفحه‌ی " + fa(script.bookPage) + " کتاب (برای دیدنش بزن) · گام "
-                + fa(stepIndex + 1) + " از " + fa(script.steps.size()));
+            "صفحه‌ی " + fa(script.bookPage) + " کتاب · گام " + fa(stepIndex + 1) + " از " + fa(script.steps.size()));
         ((TextView) rootView.findViewById(R.id.lesson_say)).setText(step.say);
         ((TextView) rootView.findViewById(R.id.lesson_caption)).setText(step.caption);
 
@@ -122,7 +124,8 @@ public class LessonFragment extends BaseFragment {
         rootView.findViewById(R.id.lesson_next).setVisibility(
             stepIndex >= script.steps.size() - 1 ? View.INVISIBLE : View.VISIBLE);
 
-        state().saveLessonStep(chapter, section, stepIndex);
+        if (page > 0) state().savePageStep(page, stepIndex);
+        else state().saveLessonStep(chapter, section, stepIndex);
 
         renderDots();
         buildContent(step);
@@ -231,8 +234,13 @@ public class LessonFragment extends BaseFragment {
                 break;
             }
             case DONE: {
-                state().markSectionLessonDone(chapter, section);
-                state().saveLessonStep(chapter, section, 0);
+                if (page > 0) {
+                    state().markPageDone(page);
+                    state().savePageStep(page, 0);
+                } else {
+                    state().markSectionLessonDone(chapter, section);
+                    state().saveLessonStep(chapter, section, 0);
+                }
                 content.addView(buildDoneCard());
                 break;
             }
@@ -316,17 +324,47 @@ public class LessonFragment extends BaseFragment {
         sub.setGravity(Gravity.CENTER);
         card.addView(sub, UiKit.marginParams(requireContext(), 6, 12));
 
-        TextView cta = bigButton("تمرین‌های این بخش", R.color.teal, R.color.white);
+        int next = page > 0 ? nextPage() : 0;
+        TextView cta = bigButton(next > 0 ? "برویم صفحه‌ی " + fa(next) + " کتاب" : "تمرین‌های این بخش",
+            R.color.teal, R.color.white);
         cta.setOnClickListener(v -> {
             LessonAudio.stop();
             Bundle args = new Bundle();
-            args.putString("mode", "PRACTICE");
             args.putInt("chapter", chapter);
-            args.putInt("option", section);
-            nav().go(Screen.QUIZ, args);
+            if (next > 0) {
+                args.putInt("page", next);
+                nav().go(Screen.LESSON, args);
+            } else {
+                args.putString("mode", "PRACTICE");
+                args.putInt("option", section);
+                nav().go(Screen.QUIZ, args);
+            }
         });
         card.addView(cta);
+
+        if (next > 0) {
+            TextView practice = bigButton("تمرین‌های این بخش", R.color.bg_card, R.color.text_primary);
+            practice.setBackground(UiKit.roundedBg(
+                ContextCompat.getColor(requireContext(), R.color.bg_card),
+                ContextCompat.getColor(requireContext(), R.color.border_input), 16f, requireContext()));
+            practice.setOnClickListener(v -> {
+                LessonAudio.stop();
+                Bundle args = new Bundle();
+                args.putString("mode", "PRACTICE");
+                args.putInt("chapter", chapter);
+                args.putInt("option", section);
+                nav().go(Screen.QUIZ, args);
+            });
+            card.addView(practice, UiKit.marginParams(requireContext(), 9, 0));
+        }
         return card;
+    }
+
+    /** The page after this one in the book, or 0 when this chapter's pages are finished. */
+    private int nextPage() {
+        List<Integer> pages = PageLessons.pagesOfChapter(chapter);
+        int at = pages.indexOf(page);
+        return at >= 0 && at < pages.size() - 1 ? pages.get(at + 1) : 0;
     }
 
     /** While هوهو is still talking, the "got it" button waits — the child listens first. */

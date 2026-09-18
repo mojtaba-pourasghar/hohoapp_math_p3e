@@ -18,6 +18,7 @@ import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Lessons;
+import com.hoohoomath.app.data.PageLessons;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.PathMapView;
 import com.hoohoomath.app.ui.Screen;
@@ -112,7 +113,18 @@ public class MapFragment extends BaseFragment {
         node.setOnClickListener(v -> {
             Bundle args = new Bundle();
             args.putInt("chapter", ch.index);
-            if (Lessons.has(ch.index, i)) {
+            // the book comes first: open the page of this section the child has not finished yet
+            java.util.List<Integer> pages = PageLessons.pagesOfSection(ch.index, i);
+            int nextPage = 0;
+            for (int page : pages) {
+                if (!state().isPageDone(page)) { nextPage = page; break; }
+            }
+            if (nextPage == 0 && !pages.isEmpty()) nextPage = pages.get(0);
+
+            if (nextPage > 0) {
+                args.putInt("page", nextPage);
+                nav().go(Screen.LESSON, args);
+            } else if (Lessons.has(ch.index, i)) {
                 args.putInt("section", i);
                 nav().go(Screen.LESSON, args);
             } else {

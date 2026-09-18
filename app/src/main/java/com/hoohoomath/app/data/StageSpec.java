@@ -40,7 +40,31 @@ public class StageSpec {
         /** A bar chart growing out of its data. */
         BAR_CHART,
         /** A number and its ten-times answer, with the extra zero sliding in. */
-        TIMES_TEN
+        TIMES_TEN,
+
+        // ── the figures the book itself draws, page by page ──
+        /** The moon thinning to a crescent, filling to a circle and thinning again. */
+        MOON_PHASES,
+        /** A block of flats: floors stacked up, each with the same number of units. */
+        BUILDING,
+        /** A table filling in cell by cell, with the +n jump drawn between the cells. */
+        TABLE_PATTERN,
+        /** A grid of little squares ringed into equal groups, with the addition written out. */
+        GRID_GROUPS,
+        /** A month's calendar with every seventh day marked, the way شنبه‌ها repeat. */
+        CALENDAR,
+        /** The same addends rearranged into friendly pairs, landing on the same total. */
+        SUM_REORDER,
+        /** A clock face with the afternoon ring ۱۳ to ۲۴ around the outside. */
+        CLOCK24,
+        /** The ۰ to ۲۴ strip of a whole day, coloured part by part. */
+        DAY_STRIP,
+        /** Two machines joined together: the answer of the first feeds the second. */
+        MACHINE_CHAIN,
+        /** A shape with its line of symmetry drawn, then folded over it. */
+        SYMMETRY_LINES,
+        /** The unfolded net of a cube, folding itself up into the cube. */
+        CUBE_NET
     }
 
     public final Kind kind;
@@ -126,6 +150,60 @@ public class StageSpec {
 
     public static StageSpec timesTen(int n) {
         return new StageSpec(Kind.TIMES_TEN, null, n, 0, 0);
+    }
+
+    // ── the book's own figures ──
+
+    public static StageSpec moonPhases() {
+        return new StageSpec(Kind.MOON_PHASES, null, 0, 0, 0);
+    }
+
+    /** `floors` storeys with `unitsPerFloor` flats on each, filling from the ground up. */
+    public static StageSpec building(int floors, int unitsPerFloor) {
+        return new StageSpec(Kind.BUILDING, null, floors, unitsPerFloor, 0);
+    }
+
+    /** The table's own numbers, with `step` written as the jump between them. */
+    public static StageSpec tablePattern(int step, int... values) {
+        return new StageSpec(Kind.TABLE_PATTERN, values, step, 0, 0);
+    }
+
+    /** A `rows` × `cols` grid of squares ringed into groups of `groupSize`. */
+    public static StageSpec gridGroups(int rows, int cols, int groupSize) {
+        return new StageSpec(Kind.GRID_GROUPS, null, rows, cols, groupSize);
+    }
+
+    /** A month of `days` starting on weekday `startDay` (0 = شنبه), every 7th day marked. */
+    public static StageSpec calendar(int days, int startDay) {
+        return new StageSpec(Kind.CALENDAR, null, days, startDay, 0);
+    }
+
+    public static StageSpec sumReorder(int... addends) {
+        return new StageSpec(Kind.SUM_REORDER, addends, 0, 0, 0);
+    }
+
+    /** `hour24` on the clock, with the afternoon ring shown when it is ۱۳ or later. */
+    public static StageSpec clock24(int hour24) {
+        return new StageSpec(Kind.CLOCK24, null, hour24, 0, 0);
+    }
+
+    /** The day strip with the stretch from `fromHour` to `toHour` coloured in. */
+    public static StageSpec dayStrip(int fromHour, int toHour) {
+        return new StageSpec(Kind.DAY_STRIP, null, fromHour, toHour, 0);
+    }
+
+    /** input → (+/− rule1) → (+/− rule2) → out. */
+    public static StageSpec machineChain(int input, int rule1, int rule2) {
+        return new StageSpec(Kind.MACHINE_CHAIN, new int[]{rule1, rule2}, input, 0, 0);
+    }
+
+    /** `cellsPerHalf` coloured cells on one side of the fold, `axes` lines of symmetry. */
+    public static StageSpec symmetryLines(int cellsPerHalf, int axes) {
+        return new StageSpec(Kind.SYMMETRY_LINES, null, cellsPerHalf, axes, 0);
+    }
+
+    public static StageSpec cubeNet() {
+        return new StageSpec(Kind.CUBE_NET, null, 0, 0, 0);
     }
 
     public boolean isNone() {

@@ -114,6 +114,17 @@ public class LessonStageView extends View {
             case COLUMN_OP: drawColumnOp(canvas, w, h); break;
             case BAR_CHART: drawBarChart(canvas, w, h); break;
             case TIMES_TEN: drawTimesTen(canvas, w, h); break;
+            case MOON_PHASES: drawMoonPhases(canvas, w, h); break;
+            case BUILDING: drawBuilding(canvas, w, h); break;
+            case TABLE_PATTERN: drawTablePattern(canvas, w, h); break;
+            case GRID_GROUPS: drawGridGroups(canvas, w, h); break;
+            case CALENDAR: drawCalendar(canvas, w, h); break;
+            case SUM_REORDER: drawSumReorder(canvas, w, h); break;
+            case CLOCK24: drawClock24(canvas, w, h); break;
+            case DAY_STRIP: drawDayStrip(canvas, w, h); break;
+            case MACHINE_CHAIN: drawMachineChain(canvas, w, h); break;
+            case SYMMETRY_LINES: drawSymmetryLines(canvas, w, h); break;
+            case CUBE_NET: drawCubeNet(canvas, w, h); break;
             default: break;
         }
     }
@@ -276,7 +287,9 @@ public class LessonStageView extends View {
         canvas.drawRoundRect(inner, dp(12), dp(12), fill);
         textPaint.setColor(ORANGE_DARK);
         textPaint.setTextSize(sp(24));
-        canvas.drawText("+" + PersianDigits.fa(rule), w / 2, cy + sp(9), textPaint);
+        // a machine can take away as well as add, so the sign follows the rule
+        canvas.drawText((rule >= 0 ? "+" : "−") + PersianDigits.fa(Math.abs(rule)),
+            w / 2, cy + sp(9), textPaint);
 
         float trackRight = w - dp(24);
         float trackLeft = dp(24);
@@ -938,6 +951,515 @@ public class LessonStageView extends View {
             textPaint.setColor(MUTED);
             textPaint.setTextSize(sp(13));
             canvas.drawText("یک صفر به آخرش اضافه می‌شود", w / 2, h - dp(12), textPaint);
+        }
+    }
+
+
+    // ---------- the book's own figures, page by page ----------
+
+    /** صفحه‌ی ۷: the moon thinning, filling and thinning again — the book's opening pattern. */
+    private void drawMoonPhases(Canvas canvas, float w, float h) {
+        int count = 5;
+        float pad = dp(8);
+        float slot = (w - pad * 2) / count;
+        float r = Math.min(slot * 0.38f, h * 0.28f);
+        float cy = h * 0.45f;
+        String[] names = {"هلال", "نیمه", "کامل", "نیمه", "هلال"};
+        // how much of the disc is lit at each phase
+        float[] lit = {0.15f, 0.5f, 1f, 0.5f, 0.15f};
+
+        for (int i = 0; i < count; i++) {
+            float appear = clamp(progress * count - i, 0f, 1f);
+            if (appear <= 0f) continue;
+            float cx = w - pad - (i + 0.5f) * slot;
+
+            fill.setColor(Color.parseColor("#1F2A44"));
+            fill.setAlpha((int) (255 * appear));
+            canvas.drawCircle(cx, cy, r, fill);
+            fill.setAlpha(255);
+
+            // the lit part, drawn as a slice of the disc
+            fill.setColor(Color.parseColor("#F6E7B4"));
+            RectF oval = new RectF(cx - r, cy - r, cx + r, cy + r);
+            float sweep = 360f * lit[i] * appear;
+            canvas.drawArc(oval, -90 - sweep / 2, sweep, true, fill);
+
+            stroke.setColor(CARD_EDGE);
+            stroke.setStrokeWidth(dp(1.5f));
+            canvas.drawCircle(cx, cy, r, stroke);
+
+            textPaint.setColor(MUTED);
+            textPaint.setTextSize(sp(10.5f));
+            canvas.drawText(names[i], cx, cy + r + dp(16), textPaint);
+        }
+
+        if (progress > 0.85f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(14));
+            canvas.drawText("این الگو هر ماه یک بار تکرار می‌شود", w / 2, h - dp(8), textPaint);
+        }
+    }
+
+    /** صفحه‌های ۸ و ۹: the block of flats, floors filling from the ground up. */
+    private void drawBuilding(Canvas canvas, float w, float h) {
+        int floors = Math.max(1, spec.a);
+        int per = Math.max(1, spec.b);
+
+        float pad = dp(12);
+        float band = dp(32);
+        float available = h - band - pad * 2;
+        float floorH = Math.min(dp(34), available / floors);
+        float unitW = Math.min(dp(40), (w - pad * 2 - dp(40)) / per);
+        float left = w / 2 - (per * unitW) / 2f;
+        float bottom = pad + available;
+
+        float shown = progress * floors;
+        for (int f = 0; f < floors; f++) {
+            float appear = clamp(shown - f, 0f, 1f);
+            if (appear <= 0f) continue;
+            float y = bottom - (f + 1) * floorH;
+            for (int u = 0; u < per; u++) {
+                RectF r = new RectF(left + u * unitW + dp(2), y + dp(2),
+                    left + (u + 1) * unitW - dp(2), y + floorH - dp(2));
+                fill.setColor(f % 2 == 0 ? TEAL : ORANGE);
+                fill.setAlpha((int) (255 * appear));
+                canvas.drawRoundRect(r, dp(3), dp(3), fill);
+                fill.setAlpha(255);
+            }
+            textPaint.setColor(MUTED);
+            textPaint.setTextSize(sp(10));
+            canvas.drawText("طبقه‌ی " + PersianDigits.fa(f + 1), left - dp(22), y + floorH * 0.66f, textPaint);
+        }
+
+        int done = (int) Math.floor(shown);
+        if (done > 0) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(15));
+            canvas.drawText(PersianDigits.fa(done) + " طبقه × " + PersianDigits.fa(per)
+                + " واحد = " + PersianDigits.fa(done * per), w / 2, h - dp(8), textPaint);
+        }
+    }
+
+    /** صفحه‌های ۹ و ۲۳: the book's table, filling cell by cell with its +n jumps. */
+    private void drawTablePattern(Canvas canvas, float w, float h) {
+        int[] values = spec.values;
+        if (values == null || values.length == 0) return;
+        int step = spec.a;
+
+        float pad = dp(10);
+        float cellW = (w - pad * 2) / values.length;
+        float cellH = Math.min(dp(56), h * 0.42f);
+        float top = h * 0.30f;
+
+        for (int i = 0; i < values.length; i++) {
+            float appear = clamp(progress * values.length - i, 0f, 1f);
+            float x = w - pad - (i + 1) * cellW;   // right to left
+            RectF cell = new RectF(x + dp(3), top, x + cellW - dp(3), top + cellH);
+
+            fill.setColor(CARD);
+            canvas.drawRoundRect(cell, dp(8), dp(8), fill);
+            stroke.setColor(CARD_EDGE);
+            stroke.setStrokeWidth(dp(2));
+            canvas.drawRoundRect(cell, dp(8), dp(8), stroke);
+
+            if (appear > 0f) {
+                textPaint.setColor(INK);
+                textPaint.setTextSize(sp(17) * (0.7f + 0.3f * appear));
+                canvas.drawText(PersianDigits.fa(values[i]), cell.centerX(), cell.centerY() + dp(6), textPaint);
+            }
+
+            // the jump arrow to the next cell
+            if (i > 0 && step != 0 && appear > 0.3f) {
+                float ax = cell.right, bx = cell.right + cellW - dp(6);
+                float ay = top - dp(12);
+                Path arc = new Path();
+                arc.moveTo(bx, ay);
+                arc.quadTo((ax + bx) / 2, ay - dp(18), ax, ay);
+                canvas.drawPath(arc, dashed);
+                textPaint.setColor(PINK);
+                textPaint.setTextSize(sp(11));
+                canvas.drawText((step > 0 ? "+" : "−") + PersianDigits.fa(Math.abs(step)),
+                    (ax + bx) / 2, ay - dp(20), textPaint);
+            }
+        }
+    }
+
+    /** صفحه‌های ۱۰ و ۱۱: the grid of little squares, ringed into equal groups. */
+    private void drawGridGroups(Canvas canvas, float w, float h) {
+        int rows = Math.max(1, spec.a);
+        int cols = Math.max(1, spec.b);
+        int group = Math.max(1, spec.c);
+        int count = rows * cols;
+        int groups = (int) Math.ceil(count / (float) group);
+
+        float pad = dp(10);
+        float band = dp(38);
+        float cell = Math.min((w - pad * 2) / cols, (h - band - pad * 2) / rows);
+        float startX = w / 2 + (cols * cell) / 2f;
+        float startY = pad + ((h - band - pad * 2) - rows * cell) / 2f;
+
+        for (int i = 0; i < count; i++) {
+            int r = i / cols, c = i % cols;
+            float x = startX - (c + 1) * cell, y = startY + r * cell;
+            drawCell(canvas, x, y, cell, CARD_EDGE, 1f);
+        }
+
+        float shownGroups = progress * groups;
+        for (int g = 0; g < groups; g++) {
+            float appear = clamp(shownGroups - g, 0f, 1f);
+            if (appear <= 0f) continue;
+            int from = g * group, to = Math.min(count, from + group);
+            for (int i = from; i < to; i++) {
+                int r = i / cols, c = i % cols;
+                drawCell(canvas, startX - (c + 1) * cell, startY + r * cell, cell,
+                    g % 2 == 0 ? TEAL : ORANGE, appear);
+            }
+        }
+
+        int doneGroups = (int) Math.floor(shownGroups);
+        if (doneGroups > 0) {
+            StringBuilder sum = new StringBuilder();
+            for (int g = 0; g < doneGroups; g++) {
+                int size = Math.min(group, count - g * group);
+                if (g > 0) sum.append(" + ");
+                sum.append(PersianDigits.fa(size));
+            }
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(14));
+            canvas.drawText(sum + " = " + PersianDigits.fa(Math.min(count, doneGroups * group)),
+                w / 2, h - dp(10), textPaint);
+        }
+    }
+
+    /** صفحه‌ی ۱۲: a month's calendar with every seventh day marked. */
+    private void drawCalendar(Canvas canvas, float w, float h) {
+        int days = Math.max(1, spec.a);
+        int start = Math.max(0, spec.b);
+        String[] head = {"ش", "ی", "د", "س", "چ", "پ", "ج"};
+
+        float pad = dp(8);
+        float cell = Math.min((w - pad * 2) / 7, (h - dp(46)) / 6);
+        float startX = w / 2 + (7 * cell) / 2f;
+        float top = dp(18);
+
+        textPaint.setTextSize(sp(10));
+        for (int c = 0; c < 7; c++) {
+            textPaint.setColor(MUTED);
+            canvas.drawText(head[c], startX - (c + 0.5f) * cell, top - dp(4), textPaint);
+        }
+
+        int marked = 0;
+        for (int d = 1; d <= days; d++) {
+            int index = start + d - 1;
+            int r = index / 7, c = index % 7;
+            float x = startX - (c + 1) * cell, y = top + r * cell;
+            boolean isClassDay = (d - 1) % 7 == 0;
+            if (isClassDay) marked++;
+
+            float appear = isClassDay ? clamp(progress * 5f - marked + 1, 0f, 1f) : 1f;
+            RectF box = new RectF(x + dp(1.5f), y + dp(1.5f), x + cell - dp(1.5f), y + cell - dp(1.5f));
+            fill.setColor(isClassDay && appear > 0.1f ? ORANGE : CARD);
+            canvas.drawRoundRect(box, dp(4), dp(4), fill);
+            stroke.setColor(CARD_EDGE);
+            stroke.setStrokeWidth(dp(1));
+            canvas.drawRoundRect(box, dp(4), dp(4), stroke);
+
+            textPaint.setColor(isClassDay && appear > 0.1f ? Color.WHITE : INK);
+            textPaint.setTextSize(sp(9.5f));
+            canvas.drawText(PersianDigits.fa(d), box.centerX(), box.centerY() + dp(3.5f), textPaint);
+        }
+
+        if (progress > 0.8f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(13));
+            canvas.drawText("هر ۷ روز یک بار، دوباره شنبه", w / 2, h - dp(6), textPaint);
+        }
+    }
+
+    /** صفحه‌های ۱۲ و ۲۴: the same addends paired up into tens, landing on the same total. */
+    private void drawSumReorder(Canvas canvas, float w, float h) {
+        int[] addends = spec.values;
+        if (addends == null || addends.length == 0) return;
+        int total = 0;
+        for (int a : addends) total += a;
+
+        float pad = dp(12);
+        float slot = (w - pad * 2) / addends.length;
+        float topRow = h * 0.26f;
+        float bottomRow = h * 0.62f;
+
+        // as the book writes it
+        textPaint.setTextSize(sp(17));
+        for (int i = 0; i < addends.length; i++) {
+            float cx = w - pad - (i + 0.5f) * slot;
+            textPaint.setColor(INK);
+            canvas.drawText(PersianDigits.fa(addends[i]), cx, topRow, textPaint);
+            if (i < addends.length - 1) {
+                textPaint.setColor(MUTED);
+                canvas.drawText("+", cx - slot / 2, topRow, textPaint);
+            }
+        }
+
+        // …and rearranged, biggest with smallest, so friendly pairs appear
+        int[] sorted = addends.clone();
+        java.util.Arrays.sort(sorted);
+        int[] paired = new int[sorted.length];
+        int lo = 0, hi = sorted.length - 1, k = 0;
+        while (lo <= hi) {
+            paired[k++] = sorted[hi--];
+            if (lo <= hi) paired[k++] = sorted[lo++];
+        }
+
+        float move = clamp(progress / 0.7f, 0f, 1f);
+        for (int i = 0; i < paired.length; i++) {
+            float cx = w - pad - (i + 0.5f) * slot;
+            float y = topRow + (bottomRow - topRow) * move;
+            textPaint.setColor(i % 2 == 0 ? TEAL : ORANGE);
+            textPaint.setTextSize(sp(17));
+            canvas.drawText(PersianDigits.fa(paired[i]), cx, y, textPaint);
+            if (i < paired.length - 1 && move > 0.5f) {
+                textPaint.setColor(MUTED);
+                canvas.drawText("+", cx - slot / 2, y, textPaint);
+            }
+        }
+
+        if (progress > 0.8f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(16));
+            canvas.drawText("جمع هر دو راه = " + PersianDigits.fa(total), w / 2, h - dp(10), textPaint);
+        }
+    }
+
+    /** صفحه‌های ۱۶ تا ۱۸: the clock with the afternoon ring ۱۳ to ۲۴ around the outside. */
+    private void drawClock24(Canvas canvas, float w, float h) {
+        int hour24 = ((spec.a % 24) + 24) % 24;
+        int hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+        boolean afternoon = hour24 >= 12;
+
+        float cx = w / 2, cy = h * 0.47f;
+        float outer = Math.min(w, h) * 0.40f;
+        float face = outer * 0.78f;
+
+        // the afternoon ring first, so the ۱۳ to ۲۴ numbers sit outside the face
+        textPaint.setTextSize(sp(10));
+        for (int i = 0; i < 12; i++) {
+            int label = 13 + i;
+            double angle = Math.toRadians(-90 + (i + 1) * 30);
+            float x = cx + (float) Math.cos(angle) * outer;
+            float y = cy + (float) Math.sin(angle) * outer;
+            boolean isNow = afternoon && label == (hour24 == 12 ? 24 : hour24 < 13 ? 24 : hour24);
+            textPaint.setColor(isNow ? PINK : MUTED);
+            canvas.drawText(PersianDigits.fa(label), x, y + dp(3.5f), textPaint);
+        }
+
+        fill.setColor(FACE);
+        canvas.drawCircle(cx, cy, face, fill);
+        stroke.setColor(ORANGE);
+        stroke.setStrokeWidth(dp(3));
+        canvas.drawCircle(cx, cy, face, stroke);
+
+        textPaint.setTextSize(sp(12));
+        for (int i = 1; i <= 12; i++) {
+            double angle = Math.toRadians(-90 + i * 30);
+            float x = cx + (float) Math.cos(angle) * (face - dp(15));
+            float y = cy + (float) Math.sin(angle) * (face - dp(15));
+            textPaint.setColor(i == hour12 ? ORANGE_DARK : INK);
+            canvas.drawText(PersianDigits.fa(i), x, y + dp(4), textPaint);
+        }
+
+        double target = Math.toRadians(-90 + hour12 * 30);
+        double turned = -Math.PI / 2 + (target + Math.PI / 2) * progress;
+        stroke.setColor(ORANGE_DARK);
+        stroke.setStrokeWidth(dp(4.5f));
+        canvas.drawLine(cx, cy, cx + (float) Math.cos(turned) * face * 0.55f,
+            cy + (float) Math.sin(turned) * face * 0.55f, stroke);
+        stroke.setColor(TEAL);
+        stroke.setStrokeWidth(dp(3));
+        canvas.drawLine(cx, cy, cx, cy - face * 0.78f, stroke);
+        fill.setColor(ORANGE_DARK);
+        canvas.drawCircle(cx, cy, dp(4.5f), fill);
+
+        if (progress > 0.7f) {
+            textPaint.setColor(afternoon ? PINK : TEAL);
+            textPaint.setTextSize(sp(14));
+            String label = afternoon
+                ? "ساعت " + PersianDigits.fa(hour12) + " بعدازظهر = " + PersianDigits.fa(hour24)
+                : "ساعت " + PersianDigits.fa(hour12) + " قبل‌از‌ظهر";
+            canvas.drawText(label, w / 2, h - dp(8), textPaint);
+        }
+    }
+
+    /** صفحه‌ی ۱۸: the whole day as one ۰ to ۲۴ strip, with a stretch coloured in. */
+    private void drawDayStrip(Canvas canvas, float w, float h) {
+        int from = Math.max(0, Math.min(24, spec.a));
+        int to = Math.max(from, Math.min(24, spec.b));
+
+        float pad = dp(14);
+        float barH = dp(40);
+        float top = h * 0.34f;
+        float span = w - pad * 2;
+        float hour = span / 24f;
+
+        for (int i = 0; i < 24; i++) {
+            float x = w - pad - (i + 1) * hour;   // ۰ on the right
+            RectF cell = new RectF(x, top, x + hour, top + barH);
+            fill.setColor(i < 12 ? Color.parseColor("#EAF3F1") : Color.parseColor("#F4E7EC"));
+            canvas.drawRect(cell, fill);
+        }
+
+        float grown = (to - from) * clamp(progress / 0.8f, 0f, 1f);
+        RectF lit = new RectF(w - pad - (from + grown) * hour, top, w - pad - from * hour, top + barH);
+        fill.setColor(ORANGE);
+        canvas.drawRect(lit, fill);
+
+        stroke.setColor(INK);
+        stroke.setStrokeWidth(dp(2));
+        canvas.drawRect(w - pad - span, top, w - pad, top + barH, stroke);
+
+        textPaint.setTextSize(sp(10));
+        for (int i = 0; i <= 24; i += 6) {
+            float x = w - pad - i * hour;
+            textPaint.setColor(MUTED);
+            canvas.drawText(PersianDigits.fa(i), x, top + barH + dp(15), textPaint);
+        }
+        textPaint.setColor(TEAL);
+        canvas.drawText("قبل‌از‌ظهر", w - pad - 6 * hour, top - dp(8), textPaint);
+        textPaint.setColor(PINK);
+        canvas.drawText("بعدازظهر", w - pad - 18 * hour, top - dp(8), textPaint);
+
+        if (progress > 0.85f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(14));
+            canvas.drawText("از ساعت " + PersianDigits.fa(from) + " تا " + PersianDigits.fa(to)
+                + " می‌شود " + PersianDigits.fa(to - from) + " ساعت", w / 2, h - dp(8), textPaint);
+        }
+    }
+
+    /** صفحه‌های ۱۴ و ۱۵: two machines joined, the first one's answer feeding the second. */
+    private void drawMachineChain(Canvas canvas, float w, float h) {
+        int[] rules = spec.values;
+        if (rules == null || rules.length < 2) return;
+        int input = spec.a;
+        int middle = input + rules[0];
+        int out = middle + rules[1];
+
+        float boxW = w * 0.22f, boxH = h * 0.40f;
+        float cy = h * 0.44f;
+        float[] centers = {w * 0.60f, w * 0.30f};   // right to left
+
+        textPaint.setTextSize(sp(16));
+        textPaint.setColor(INK);
+        canvas.drawText(PersianDigits.fa(input), w * 0.90f, cy + dp(5), textPaint);
+
+        for (int m = 0; m < 2; m++) {
+            float appear = clamp(progress * 2f - m, 0f, 1f);
+            RectF box = new RectF(centers[m] - boxW / 2, cy - boxH / 2, centers[m] + boxW / 2, cy + boxH / 2);
+            fill.setColor(appear > 0f ? (m == 0 ? TEAL : ORANGE) : CARD_EDGE);
+            canvas.drawRoundRect(box, dp(12), dp(12), fill);
+            textPaint.setColor(Color.WHITE);
+            textPaint.setTextSize(sp(15));
+            canvas.drawText((rules[m] >= 0 ? "+" : "−") + PersianDigits.fa(Math.abs(rules[m])),
+                box.centerX(), box.centerY() + dp(5), textPaint);
+
+            // the number travelling between the machines
+            if (appear > 0f) {
+                float labelX = m == 0 ? (w * 0.90f + centers[0]) / 2 : (centers[0] + centers[1]) / 2;
+                textPaint.setColor(MUTED);
+                textPaint.setTextSize(sp(13));
+                canvas.drawText(PersianDigits.fa(m == 0 ? input : middle), labelX, cy - boxH / 2 - dp(8), textPaint);
+            }
+        }
+
+        float outAppear = clamp((progress - 0.6f) / 0.4f, 0f, 1f);
+        if (outAppear > 0f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(20) * (0.6f + 0.4f * outAppear));
+            canvas.drawText(PersianDigits.fa(out), w * 0.10f, cy + dp(6), textPaint);
+        }
+
+        if (progress > 0.9f) {
+            textPaint.setColor(MUTED);
+            textPaint.setTextSize(sp(12.5f));
+            canvas.drawText(PersianDigits.fa(input) + " ← " + PersianDigits.fa(middle)
+                + " ← " + PersianDigits.fa(out), w / 2, h - dp(8), textPaint);
+        }
+    }
+
+    /** صفحه‌های ۱۹ تا ۲۱: the line of symmetry drawn, then the shape folded over it. */
+    private void drawSymmetryLines(Canvas canvas, float w, float h) {
+        int perHalf = Math.max(1, spec.a);
+        int axes = Math.max(1, spec.b);
+
+        int cols = Math.min(perHalf, 3);
+        int rows = (int) Math.ceil(perHalf / (float) cols);
+        float pad = dp(16);
+        float band = dp(34);
+        float cell = Math.min((w / 2 - pad * 1.5f) / cols, (h - band - pad * 2) / rows);
+        float midX = w / 2;
+        float topY = pad + ((h - band - pad * 2) - rows * cell) / 2;
+
+        // the axis is drawn first, the way the book asks the child to draw it with a ruler
+        float axisGrow = clamp(progress / 0.3f, 0f, 1f);
+        Path fold = new Path();
+        fold.moveTo(midX, h * 0.5f - (h * 0.5f - dp(4)) * axisGrow);
+        fold.lineTo(midX, h * 0.5f + (h * 0.5f - band) * axisGrow);
+        canvas.drawPath(fold, dashed);
+        if (axes > 1) {
+            float axisY = topY + (rows * cell) / 2f;
+            Path second = new Path();
+            second.moveTo(midX - (w * 0.5f - dp(6)) * axisGrow, axisY);
+            second.lineTo(midX + (w * 0.5f - dp(6)) * axisGrow, axisY);
+            canvas.drawPath(second, dashed);
+        }
+
+        float leftShown = clamp((progress - 0.25f) / 0.35f, 0f, 1f) * perHalf;
+        float rightShown = clamp((progress - 0.6f) / 0.4f, 0f, 1f) * perHalf;
+        for (int i = 0; i < perHalf; i++) {
+            int r = i / cols, c = i % cols;
+            float appearL = clamp(leftShown - i, 0f, 1f);
+            if (appearL > 0f) drawCell(canvas, midX - dp(5) - (c + 1) * cell, topY + r * cell, cell, TEAL, appearL);
+            float appearR = clamp(rightShown - i, 0f, 1f);
+            if (appearR > 0f) drawCell(canvas, midX + dp(5) + c * cell, topY + r * cell, cell, ORANGE, appearR);
+        }
+
+        if (progress > 0.9f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(14));
+            canvas.drawText(PersianDigits.fa(perHalf) + " + " + PersianDigits.fa(perHalf)
+                + " = " + PersianDigits.fa(perHalf * 2) + " خانه", w / 2, h - dp(8), textPaint);
+        }
+    }
+
+    /** The cube activities: the net drawn flat, then folding up into the cube. */
+    private void drawCubeNet(Canvas canvas, float w, float h) {
+        float cell = Math.min(w / 5.2f, h / 4.4f);
+        float cx = w / 2, cy = h * 0.46f;
+        // the six faces of the net: a cross, as the book draws it
+        int[][] netCells = {{0, -1}, {0, 0}, {0, 1}, {0, 2}, {-1, 0}, {1, 0}};
+
+        float fold = clamp((progress - 0.45f) / 0.55f, 0f, 1f);
+
+        for (int i = 0; i < netCells.length; i++) {
+            float appear = clamp(progress / 0.45f * netCells.length - i, 0f, 1f);
+            if (appear <= 0f) continue;
+            float gx = netCells[i][0], gy = netCells[i][1];
+            // as it folds, every face slides towards the middle
+            float x = cx + (gx * cell) * (1 - fold) - cell / 2 + (fold * gx * cell * 0.18f);
+            float y = cy + (gy * cell) * (1 - fold) - cell / 2 + (fold * gy * cell * 0.18f);
+            RectF r = new RectF(x, y, x + cell, y + cell);
+            fill.setColor(i % 2 == 0 ? TEAL : ORANGE);
+            fill.setAlpha((int) (255 * appear * (1 - fold * 0.25f)));
+            canvas.drawRoundRect(r, dp(4), dp(4), fill);
+            fill.setAlpha(255);
+            stroke.setColor(Color.WHITE);
+            stroke.setStrokeWidth(dp(2));
+            canvas.drawRoundRect(r, dp(4), dp(4), stroke);
+        }
+
+        if (progress > 0.9f) {
+            textPaint.setColor(ORANGE_DARK);
+            textPaint.setTextSize(sp(14));
+            canvas.drawText("۶ مربّع، یک مکعّب", w / 2, h - dp(8), textPaint);
         }
     }
 
