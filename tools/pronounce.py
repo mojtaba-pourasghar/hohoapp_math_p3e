@@ -54,10 +54,10 @@ LETTERS = str.maketrans({"ي": "ی", "ك": "ک", "ة": "ه", "أ": "ا", "إ": "
 # the same table as tts/SpokenText and tts/QuestionVoice — a voice cannot read «×» or «⬜»
 SYMBOLS = [
     ("⬜", " چند "), ("×", " ضربدر "), ("÷", " تقسیم بر "), ("−", " منهای "),
-    ("–", " منهای "), ("+", " به‌اضافه‌ی "), ("=", " مساوی "), ("→", " می‌شود "),
+    ("+", " به‌اضافه‌ی "), ("=", " مساوی "), ("→", " می‌شود "),
     ("٪", " درصد "), ("%", " درصد "), ("_", " جای خالی "),
     ("…", "، "), ("«", " "), ("»", " "), ("(", " "), (")", " "),
-    ("—", " "), ("⌫", " "), ("🎉", " "),
+    ("—", "، "), ("–", "، "), ("⌫", " "), ("🎉", " "),
     ("‎", ""), ("‏", ""),
 ]
 
@@ -141,4 +141,6 @@ def spoken(text):
     out = _DIGIT_RUN.sub(lambda m: " " + number_word(int(m.group())) + " ", out)
     out = _TOKEN.sub(lambda m: _respell(m.group()), out)
 
+    out = re.sub(r"\s+([،؛,])", r"\1", out)          # no space before a comma
+    out = re.sub(r"([،؛])\1+", r"\1", out)             # and never two in a row
     return re.sub(r"\s{2,}", " ", out).strip()
