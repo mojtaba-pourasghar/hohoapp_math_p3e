@@ -36,17 +36,25 @@ MANIFEST = os.path.join(RAW, "audio_manifest.txt")
 
 
 def read_manifest(prefix=None):
+    """(key, spoken text) for every narration line.
+
+    A manifest line is «key | text | تلفظ». The third column is the one that gets recorded: it
+    is the same sentence with the symbols and numbers written as words and the maths words
+    respelled, so the voice says them correctly. Older two-column lines still work — then the
+    written text is recorded as-is.
+    """
     lines = []
     with open(MANIFEST, encoding="utf-8") as fh:
         for raw in fh:
             raw = raw.strip()
             if not raw or raw.startswith("#") or "|" not in raw:
                 continue
-            key, text = raw.split("|", 1)
-            key, text = key.strip(), text.strip()
+            parts = [part.strip() for part in raw.split("|")]
+            key, written = parts[0], parts[1]
+            say = parts[2] if len(parts) > 2 and parts[2] else written
             if prefix and not key.startswith(prefix):
                 continue
-            lines.append((key, text))
+            lines.append((key, say))
     return lines
 
 

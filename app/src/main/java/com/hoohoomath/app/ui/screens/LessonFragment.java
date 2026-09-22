@@ -28,8 +28,6 @@ import com.hoohoomath.app.ui.LessonStageView;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
 
-import java.util.List;
-
 import static com.hoohoomath.app.data.PersianDigits.fa;
 
 /**
@@ -68,7 +66,12 @@ public class LessonFragment extends BaseFragment {
         page = args != null ? args.getInt("page", 0) : 0;
         // a page of the book, or the section's own summary lesson
         script = page > 0 ? PageLessons.forPage(page) : Lessons.forSection(chapter, section);
-        if (script != null) section = script.section;
+        // a page carries its own chapter and section, so walking into the next chapter's first
+        // page keeps the header, the practice button and the saved progress on the right chapter
+        if (script != null) {
+            section = script.section;
+            if (page > 0) chapter = script.chapter;
+        }
 
         stage = view.findViewById(R.id.lesson_stage);
         onTap(view, R.id.lesson_back, () -> {
@@ -542,11 +545,9 @@ public class LessonFragment extends BaseFragment {
         return card;
     }
 
-    /** The page after this one in the book, or 0 when this chapter's pages are finished. */
+    /** The next page of the book, across chapter borders, or 0 at the very last page. */
     private int nextPage() {
-        List<Integer> pages = PageLessons.pagesOfChapter(chapter);
-        int at = pages.indexOf(page);
-        return at >= 0 && at < pages.size() - 1 ? pages.get(at + 1) : 0;
+        return PageLessons.nextPage(page);
     }
 
     /** While هوهو is still talking, the "got it" button waits — the child listens first. */
