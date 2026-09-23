@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      skip_voice:
+        description: "بدون ساختِ صدا بیلد کن (اپ با موتور گفتارِ دستگاه می‌خواند)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -42,6 +47,7 @@ jobs:
       # to the device voice. make_voice.py skips every file that is already committed, so this
       # only does real work when new lesson text has been added.
       - name: Generate any missing narration
+        if: ${{ inputs.skip_voice != true }}
         run: |
           set -o pipefail
           python3 -m pip install --quiet edge-tts
