@@ -263,6 +263,19 @@ public final class AppState {
         return completedPages.contains(String.valueOf(page));
     }
 
+    /**
+     * Which chapter the map is showing. This is only where the child is *looking* — the
+     * bookmark of how far the class has got stays in taughtChapter, and nothing is locked.
+     */
+    public void saveMapChapter(int chapter) {
+        prefs.edit().putInt("mapChapter", chapter).apply();
+    }
+
+    public int mapChapter() {
+        int c = prefs.getInt("mapChapter", -1);
+        return c < 0 || c >= Book.CHAPTERS.size() ? taughtChapter : c;
+    }
+
     /** Which step of a section's voice lesson the child had reached, so it resumes there. */
     public void saveLessonStep(int chapter, int section, int step) {
         prefs.edit().putInt("lesson_" + sectionKey(chapter, section), step).apply();

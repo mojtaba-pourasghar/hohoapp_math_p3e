@@ -42,13 +42,72 @@ public class MapFragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        AppState s = state();
-        Book.Chapter ch = Book.chapter(s.taughtChapter);
 
         view.findViewById(R.id.btn_profile).setOnClickListener(v -> nav().go(Screen.PROFILE));
         view.findViewById(R.id.btn_parent).setOnClickListener(v -> nav().goParent());
         view.findViewById(R.id.see_chapters).setOnClickListener(v -> nav().go(Screen.CHAPTERS));
 
+        render(view, state().mapChapter());
+    }
+
+    /** Draws the whole screen for one chapter. Tapping another chapter chip calls it again. */
+    private void render(View view, int chapterIndex) {
+        AppState s = state();
+        Book.Chapter ch = Book.chapter(chapterIndex);
+        boolean isTaughtChapter = chapterIndex == s.taughtChapter;
+
+        buildChapterRow(view, chapterIndex);
+        buildStarRow(view, s);
+
+        int doneSections = 0;
+        for (int i = 0; i < ch.sections.size(); i++) {
+            if (s.isSectionLessonDone(ch.index, i)) doneSections++;
+        }
+
+        String name = s.learnerName == null || s.learnerName.isEmpty() ? "قهرمان کوچولو" : s.learnerName;
+        ((TextView) view.findViewById(R.id.map_greeting)).setText(isTaughtChapter
+            ? "سلام " + name + "! کلاس تا «" + ch.sections.get(s.taughtSection) + "» رسیده؛ اما هر بخشی را بخواهی باز است."
+            : "فصل " + ch.numberFa + ": " + ch.title + " — هر وقت بخواهی می‌توانی همین‌جا شروع کنی.");
+        ((TextView) view.findViewById(R.id.map_subtitle)).setText(
+            "فصل " + ch.numberFa + ": " + ch.title + " · صفحه‌های " + fa(ch.firstPage) + " تا " + fa(ch.lastPage)
+                + " · " + fa(doneSections) + " بخش از " + fa(Book.SECTIONS_PER_CHAPTER) + " را کار کرده‌ای");
+        ((ProgressBar) view.findViewById(R.id.map_progress))
+            .setProgress(Math.round((doneSections / (float) Book.SECTIONS_PER_CHAPTER) * 100));
+
+        PathMapView map = view.findViewById(R.id.path_map);
+        map.clearNodes();
+        for (int i = 0; i < ch.sections.size(); i++) {
+            map.addNode(buildSectionNode(ch, i, s, isTaughtChapter), NODE_POSITIONS[i][0], NODE_POSITIONS[i][1]);
+        }
+        map.addNode(buildExamNode(ch), NODE_POSITIONS[5][0], NODE_POSITIONS[5][1]);
+    }
+
+    /** One chip per chapter. The chosen one is filled in; the taught one carries a star. */
+    private void buildChapterRow(View view, int chosen) {
+        LinearLayout row = view.findViewById(R.id.map_chapter_row);
+        if (row == null) return;              // older layouts without the picker
+        row.removeAllViews();
+        for (int i = 0; i < Book.CHAPTERS.size(); i++) {
+            Book.Chapter c = Book.CHAPTERS.get(i);
+            boolean on = i == chosen;
+            String label = "فصل " + c.numberFa + (i == state().taughtChapter ? " ★" : "");
+            TextView chip = UiKit.chip(requireContext(), label,
+                color(on ? R.color.teal : R.color.bg_card),
+                color(on ? R.color.teal : R.color.teal_light),
+                color(on ? R.color.white : R.color.text_primary));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMarginEnd(UiKit.dp(requireContext(), 7));
+            final int pick = i;
+            chip.setOnClickListener(v -> {
+                state().saveMapChapter(pick);
+                render(view, pick);
+            });
+            row.addView(chip, lp);
+        }
+    }
+
+    private void buildStarRow(View view, AppState s) {
         LinearLayout chipRow = view.findViewById(R.id.chip_row);
         chipRow.removeAllViews();
         TextView starsChip = UiKit.chip(requireContext(), fa(s.stars) + " ستاره",
@@ -59,30 +118,15 @@ public class MapFragment extends BaseFragment {
         lp.setMarginEnd(UiKit.dp(requireContext(), 6));
         chipRow.addView(starsChip, lp);
         chipRow.addView(streakChip, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        String name = s.learnerName == null || s.learnerName.isEmpty() ? "قهرمان کوچولو" : s.learnerName;
-        ((TextView) view.findViewById(R.id.map_greeting)).setText(
-            "سلام " + name + "! کلاس تا «" + ch.sections.get(s.taughtSection) + "» رسیده؛ اما هر بخشی را بخواهی باز است.");
-        ((TextView) view.findViewById(R.id.map_subtitle)).setText(
-            "فصل " + ch.numberFa + ": " + ch.title + " · " + fa(s.taughtSection + 1) + " بخش از " + fa(Book.SECTIONS_PER_CHAPTER));
-        ((ProgressBar) view.findViewById(R.id.map_progress))
-            .setProgress(Math.round(((s.taughtSection + 1) / (float) Book.SECTIONS_PER_CHAPTER) * 100));
-
-        PathMapView map = view.findViewById(R.id.path_map);
-        map.clearNodes();
-        for (int i = 0; i < ch.sections.size(); i++) {
-            map.addNode(buildSectionNode(ch, i, s), NODE_POSITIONS[i][0], NODE_POSITIONS[i][1]);
-        }
-        map.addNode(buildExamNode(ch), NODE_POSITIONS[5][0], NODE_POSITIONS[5][1]);
     }
 
     private int color(int res) {
         return ContextCompat.getColor(requireContext(), res);
     }
 
-    private View buildSectionNode(Book.Chapter ch, int i, AppState s) {
+    private View buildSectionNode(Book.Chapter ch, int i, AppState s, boolean isTaughtChapter) {
         // nothing on the trail is locked; the orange node is only where the class has got to
-        boolean active = i == s.taughtSection;
+        boolean active = isTaughtChapter && i == s.taughtSection;
         boolean childDone = s.isSectionLessonDone(ch.index, i);
 
         int circleColor = active ? R.color.orange : childDone ? R.color.teal : R.color.teal_light;
@@ -165,6 +209,6 @@ public class MapFragment extends BaseFragment {
 
     @Override
     protected String entryTip() {
-        return "هر بخشی که معلم درس داده، اینجا باز می‌شود. روی دایره‌ی نارنجی بزن!";
+        return "بالای صفحه فصل را عوض کن، بعد روی هر دایره‌ای که خواستی بزن. هیچ‌کدام قفل نیست!";
     }
 }

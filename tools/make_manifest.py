@@ -111,7 +111,7 @@ HEADER = """# فهرست گفتارهای درس — هوهو ریاضی
 # اگر واژه‌ای هنوز بد تلفظ شد، آن را در جدولِ WORDS در tools/pronounce.py اصلاح کن.
 #
 # کلیدهایی که به x ختم می‌شوند، مثالِ بیشترِ همان گام هستند (دکمه‌ی «یک مثال دیگر بزن») و با
-# سرعتِ کمتری ضبط می‌شوند.
+# سرعتِ کمتری ضبط می‌شوند. کلیدهایی که به f ختم می‌شوند، بازخوردِ بعد از جوابِ کودک‌اند.
 #
 # این فایل با دست نوشته نمی‌شود — از خودِ درس‌ها ساخته می‌شود:
 #     python3 tools/make_manifest.py
@@ -129,12 +129,59 @@ HEADER = """# فهرست گفتارهای درس — هوهو ریاضی
 """
 
 
+# the feedback هوهو gives after an answer is the last text argument of an mcq/num/build step;
+# it is spoken too, so it needs a recording of its own — same key as the step, plus «f»
+CALL = re.compile(r"LessonStep\.(?:mcq|num|build)\s*\(")
+
+
+def call_literals(src, open_paren):
+    """Top-level string arguments of the call whose '(' sits at open_paren, and where it ends."""
+    i, depth, lits = open_paren, 0, []
+    while i < len(src):
+        c = src[i]
+        if c == '"':
+            j, buf = i + 1, []
+            while j < len(src) and src[j] != '"':
+                if src[j] == "\\":
+                    buf.append(src[j:j + 2])
+                    j += 2
+                    continue
+                buf.append(src[j])
+                j += 1
+            if depth == 1:                     # options inside Arrays.asList(...) sit deeper
+                lits.append("".join(buf))
+            i = j + 1
+            continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return lits, i
+        i += 1
+    return lits, i
+
+
+def feedback_marks(src):
+    """«<key>f | بازخورد» for every step that answers the child back."""
+    marks = []
+    for m in CALL.finditer(src):
+        lits, end = call_literals(src, m.end() - 1)
+        if len(lits) < 2:
+            continue
+        key, why = lits[0], lits[-1]
+        if why and why != key:
+            marks.append((end, "line", (key + "f", why)))
+    return marks
+
+
 def read_block(path):
     """«key | text» lines of one source file, with its own heading comments in place."""
     src = open(path, encoding="utf-8").read()
     marks = [(m.start(), "section", (m.group(1) or m.group(2)).strip())
              for m in SECTION.finditer(src)]
     marks += [(m.start(), "line", (m.group(1), m.group(2))) for m in KEY.finditer(src)]
+    marks += feedback_marks(src)
     marks.sort(key=lambda t: t[0])
 
     lines, count = [], 0

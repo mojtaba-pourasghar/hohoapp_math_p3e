@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.hoohoomath.app.data.AppState;
+import com.hoohoomath.app.tts.NarrationText;
 import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.ui.Navigator;
 import com.hoohoomath.app.ui.Screen;
@@ -62,6 +63,9 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // the words هوهو says live in res/raw/audio_manifest.txt; read them while the splash shows
+        NarrationText.preload(this);
 
         navBar = findViewById(R.id.nav_bar);
         mascotOverlay = findViewById(R.id.mascot_overlay);

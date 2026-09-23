@@ -8,6 +8,8 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.TextView;
 
 import com.hoohoomath.app.data.AppState;
+import com.hoohoomath.app.tts.LessonAudio;
+import com.hoohoomath.app.tts.NarrationText;
 import com.hoohoomath.app.tts.HootSoundPlayer;
 import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.tts.TtsManager;
@@ -106,13 +108,13 @@ public class MascotController {
     public void say(String text) {
         setBubble(text);
         owl.setSpeaking(true);
-        TtsManager tts = TtsManager.get();
-        if (tts != null) {
-            tts.speak(text, new TtsManager.Callback() {
-                @Override public void onDone() { owl.post(() -> owl.setSpeaking(false)); }
-                @Override public void onError() { owl.post(() -> owl.setSpeaking(false)); }
+        // a line that is in the manifest has a key, so a recorded clip is used once one exists;
+        // otherwise this falls through to the device voice reading the same words
+        LessonAudio.play(owl.getContext(), NarrationText.keyForText(text), text,
+            new LessonAudio.PlaybackListener() {
+                @Override public void onStarted(long durationMs) { }
+                @Override public void onFinished() { owl.post(() -> owl.setSpeaking(false)); }
             });
-        }
     }
 
     /** Correct answer: happy bounce, a sparkle, sometimes a hoot, then back to idle. */

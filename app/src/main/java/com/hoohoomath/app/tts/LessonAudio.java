@@ -46,7 +46,11 @@ public final class LessonAudio {
             }
         }
 
-        long estimate = estimateSpokenMs(text);
+        // no recording yet: the device voice reads the manifest's spoken spelling of this line,
+        // which is word for word what the recorded file will say once it is dropped into res/raw
+        String said = NarrationText.forKey(context, audioKey, text);
+
+        long estimate = estimateSpokenMs(said);
         TtsManager tts = TtsManager.get();
         if (listener != null) listener.onStarted(estimate);
 
@@ -61,7 +65,7 @@ public final class LessonAudio {
         MAIN.postDelayed(finishOnce, estimate + 1200);
 
         if (tts == null) return;
-        tts.speak(text, new TtsManager.Callback() {
+        tts.speak(said, new TtsManager.Callback() {
             @Override public void onDone() { MAIN.post(finishOnce); }
             @Override public void onError() { MAIN.post(finishOnce); }
         });

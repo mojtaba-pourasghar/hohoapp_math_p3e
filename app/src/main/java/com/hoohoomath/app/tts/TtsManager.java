@@ -112,8 +112,9 @@ public class TtsManager {
 
     public void speak(String text, Callback callback) {
         if (!ready || text == null || text.isEmpty()) return;
-        // symbols like × ÷ = ⬜ are spoken as Persian words, otherwise the voice stumbles
-        String spoken = SpokenText.forSpeech(text);
+        // a lesson line is read with the spelling the manifest gives it (numbers and symbols as
+        // words, و اعراب on the words the engine gets wrong); anything else is read as written
+        String spoken = SpokenText.forSpeech(NarrationText.spokenForText(text));
         if (spoken.isEmpty()) return;
         String id = "u" + idCounter.incrementAndGet();
         if (callback != null) callbacks.put(id, callback);

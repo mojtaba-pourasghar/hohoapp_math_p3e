@@ -94,6 +94,8 @@ public class ChaptersFragment extends BaseFragment {
         row.addView(arrow);
 
         row.setOnClickListener(v -> {
+            // the map follows whatever chapter was opened here
+            state().saveMapChapter(ch.index);
             Bundle args = new Bundle();
             args.putInt("chapter", ch.index);
             nav().go(Screen.SECTIONS, args);
