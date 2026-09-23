@@ -49,7 +49,8 @@ public class ExamIndexFragment extends BaseFragment {
         }));
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
-        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("آزمون از همه‌ی بخش‌های این فصل است؛ مثل امتحان مدرسه.");
+        ((TextView) view.findViewById(R.id.chapter_subtitle))
+            .setText("آزمون از همه‌ی بخش‌های این فصل است؛ مثل امتحان مدرسه. هر هشت فصل و هر سه سطح باز است.");
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();

@@ -7,6 +7,7 @@ public enum Screen {
     LESSON,
     SECTIONS,
     WORKSHEET_INDEX,
+    WORKSHEET_DOWNLOAD,
     EXAM_INDEX,
     QUIZ,
     RESULT,

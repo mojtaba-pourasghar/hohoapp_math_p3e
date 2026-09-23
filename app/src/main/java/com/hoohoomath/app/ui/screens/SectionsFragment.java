@@ -58,7 +58,7 @@ public class SectionsFragment extends BaseFragment {
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
         ((TextView) view.findViewById(R.id.chapter_subtitle)).setText(PageLessons.hasPages(ch.index)
-            ? "هوهو همین صفحه‌های کتاب را یکی‌یکی درس می‌دهد."
+            ? "هوهو همین صفحه‌های کتاب را یکی‌یکی درس می‌دهد. هیچ فصلی و هیچ بخشی قفل نیست."
             : "هر بخش تمرین جدا دارد و همه‌شان باز است.");
 
         LinearLayout list = view.findViewById(R.id.list_container);

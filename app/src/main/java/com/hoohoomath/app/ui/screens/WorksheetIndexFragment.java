@@ -16,6 +16,7 @@ import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Level;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.UiKit;
 import com.hoohoomath.app.ui.Screen;
 
 public class WorksheetIndexFragment extends BaseFragment {
@@ -49,7 +50,8 @@ public class WorksheetIndexFragment extends BaseFragment {
         }));
 
         ((TextView) view.findViewById(R.id.chapter_title)).setText("فصل " + ch.numberFa + ": " + ch.title);
-        ((TextView) view.findViewById(R.id.chapter_subtitle)).setText("کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست.");
+        ((TextView) view.findViewById(R.id.chapter_subtitle))
+            .setText("کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست. هر هشت فصل و هر سه سطح باز است.");
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
@@ -65,6 +67,32 @@ public class WorksheetIndexFragment extends BaseFragment {
                 nav().go(Screen.QUIZ, args);
             }));
         }
+
+        // a second, separate way to get worksheets: ready-made sheets to print, not to answer
+        // on screen. Its own screen so the two never get mixed up.
+        list.addView(downloadLink(ch.index));
+    }
+
+    /** Doorway to «دانلود کاربرگ» — kept visually apart from the sets answered inside the app. */
+    private View downloadLink(int chapter) {
+        LinearLayout card = UiKit.column(requireContext());
+        int pad = UiKit.dp(requireContext(), 16);
+        card.setPadding(pad, pad, pad, pad);
+        UiKit.applyCardBg(card, requireContext(), R.color.bg_card_alt, R.color.border_card);
+        card.setLayoutParams(UiKit.marginParams(requireContext(), 14, 8));
+
+        card.addView(UiKit.text(requireContext(), "دانلود کاربرگ ⤓", 14.5f, R.color.teal_dark, true));
+        card.addView(UiKit.text(requireContext(),
+            "کاربرگ‌های چاپی برای نوشتن روی کاغذ — جدا از سی سؤالِ بالا.",
+            11.5f, R.color.text_muted, false));
+
+        card.setOnClickListener(v -> {
+            Bundle args = new Bundle();
+            args.putInt("chapter", chapter);
+            nav().go(Screen.WORKSHEET_DOWNLOAD, args);
+        });
+        UiKit.tapSound(card);
+        return card;
     }
 
     @Override

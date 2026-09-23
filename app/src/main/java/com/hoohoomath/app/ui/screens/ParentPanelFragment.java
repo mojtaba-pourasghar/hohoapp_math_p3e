@@ -146,19 +146,25 @@ public class ParentPanelFragment extends BaseFragment {
         return col;
     }
 
+    /**
+     * One section in the «teacher's pace» list. This is a bookmark the parent moves, not a gate:
+     * every section is open to the child either way, so no row is drawn greyed out — a faded row
+     * reads as locked even when it is not.
+     */
     private View buildSectionRow(Book.Chapter ch, int i, AppState s) {
         boolean taught = i <= s.taughtSection;
         LinearLayout row = UiKit.row(requireContext());
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 11), UiKit.dp(requireContext(), 12), UiKit.dp(requireContext(), 11));
-        UiKit.applyCardBg(row, requireContext(), taught ? R.color.bg_card : R.color.bg_card_muted, taught ? R.color.teal_border : R.color.border_muted);
+        UiKit.applyCardBg(row, requireContext(), R.color.bg_card, taught ? R.color.teal_border : R.color.border_card);
         row.setLayoutParams(UiKit.marginParams(requireContext(), 0, 6));
 
         TextView label = UiKit.text(requireContext(), fa(i + 1) + ". " + ch.sections.get(i), 13f, R.color.text_primary, true);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         label.setLayoutParams(labelLp);
 
-        TextView mark = UiKit.text(requireContext(), taught ? "درس داده شد" : "نه هنوز", 11.5f, taught ? R.color.teal_dark : R.color.text_faint, true);
+        TextView mark = UiKit.text(requireContext(), taught ? "درس داده شد" : "هنوز نه — ولی باز است",
+            11.5f, taught ? R.color.teal_dark : R.color.text_muted, true);
 
         row.addView(label);
         row.addView(mark);

@@ -72,15 +72,17 @@
 
             <TextView
                 android:id="@+id/mascot_bubble_close"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:layout_gravity="top|end"
                 android:gravity="center"
                 android:text="×"
-                android:textSize="15sp"
-                android:textColor="@color/text_muted"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:elevation="2dp"
+                android:textColor="@color/orange_text"
                 android:background="@drawable/bg_bubble_close"
-                android:contentDescription="بستن پیام" />
+                android:contentDescription="بستن پیام هوهو" />
         </FrameLayout>
 
         <com.hoohoomath.app.ui.mascot.HooHooView

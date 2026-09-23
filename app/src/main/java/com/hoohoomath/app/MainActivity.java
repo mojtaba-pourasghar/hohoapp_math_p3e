@@ -34,6 +34,7 @@ import com.hoohoomath.app.ui.screens.ResultFragment;
 import com.hoohoomath.app.ui.screens.RewardsFragment;
 import com.hoohoomath.app.ui.screens.SectionsFragment;
 import com.hoohoomath.app.ui.screens.SplashFragment;
+import com.hoohoomath.app.ui.screens.WorksheetDownloadFragment;
 import com.hoohoomath.app.ui.screens.WorksheetIndexFragment;
 
 import java.util.Locale;
@@ -69,7 +70,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         View bubbleWrap = findViewById(R.id.mascot_bubble_wrap);
         TextView bubbleText = findViewById(R.id.mascot_bubble);
         mascotController = new MascotController(mascotView, mascotOverlay, bubbleWrap, bubbleText);
-        findViewById(R.id.mascot_bubble_close).setOnClickListener(v -> mascotController.hideBubble());
+        findViewById(R.id.mascot_bubble_close).setOnClickListener(v -> mascotController.dismissBubble());
 
         enableMascotDragging();
 
@@ -138,6 +139,8 @@ public class MainActivity extends AppCompatActivity implements Navigator {
                     if (dragging[0]) {
                         saveMascotPosition(parent, view);
                     } else {
+                        // a tap on هوهو is how the child asks for her tooltip back
+                        mascotController.allowBubble();
                         view.performClick();
                     }
                     return true;
@@ -219,6 +222,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         boolean chromeVisible = screen != Screen.SPLASH && screen != Screen.PARENT_GATE;
         navBar.setVisibility(chromeVisible ? View.VISIBLE : View.GONE);
         mascotOverlay.setVisibility(screen == Screen.SPLASH ? View.GONE : View.VISIBLE);
+        mascotController.allowBubble(); // a new screen starts with هوهو free to talk again
         mascotController.hideBubble();
         mascotController.returnHome(); // don't leave her parked next to the last screen's content
 
@@ -250,7 +254,8 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         int inactive = getColor(R.color.text_faint);
         setNavColor(navMap, screen == Screen.MAP ? active : inactive);
         setNavColor(navSections, screen == Screen.SECTIONS ? active : inactive);
-        setNavColor(navWorksheet, screen == Screen.WORKSHEET_INDEX ? active : inactive);
+        setNavColor(navWorksheet,
+            screen == Screen.WORKSHEET_INDEX || screen == Screen.WORKSHEET_DOWNLOAD ? active : inactive);
         setNavColor(navExam, screen == Screen.EXAM_INDEX ? active : inactive);
         setNavColor(navParent, screen == Screen.PARENT_PANEL || screen == Screen.PARENT_GATE ? active : inactive);
     }
@@ -272,6 +277,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
             case LESSON: f = new LessonFragment(); break;
             case SECTIONS: f = new SectionsFragment(); break;
             case WORKSHEET_INDEX: f = new WorksheetIndexFragment(); break;
+            case WORKSHEET_DOWNLOAD: f = new WorksheetDownloadFragment(); break;
             case EXAM_INDEX: f = new ExamIndexFragment(); break;
             case QUIZ: f = new QuizFragment(); break;
             case RESULT: f = new ResultFragment(); break;
