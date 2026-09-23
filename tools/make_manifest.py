@@ -8,6 +8,7 @@ this needs: it walks the lesson sources chapter by chapter and writes «key | te
 grouped under each chapter, and inside it under each page and each section.
 
     python3 tools/make_manifest.py
+    python3 tools/make_manifest.py --plain   # third column without the vowels
 """
 import glob
 import hashlib
@@ -16,7 +17,14 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pronounce import spoken, number_word, HUNDREDS  # noqa: E402
+from pronounce import spoken as _spoken, number_word, HUNDREDS  # noqa: E402
+
+# «--plain» writes the third column without the vowels — see tools/pronounce.py
+VOWELS_ON = "--plain" not in sys.argv
+
+
+def spoken(text):
+    return _spoken(text, vowels=VOWELS_ON)
 
 SRC = "app/src/main/java/com/hoohoomath/app/data"
 OUT = "app/src/main/res/raw/audio_manifest.txt"

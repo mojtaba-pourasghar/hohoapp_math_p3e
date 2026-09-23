@@ -2,20 +2,31 @@
 """
 The spoken form of a narration line — what the voice should actually say.
 
-A Persian speech engine reads «۶ × ۷ = ⬜» as silence or as English, and it guesses wrong on a
-handful of maths words that are written the same but said differently (کسر، مخرج، محور…). So
-every line in res/raw/audio_manifest.txt carries a third column: the same sentence rewritten the
-way a teacher would pronounce it.
+A Persian speech engine reads «۶ × ۷ = ⬜» as silence or as English, and Persian leaves the short
+vowels out, so it has to guess them — and it guesses wrong often enough to spoil a lesson (کسر،
+مخرج، محور…). So every line in res/raw/audio_manifest.txt carries a third column: the same
+sentence with its numbers and symbols written as words and every word given its vowels.
 
-The app never reads this column — it is only for making the voice files. If a word still sounds
-wrong, fix it in WORDS below and rebuild the manifest:
+The vowels come from tools/vowels.py, which has a spelling for each word the lessons use. A word
+already written with its vowels in the lesson text is left exactly as it is.
+
+That third column is what the voice files are recorded from, and what the app speaks with the
+device voice until they exist. If a word sounds wrong, fix it in tools/vowels.py and rebuild:
 
     python3 tools/make_manifest.py
+    python3 tools/check_vowels.py      # says whether anything is still unspelled
 """
+import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from vowels import VOWELS  # noqa: E402
 
 # ── digits ───────────────────────────────────────────────────────────────────
-ONES = ["صفر", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نه", "ده",
+# «نه» is written out here: on its own it is the word for «no», and only the vowel tells the
+# voice that this one is the number nine
+ONES = ["صفر", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نُه", "ده",
         "یازده", "دوازده", "سیزده", "چهارده", "پانزده", "شانزده", "هفده", "هجده", "نوزده"]
 TENS = {2: "بیست", 3: "سی", 4: "چهل", 5: "پنجاه", 6: "شصت", 7: "هفتاد", 8: "هشتاد", 9: "نود"}
 HUNDREDS = {1: "صد", 2: "دویست", 3: "سیصد", 4: "چهارصد", 5: "پانصد",
@@ -61,72 +72,32 @@ SYMBOLS = [
     ("‎", ""), ("‏", ""),
 ]
 
-# ── words a Persian voice reads with the wrong vowels ─────────────────────────
-# Written the same, said differently. Add to this list whenever a word sounds wrong in the
-# finished audio; nothing else needs changing.
-WORDS = {
-    "کسر": "کَسر",
-    "کسری": "کَسری",
-    "کسرها": "کَسرها",
-    "کسرهای": "کَسرهای",
-    "مخرج": "مَخرَج",
-    "صورت": "صورَت",
-    "ضرب": "ضَرب",
-    "ضربدر": "ضَربدَر",
-    "جمع": "جَمع",
-    "تفریق": "تَفریق",
-    "تقسیم": "تَقسیم",
-    "عدد": "عَدَد",
-    "عددها": "عَدَدها",
-    "عددهای": "عَدَدهای",
-    "رقم": "رَقَم",
-    "رقمی": "رَقَمی",
-    "رقمش": "رَقَمش",
-    "محور": "مِحوَر",
-    "قطر": "قُطر",
-    "قطرها": "قُطرها",
-    "شعاع": "شُعاع",
-    "محیط": "مُحیط",
-    "مساحت": "مِساحَت",
-    "تقریب": "تَقریب",
-    "تقریبی": "تَقریبی",
-    "احتمال": "اِحتِمال",
-    "مسئله": "مَسئَله",
-    "مسئله‌ها": "مَسئَله‌ها",
-    "زیرمسئله": "زیرمَسئَله",
-    "فرد": "فَرد",
-    "زوج": "زوج",
-    "نمودار": "نِمودار",
-    "تقارن": "تَقارُن",
-    "متقارن": "مُتَقارِن",
-    "مقایسه": "مُقایِسه",
-    "خارج‌قسمت": "خارِج‌قِسمَت",
-    "الگو": "اُلگو",
-    "الگوی": "اُلگوی",
-    "الگوها": "اُلگوها",
-    "الگویابی": "اُلگویابی",
-    "الگوسازی": "اُلگوسازی",
-}
-# Only whole words are respelled, plus these endings — so «قطر» is fixed but «قطره» is left
-# alone, and «کسرِ» keeps its ezafe.
-SUFFIXES = ["", "\u0650", "ی", "یِ", "ها", "هاِ", "های", "هایِ", "ش", "شِ", "شان", "م", "مان",
-            "ت", "تان", "‌ها", "‌های", "‌هایِ"]
+# ── giving every word its vowels ─────────────────────────────────────────────
+KASRA = "\u0650"
+MARKS = set("\u064B\u064C\u064D\u064E\u064F\u0650\u0651\u0652")
 _DIGIT_RUN = re.compile(r"[0-9]+")
 _TOKEN = re.compile(r"[\u0621-\u06CC\u200c\u064B-\u0652]+")
 
 
 def _respell(token):
-    for suffix in SUFFIXES:
-        if suffix and not token.endswith(suffix):
-            continue
-        stem = token[: len(token) - len(suffix)] if suffix else token
-        if stem in WORDS:
-            return WORDS[stem] + suffix
-    return token
+    """One word, spelled the way it is said. Unknown words are left alone."""
+    bare, ezafe = token, ""
+    if bare.endswith(KASRA):                  # «فصلِ هشت» — keep the ezafe, spell the word
+        bare, ezafe = bare[:-1], KASRA
+    if any(ch in MARKS for ch in bare):       # the lesson already wrote it out (نُه, مربّع)
+        return token
+    said = VOWELS.get(bare)
+    return said + ezafe if said else token
 
 
-def spoken(text):
-    """The line rewritten the way it should be said out loud."""
+def spoken(text, vowels=True):
+    """
+    The line rewritten the way it should be said out loud.
+
+    With vowels=False the words are left as they are written and only the numbers and symbols
+    become words — the way the column looked before the vowel table existed. Keep it as a way
+    back if a voice ever turns out to read the vowelled spelling worse than the plain one.
+    """
     if not text:
         return text
     out = text.translate(LETTERS).translate(DIGITS)
@@ -139,7 +110,8 @@ def spoken(text):
         out = out.replace(symbol, word)
 
     out = _DIGIT_RUN.sub(lambda m: " " + number_word(int(m.group())) + " ", out)
-    out = _TOKEN.sub(lambda m: _respell(m.group()), out)
+    if vowels:
+        out = _TOKEN.sub(lambda m: _respell(m.group()), out)
 
     out = re.sub(r"\s+([،؛,])", r"\1", out)          # no space before a comma
     out = re.sub(r"([،؛])\1+", r"\1", out)             # and never two in a row
