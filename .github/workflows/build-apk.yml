@@ -5,8 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      skip_voice:
-        description: "بدون ساختِ صدا بیلد کن (اپ با موتور گفتارِ دستگاه می‌خواند)"
+      make_voice:
+        description: "فایل‌های صوتیِ نداشته را هم بساز (پیش‌فرض: نه — صداها دستی اضافه می‌شوند)"
         type: boolean
         default: false
 
@@ -43,11 +43,11 @@ jobs:
           echo "apk=hoohoo-math-$VERSION.apk" >> "$GITHUB_OUTPUT"
           echo "نسخه: $VERSION"
 
-      # The narration has to exist before the APK is packed, otherwise the lessons fall back
-      # to the device voice. make_voice.py skips every file that is already committed, so this
-      # only does real work when new lesson text has been added.
+      # Off by default: the narration files are added by hand, and until they are there the app
+      # reads the manifest's spoken column with the device voice. Tick «make_voice» on a manual
+      # run to have the runner fill in whatever is missing (make_voice.py skips existing files).
       - name: Generate any missing narration
-        if: ${{ inputs.skip_voice != true }}
+        if: ${{ inputs.make_voice == true }}
         run: |
           set -o pipefail
           python3 -m pip install --quiet edge-tts
