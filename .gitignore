@@ -15,3 +15,7 @@ __pycache__/
 
 # APK copies made at the repo root just to hand to the user; the real one is dist/
 /hoohoo-math-*.apk
+
+# the built APK: it is published to the «latest» release, not carried in the repo —
+# with the narration inside it is bigger than the 100 MB a file in a repo may be
+/dist/

@@ -73,12 +73,12 @@ async def synthesize(edge_tts, key, text, voice, rate, pitch, to_ogg):
     ogg_path = os.path.join(RAW, key + ".ogg")
     await asyncio.to_thread(
         subprocess.run,
-        # 32 kbps mono at 24 kHz: this is one voice reading, not music, and there are four
-        # thousand of these going inside the APK — at the old quality they came to hundreds of
-        # megabytes. Vorbis (not Opus) because Ogg/Opus only plays from Android 10 and minSdk
-        # here is 26.
+        # 24 kbps mono at 24 kHz: one voice reading, not music. There are four thousand of
+        # these — ten hours of speech — and they all go inside the APK, so every kilobit
+        # counts: at 32 kbps the APK came to 155 MB. Vorbis and not Opus, because Ogg/Opus
+        # only plays from Android 10 and minSdk here is 26.
         ["ffmpeg", "-y", "-loglevel", "error", "-i", mp3_path,
-         "-c:a", "libvorbis", "-b:a", "32k", "-ar", "24000", "-ac", "1", ogg_path],
+         "-c:a", "libvorbis", "-b:a", "24k", "-ar", "24000", "-ac", "1", ogg_path],
         check=True,
     )
     os.remove(mp3_path)

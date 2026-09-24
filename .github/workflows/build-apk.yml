@@ -63,6 +63,7 @@ jobs:
       # Two names on purpose: a versioned one for the permanent release, and a fixed
       # "hoohoo-math.apk" so the download link on the latest release never changes.
       - name: Collect the APK
+        id: collect
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk "dist/${{ steps.version.outputs.apk }}"
@@ -76,19 +77,21 @@ jobs:
           path: dist/*.apk
           retention-days: 30
 
-      # The built APK is committed to the repo (dist/) so it can be grabbed straight
-      # from the file tree, and tagged as a release so every version stays downloadable.
-      - name: Commit the APK into the repo
+      # Only the narration goes back into the repo. The APK does not: with four thousand
+      # clips inside it, it is over GitHub's hard 100 MB limit for a file in a repository,
+      # and the push is rejected — which used to take the release down with it. The release
+      # is where the APK belongs anyway, and a release asset may be up to 2 GB.
+      - name: Commit the narration into the repo
         if: github.ref == 'refs/heads/main'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/hoohoo-math.apk app/src/main/res/raw/
+          git add -f app/src/main/res/raw/
           if git diff --cached --quiet; then
             echo "Nothing changed."
           else
             voices=$(git diff --cached --name-only | grep -c 'res/raw/.*\.ogg' || true)
-            git commit -m "APK نسخه‌ی ${{ steps.version.outputs.version }}${voices:+ (+$voices فایل گفتار)}"
+            git commit -m "گفتارِ نسخه‌ی ${{ steps.version.outputs.version }} (+$voices فایل صوتی)"
             git pull --rebase --autostash origin main || true
             git push
           fi
@@ -97,7 +100,7 @@ jobs:
       # deleting the tag and immediately creating it again raced with GitHub and failed the
       # publish (the APK itself had already built and been committed).
       - name: Tag and publish the release
-        if: github.ref == 'refs/heads/main'
+        if: ${{ !cancelled() && steps.collect.outcome == 'success' && github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
