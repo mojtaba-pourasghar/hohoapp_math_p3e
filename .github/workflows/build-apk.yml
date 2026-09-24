@@ -16,6 +16,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 240      # recording four thousand narration lines takes a while
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +53,9 @@ jobs:
           set -o pipefail
           python3 -m pip install --quiet edge-tts
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          python3 tools/make_voice.py "--rate=-8%" 2>&1 | tail -n 40 | tee voice-run.log
+          python3 tools/make_voice.py "--rate=-8%" --jobs 8 2>&1 | tail -n 60 | tee voice-run.log
+          echo "کلیپ‌های ضبط‌شده: $(ls app/src/main/res/raw/*.ogg 2>/dev/null | wc -l)"
+          du -sh app/src/main/res/raw/
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
