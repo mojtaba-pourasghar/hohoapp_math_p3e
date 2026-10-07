@@ -1,0 +1,74 @@
+name: نمونه‌ی صدای آواشو
+
+# A listening test, run by hand. The dev environment cannot reach partai.gw.isahab.ir (the
+# egress proxy answers 403 to CONNECT), so the request has to be made from a runner.
+#
+# Needs one secret: IVIRA_TOKEN — the gateway token from the ایویرا panel.
+on:
+  workflow_dispatch:
+    inputs:
+      key:
+        description: "کلیدِ جمله در منیفست (مثلاً p008_01)"
+        default: "p008_01"
+      speakers:
+        description: "گوینده‌ها، با کاما"
+        default: "sara,pune,bahar,shahrzad,sheyda,shirin"
+      plain:
+        description: "متنِ بی‌اعراب بفرست (پیش‌فرض: ستونِ اعراب‌گذاری‌شده)"
+        type: boolean
+        default: false
+      long:
+        description: "از endpointِ avasho-large استفاده کن"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Record the line with every voice
+        env:
+          IVIRA_TOKEN: ${{ secrets.IVIRA_TOKEN }}
+        run: |
+          if [ -z "$IVIRA_TOKEN" ]; then
+            echo "::error::سکرتِ IVIRA_TOKEN تنظیم نشده — از Settings → Secrets and variables → Actions اضافه‌اش کن"
+            exit 1
+          fi
+          python3 tools/avasho_sample.py \
+            --key "${{ inputs.key }}" \
+            --speakers "${{ inputs.speakers }}" \
+            ${{ inputs.plain && '--plain' || '' }} \
+            ${{ inputs.long && '--long' || '' }}
+
+      - name: Upload the samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avasho-sample
+          path: project/avasho-sample/
+          retention-days: 14
+
+      # committed as well, because the dev environment can read github.com but not the
+      # artifact storage the logs and artifacts live on
+      - name: Commit the samples
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f project/avasho-sample/
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "نمونه‌ی صدای آواشو (${{ inputs.key }})"
+            git pull --rebase --autostash origin main || true
+            git push
+          fi
