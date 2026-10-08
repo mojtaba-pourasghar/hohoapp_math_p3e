@@ -72,8 +72,18 @@ try {
   console.error("config خوانده نشد:", err.message);
 }
 
+let savedAt = fs.existsSync(CONFIG_FILE) ? fs.statSync(CONFIG_FILE).mtimeMs : 0;
+
+/**
+ * Writes the settings — token and FTP password included — beside this file. Written to a
+ * temporary name first and then moved, so a crash half-way cannot leave a truncated config
+ * that would look on the next launch as though the token had vanished.
+ */
 function saveConfig() {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf8");
+  const temp = CONFIG_FILE + ".tmp";
+  fs.writeFileSync(temp, JSON.stringify(config, null, 2), "utf8");
+  fs.renameSync(temp, CONFIG_FILE);
+  savedAt = Date.now();
 }
 
 // ── the live log, shared with the page over SSE ───────────────────────────────
@@ -132,7 +142,13 @@ function toOgg(src, dst, bitrate) {
 }
 
 /** Record one line and write it into the output folder. */
-async function recordOne(line) {
+async function recordOne(line, { force = false } = {}) {
+  if (force) {
+    for (const ext of [".ogg", ".mp3", ".wav"]) {
+      const old = path.join(config.outDir, line.key + ext);
+      if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+  }
   const text = config.useVowels ? line.spoken : line.written;
   let attempt = 0;
 
@@ -142,6 +158,7 @@ async function recordOne(line) {
       const { buffer, ext, raw } = await speak({
         token: config.token, text, speaker: config.speaker,
         speed: Number(config.speed) || 1, endpoint: config.endpoint,
+        onNote: (note) => say("info", `${line.key}: ${note}`),
       });
 
       if (raw && !job.shapeShown) {
@@ -178,7 +195,7 @@ async function recordOne(line) {
   }
 }
 
-async function runJob(keys) {
+async function runJob(keys, { force = false } = {}) {
   if (job.running) return { error: "یک کار در حال اجراست" };
   if (!config.token) return { error: "توکن خالی است" };
   if (!keys.length) return { error: "چیزی برای ساختن نیست" };
@@ -199,7 +216,7 @@ async function runJob(keys) {
       job.current = [...job.current.filter((k) => k !== line.key), line.key];
       push("status", snapshot());
 
-      const result = await recordOne(line);
+      const result = await recordOne(line, { force });
       job.current = job.current.filter((k) => k !== line.key);
       if (result.ok) {
         job.done += 1;
@@ -266,6 +283,8 @@ const publicConfig = () => ({
   token: undefined,
   tokenSet: Boolean(config.token),
   tokenHint: config.token ? `${config.token.slice(0, 6)}…${config.token.slice(-4)}` : "",
+  configFile: CONFIG_FILE,
+  savedAt,
   speakers: SPEAKERS,
   groupLabels: GROUP_LABELS,
   ffmpeg: true,
@@ -315,11 +334,18 @@ app.get("/api/manifest", (_req, res) => {
   try {
     const lines = readManifest(config.manifestPath);
     const have = existingKeys(config.outDir);
+    const overrides = readOverrides();
     res.json({
       outDir: config.outDir,
       lines: lines.map((l) => {
         const file = have.get(l.key);
-        return { ...l, done: Boolean(file), file: file?.name ?? null, size: file?.size ?? 0 };
+        return {
+          ...l,
+          done: Boolean(file),
+          file: file?.name ?? null,
+          size: file?.size ?? 0,
+          edited: Object.prototype.hasOwnProperty.call(overrides, l.key),
+        };
       }),
     });
   } catch (err) {
@@ -346,6 +372,66 @@ app.post("/api/publish/audio", (_req, res) => {
   }
 });
 
+
+
+// ── fixing the words of one line ─────────────────────────────────────────────
+// The manifest is generated from the lesson sources, so an edit typed here would be lost the
+// next time it is rebuilt. It is therefore kept in tools/voice-overrides.json — which goes into
+// git — and the manifest line is patched straight away so the change takes effect now.
+const OVERRIDES = path.resolve(ROOT, "../voice-overrides.json");
+
+function readOverrides() {
+  try {
+    return JSON.parse(fs.readFileSync(OVERRIDES, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function patchManifestLine(key, spoken) {
+  const text = fs.readFileSync(config.manifestPath, "utf8");
+  const lines = text.split(/\r?\n/);
+  let hit = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].startsWith(key + " |")) continue;
+    const cols = lines[i].split("|").map((c) => c.trim());
+    lines[i] = `${cols[0]} | ${cols[1]} | ${spoken}`;
+    hit = true;
+    break;
+  }
+  if (!hit) return false;
+  fs.writeFileSync(config.manifestPath, lines.join("\n"), "utf8");
+  return true;
+}
+
+app.get("/api/overrides", (_req, res) => res.json({ file: OVERRIDES, overrides: readOverrides() }));
+
+app.post("/api/text", (req, res) => {
+  const key = String(req.body?.key || "").trim();
+  const spoken = String(req.body?.spoken || "").trim();
+  if (!key || !spoken) return res.status(400).json({ error: "کلید و متن لازم است" });
+  if (spoken.includes("|")) return res.status(400).json({ error: "متن نباید | داشته باشد" });
+
+  try {
+    const overrides = readOverrides();
+    overrides[key] = spoken;
+    fs.writeFileSync(OVERRIDES, JSON.stringify(overrides, null, 2), "utf8");
+    const patched = patchManifestLine(key, spoken);
+    say("ok", `متنِ ${key} عوض شد${patched ? "" : " (در منیفست پیدا نشد)"} — در voice-overrides.json ماند`);
+    res.json({ ok: true, patched, file: OVERRIDES });
+  } catch (err) {
+    say("error", `متن ذخیره نشد: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/text/:key", (req, res) => {
+  const overrides = readOverrides();
+  delete overrides[req.params.key];
+  fs.writeFileSync(OVERRIDES, JSON.stringify(overrides, null, 2), "utf8");
+  say("warn", `اصلاحِ متنِ ${req.params.key} برداشته شد — با make_manifest.py به متنِ درس برمی‌گردد`);
+  res.json({ ok: true });
+});
 
 // ── sending the finished files to the host ───────────────────────────────────
 const upload = { running: false, what: "", done: 0, total: 0, sent: 0, skipped: 0, failed: 0 };
@@ -515,7 +601,7 @@ app.post("/api/generate", async (req, res) => {
   const picked = keys.length ? keys : missingKeys();
   const limit = Number(req.body?.limit);
   const batch = Number.isFinite(limit) && limit > 0 ? picked.slice(0, limit) : picked;
-  const outcome = await Promise.resolve(runJob(batch));
+  const outcome = await Promise.resolve(runJob(batch, { force: req.body?.force === true }));
   if (outcome?.error) return res.status(409).json(outcome);
   res.json({ ok: true });
 });
@@ -535,6 +621,7 @@ app.post("/api/test", async (req, res) => {
     const { buffer, ext, raw } = await speak({
       token: config.token, text, speaker: config.speaker,
       speed: Number(config.speed) || 1, endpoint: config.endpoint,
+      onNote: (note) => say("info", `تست: ${note}`),
     });
     fs.mkdirSync(config.outDir, { recursive: true });
     const name = `_test-${config.speaker}${ext}`;

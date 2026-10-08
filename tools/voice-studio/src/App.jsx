@@ -35,6 +35,8 @@ export default function App() {
   const [sheetForm, setSheetForm] = useState({ title: "", note: "", chapter: -1, file: null });
   const [ftpPass, setFtpPass] = useState("");
   const [uploading, setUploading] = useState({ running: false, done: 0, total: 0, sent: 0, skipped: 0, failed: 0, what: "" });
+  const [editing, setEditing] = useState(null);      // { key, spoken }
+  const [testStamp, setTestStamp] = useState(0);
   const logBox = useRef(null);
 
   const load = useCallback(async () => {
@@ -111,11 +113,22 @@ export default function App() {
     setBusy(false);
   };
 
-  const generate = async (keys, limit) => {
+  const generate = async (keys, limit, force = false) => {
     setBusy(true);
     try {
-      await api("/generate", { method: "POST", body: JSON.stringify({ keys, limit }) });
+      await api("/generate", { method: "POST", body: JSON.stringify({ keys, limit, force }) });
       setError("");
+    } catch (err) { setError(err.message); }
+    setBusy(false);
+  };
+
+  /** Save a corrected line. It lands in tools/voice-overrides.json, which goes into git. */
+  const saveText = async (key, spoken) => {
+    setBusy(true);
+    try {
+      await api("/text", { method: "POST", body: JSON.stringify({ key, spoken }) });
+      setEditing(null);
+      await load();
     } catch (err) { setError(err.message); }
     setBusy(false);
   };
@@ -126,6 +139,7 @@ export default function App() {
     setBusy(true);
     try {
       await api("/test", { method: "POST", body: JSON.stringify({}) });
+      setTestStamp(Date.now());        // makes the player reload the new file
       load();
     } catch (err) { setError(err.message); }
     setBusy(false);
@@ -264,9 +278,22 @@ export default function App() {
           {config.tokenSet &&
             <button className="ghost" onClick={() => save({ token: "" })}>پاک کردنِ توکن</button>}
         </div>
+        {testStamp > 0 && (
+          <div className="row" style={{ marginTop: 12 }}>
+            <span className="tag done">نمونه‌ی تست</span>
+            <audio controls src={`/api/audio/_test-${config.speaker}?t=${testStamp}`} />
+          </div>
+        )}
         <p className="note">
-          فایل‌ها با نامِ کلید ذخیره می‌شوند (مثلاً <code>p008_01.mp3</code>). همان‌ها را در
-          <code> app/src/main/res/raw/ </code> بگذار؛ اپ خودش برمی‌داردشان.
+          توکن و رمزِ FTP در <code>{config.configFile}</code> ذخیره می‌شوند و با رفرش یا بالا
+          آمدنِ دوباره‌ی سرور از دست نمی‌روند. کادرها از روی عادت خالی نشان داده می‌شوند —
+          {config.tokenSet ? " ✓ توکن ذخیره شده است" : " توکن هنوز داده نشده"}
+          {config.ftp?.passwordSet ? " · ✓ رمزِ FTP ذخیره شده است" : " · رمزِ FTP داده نشده"}.
+          {config.savedAt ? " آخرین ذخیره: " + new Date(config.savedAt).toLocaleTimeString("fa-IR") : ""}
+        </p>
+        <p className="note">
+          فایل‌ها با نامِ کلید ذخیره می‌شوند (مثلاً <code>p008_01.mp3</code>) در
+          <code> {config.outDir}</code>.
         </p>
       </div>
 
@@ -618,29 +645,50 @@ export default function App() {
           {shown.length === 0 && <div className="empty">چیزی با این فیلتر پیدا نشد.</div>}
           {shown.slice(0, 400).map((l) => (
             <div className="file" key={l.key}>
-              <span className="key">{l.key}</span>
-              <span className="say" title={config.useVowels ? l.spoken : l.written}>
-                {config.useVowels ? l.spoken : l.written}
-              </span>
-              <span className="row">
-                {l.done ? (
-                  <>
-                    <audio controls preload="none" src={`/api/audio/${l.key}`} />
-                    <span className="tag done">{Math.round(l.size / 1024)}KB</span>
-                    <button className="tiny ghost" onClick={() => removeFile(l.key)}>پاک</button>
-                    <button className="tiny" disabled={status.running}
-                            onClick={() => removeFile(l.key).then(() => generate([l.key]))}>
-                      از نو
+              <span className="key">{l.key}{l.edited ? " ✎" : ""}</span>
+              {editing?.key === l.key ? (
+                <span style={{ gridColumn: "2 / 4" }}>
+                  <textarea rows={3} value={editing.spoken} style={{ width: "100%" }}
+                            onChange={(e) => setEditing({ ...editing, spoken: e.target.value })} />
+                  <span className="row" style={{ marginTop: 6 }}>
+                    <button className="tiny go" disabled={busy}
+                            onClick={() => saveText(l.key, editing.spoken)}>ذخیره‌ی متن</button>
+                    <button className="tiny go" disabled={busy || status.running}
+                            onClick={() => saveText(l.key, editing.spoken).then(() => generate([l.key], 0, true))}>
+                      ذخیره و بساز از نو
                     </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="tag">بی‌فایل</span>
+                    <button className="tiny ghost" onClick={() => setEditing(null)}>بی‌خیال</button>
+                    {l.edited && (
+                      <button className="tiny ghost" disabled={busy} onClick={async () => {
+                        await api(`/text/${l.key}`, { method: "DELETE" });
+                        setEditing(null);
+                        load();
+                      }}>برگردان به متنِ درس</button>
+                    )}
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <span className="say" title={config.useVowels ? l.spoken : l.written}>
+                    {config.useVowels ? l.spoken : l.written}
+                  </span>
+                  <span className="row">
+                    {l.done && <audio controls preload="none" src={`/api/audio/${l.key}`} />}
+                    {l.done
+                      ? <span className="tag done">{Math.round(l.size / 1024)}KB</span>
+                      : <span className="tag">بی‌فایل</span>}
+                    <button className="tiny ghost"
+                            onClick={() => setEditing({ key: l.key, spoken: l.spoken })}>متن</button>
                     <button className="tiny go" disabled={busy || status.running || !config.tokenSet}
-                            onClick={() => generate([l.key])}>بساز</button>
-                  </>
-                )}
-              </span>
+                            onClick={() => generate([l.key], 0, l.done)}>
+                      {l.done ? "از نو" : "بساز"}
+                    </button>
+                    {l.done && (
+                      <button className="tiny ghost" onClick={() => removeFile(l.key)}>پاک</button>
+                    )}
+                  </span>
+                </>
+              )}
             </div>
           ))}
         </div>
