@@ -18,6 +18,7 @@ import androidx.fragment.app.Fragment;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.tts.NarrationText;
 import com.hoohoomath.app.tts.SoundManager;
+import com.hoohoomath.app.tts.VoiceStore;
 import com.hoohoomath.app.ui.Navigator;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -35,6 +36,7 @@ import com.hoohoomath.app.ui.screens.ResultFragment;
 import com.hoohoomath.app.ui.screens.RewardsFragment;
 import com.hoohoomath.app.ui.screens.SectionsFragment;
 import com.hoohoomath.app.ui.screens.SplashFragment;
+import com.hoohoomath.app.ui.screens.VoiceDownloadFragment;
 import com.hoohoomath.app.ui.screens.WorksheetDownloadFragment;
 import com.hoohoomath.app.ui.screens.WorksheetIndexFragment;
 
@@ -66,6 +68,11 @@ public class MainActivity extends AppCompatActivity implements Navigator {
 
         // the words هوهو says live in res/raw/audio_manifest.txt; read them while the splash shows
         NarrationText.preload(this);
+
+        // the clips themselves are on the host, not in the APK. With a connection, the shared
+        // ones and the chapter the child is on come down now so the first lesson already has
+        // هوهو's own voice; the other chapters trickle in behind that.
+        VoiceStore.startOnLaunch(this, AppState.get().taughtChapter);
 
         navBar = findViewById(R.id.nav_bar);
         mascotOverlay = findViewById(R.id.mascot_overlay);
@@ -282,6 +289,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
             case SECTIONS: f = new SectionsFragment(); break;
             case WORKSHEET_INDEX: f = new WorksheetIndexFragment(); break;
             case WORKSHEET_DOWNLOAD: f = new WorksheetDownloadFragment(); break;
+            case VOICE_DOWNLOAD: f = new VoiceDownloadFragment(); break;
             case EXAM_INDEX: f = new ExamIndexFragment(); break;
             case QUIZ: f = new QuizFragment(); break;
             case RESULT: f = new ResultFragment(); break;

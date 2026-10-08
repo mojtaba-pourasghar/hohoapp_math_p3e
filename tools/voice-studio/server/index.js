@@ -14,6 +14,10 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readManifest, existingKeys, GROUP_LABELS } from "./manifest.js";
 import { speak, SPEAKERS, RateLimited } from "./avasho.js";
+import {
+  AUDIO_BASE, KARBARG_BASE, writeAudioIndex, addWorksheet, listWorksheets,
+  removeWorksheet, writeWorksheetIndex,
+} from "./publish.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -24,7 +28,11 @@ const PORT = Number(process.env.PORT || 5174);
 const DEFAULTS = {
   token: "",
   manifestPath: path.resolve(ROOT, "../../app/src/main/res/raw/audio_manifest.txt"),
-  outDir: path.join(os.homedir(), "hoohoo-voice"),
+  // inside the repo, so the finished clips can be committed and uploaded from one place
+  outDir: path.resolve(ROOT, "../voice-out"),
+  karbargDir: path.resolve(ROOT, "../karbarg-out"),
+  audioBase: AUDIO_BASE,
+  karbargBase: KARBARG_BASE,
   speaker: "shahrzad",
   speed: 1,
   endpoint: "short",
@@ -233,7 +241,7 @@ function missingKeys() {
 
 // ── HTTP ─────────────────────────────────────────────────────────────────────
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "64mb" }));   // a worksheet PDF arrives as base64
 
 const publicConfig = () => ({
   ...config,
@@ -249,7 +257,8 @@ app.get("/api/config", (_req, res) => res.json(publicConfig()));
 
 app.post("/api/config", (req, res) => {
   const body = req.body || {};
-  for (const key of ["manifestPath", "outDir", "speaker", "endpoint"]) {
+  for (const key of ["manifestPath", "outDir", "karbargDir", "speaker", "endpoint",
+                     "audioBase", "karbargBase"]) {
     if (typeof body[key] === "string" && body[key].trim()) config[key] = body[key].trim();
   }
   for (const key of ["speed", "concurrency", "delayMs", "retries"]) {
@@ -294,6 +303,65 @@ app.get("/api/manifest", (_req, res) => {
 });
 
 app.get("/api/status", (_req, res) => res.json({ ...snapshot(), log: log.slice(-120) }));
+
+// ── the two index.json files the host serves ─────────────────────────────────
+app.post("/api/publish/audio", (_req, res) => {
+  try {
+    const index = writeAudioIndex({
+      outDir: config.outDir,
+      baseUrl: config.audioBase,
+      speaker: config.speaker,
+      appAssets: path.resolve(ROOT, "../../app/src/main/assets/voice-index.json"),
+    });
+    say("ok", `فهرستِ صدا ساخته شد: ${index.count} کلیپ، ${Math.round(index.bytes / 1048576)} مگابایت`);
+    res.json(index);
+  } catch (err) {
+    say("error", `فهرستِ صدا ساخته نشد: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get("/api/karbarg", (_req, res) => {
+  try {
+    res.json({ dir: config.karbargDir, baseUrl: config.karbargBase,
+               sheets: listWorksheets(config.karbargDir) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/karbarg", (req, res) => {
+  try {
+    const { title, note, chapter, fileName, dataBase64 } = req.body || {};
+    const data = Buffer.from(String(dataBase64 || "").split(",").pop(), "base64");
+    const sheet = addWorksheet({ dir: config.karbargDir, title, note, chapter, fileName, data });
+    writeWorksheetIndex({ dir: config.karbargDir, baseUrl: config.karbargBase });
+    say("ok", `کاربرگ اضافه شد: ${sheet.title} → ${sheet.slug}/${sheet.file}`);
+    res.json(sheet);
+  } catch (err) {
+    say("error", `کاربرگ اضافه نشد: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete("/api/karbarg/:slug", (req, res) => {
+  const gone = removeWorksheet(config.karbargDir, req.params.slug);
+  if (gone) {
+    writeWorksheetIndex({ dir: config.karbargDir, baseUrl: config.karbargBase });
+    say("warn", `کاربرگ پاک شد: ${req.params.slug}`);
+  }
+  res.json({ ok: gone });
+});
+
+app.post("/api/publish/karbarg", (_req, res) => {
+  try {
+    const index = writeWorksheetIndex({ dir: config.karbargDir, baseUrl: config.karbargBase });
+    say("ok", `فهرستِ کاربرگ ساخته شد: ${index.count} کاربرگ`);
+    res.json(index);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 app.post("/api/generate", async (req, res) => {
   const keys = Array.isArray(req.body?.keys) ? req.body.keys : [];

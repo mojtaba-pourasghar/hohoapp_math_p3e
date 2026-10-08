@@ -30,8 +30,9 @@ import java.util.List;
  * inside the app. Nothing here is generated: each sheet is a file listed in a catalogue, opened
  * with whatever the device uses for downloads, so no storage permission is needed.
  *
- * The catalogue is empty until {@link WorksheetDownload#CATALOGUE_URL} is pointed at one. Rather
- * than show a broken-looking blank page, the screen says so in as many words.
+ * The catalogue lives on the teacher's host and is cached on the device, so the screen opens
+ * instantly and new sheets turn up without a new APK. When there is nothing published yet, it
+ * says so in as many words rather than showing a broken-looking blank page.
  */
 public class WorksheetDownloadFragment extends BaseFragment {
     private int currentChapter;
@@ -50,6 +51,12 @@ public class WorksheetDownloadFragment extends BaseFragment {
         currentChapter = args != null ? args.getInt("chapter", s.taughtChapter) : s.taughtChapter;
         ((TextView) view.findViewById(R.id.screen_title)).setText("دانلود کاربرگ");
         render(view);
+
+        // the list is shown from the copy on the device straight away, then brought up to date
+        // in the background — so new sheets appear without a new APK
+        WorksheetDownload.refresh(requireContext(), changed -> {
+            if (changed && isAdded()) render(view);
+        });
     }
 
     private void render(View view) {
