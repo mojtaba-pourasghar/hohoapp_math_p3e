@@ -1,42 +1,62 @@
-// The آواشو (Sahab / پارت) text-to-speech endpoint.
+// The آواشو (Sahab / پارت) text-to-speech service.
 //
-// Two endpoints, one for short lines and one for long ones; the token travels in a
-// «gateway-token» header. What comes back is not fixed: it may be the audio itself, or JSON
-// holding a link to it, or JSON holding base64. All three are handled, and the first JSON reply
-// of a run is reported verbatim so the shape is visible in the log rather than guessed at.
+// It works in three steps, and the first reply is never the audio:
+//
+//   1. POST …/request            → a receipt: an id, and sometimes the finished file name
+//   2. GET  …/track/{id}         → whether it is done yet  (long text)
+//   3. GET  …/download/{id}      → the file itself
+//
+// A short line often comes back «success» on the first reply with the file name already in it,
+// and then only step 3 is needed. A long one comes back «pending» and has to be tracked.
+//
+// One trap worth naming: the reply carries two statuses. The real one is data.status; the
+// meta.status at the bottom is masked in the published examples and reads "fail" even on a
+// successful call. Reading that one would make every request look broken.
 
-export const ENDPOINTS = {
-  short: "https://partai.gw.isahab.ir/avasho/v2/avasho/request",
-  long: "https://partai.gw.isahab.ir/avasho/v2/avasho-large/request",
+const HOST = "https://partai.gw.isahab.ir/avasho/v2";
+
+export const FAMILIES = {
+  short: {
+    request: `${HOST}/avasho/request`,
+    track: `${HOST}/avasho/track`,
+    download: `${HOST}/avasho/download`,
+  },
+  long: {
+    request: `${HOST}/avasho-large/request`,
+    track: `${HOST}/avasho-large/track`,
+    download: `${HOST}/avasho-large/download`,
+  },
 };
 
-/**
- * Where the finished file is collected from. The service answers a request with an id and
- * «wait about two seconds», not with audio, so the id has to be taken back to a tracking
- * address. `{id}` is replaced. The first of these that answers is remembered for the rest of
- * the run, and the studio says in the log which one it was, so it can be pinned in settings.
- */
-export const TRACKING_URLS = [
-  "https://partai.gw.isahab.ir/avasho/v2/avasho/tracking/{id}",
-  "https://partai.gw.isahab.ir/avasho/v2/avasho/tracking/file-url/{id}",
-  "https://partai.gw.isahab.ir/avasho/v2/avasho/result/{id}",
-  "https://partai.gw.isahab.ir/avasho/v2/tracking/{id}",
-];
-
-let learnedTracking = null;       // the shape that worked, kept for the rest of the process
-
-export function trackingInUse() {
-  return learnedTracking;
-}
+/** Kept for anything still importing the old name. */
+export const ENDPOINTS = { short: FAMILIES.short.request, long: FAMILIES.long.request };
 
 export const SPEAKERS = ["sara", "pune", "bahar", "shahrzad", "sheyda", "shirin"];
 
 const AUDIO_EXT = { "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav",
                     "audio/x-wav": ".wav", "audio/ogg": ".ogg", "audio/wave": ".wav" };
 
-/** Sniff the container from the first bytes — more reliable than a content-type header. */
+export class RateLimited extends Error {}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Node hides the real reason behind a bare «fetch failed». The cause is where the useful part
+ * is — a refused proxy, a name that does not resolve, a closed port — and that is what has to
+ * reach the log, or every network problem looks identical.
+ */
+function why(err) {
+  const parts = [err?.message || String(err)];
+  for (let cause = err?.cause; cause; cause = cause.cause) {
+    const line = cause.code ? `${cause.code} ${cause.message || ""}`.trim() : cause.message;
+    if (line && !parts.includes(line)) parts.push(line);
+  }
+  return parts.join(" — ");
+}
+
+/** Sniff the container from the first bytes — steadier than trusting a content-type. */
 function extFromBytes(buf) {
-  if (buf.length < 4) return null;
+  if (!buf || buf.length < 4) return null;
   const head = buf.subarray(0, 4).toString("latin1");
   if (head === "OggS") return ".ogg";
   if (head === "RIFF") return ".wav";
@@ -45,35 +65,35 @@ function extFromBytes(buf) {
   return null;
 }
 
-/** Walk any JSON and return the first string that looks like a link to an audio file. */
-function findAudioUrl(value) {
+function audioFromBody(bytes, contentType) {
+  const sniffed = extFromBytes(bytes);
+  const byHeader = AUDIO_EXT[(contentType || "").split(";")[0].trim()];
+  return sniffed || byHeader ? { buffer: bytes, ext: sniffed || byHeader } : null;
+}
+
+/** Any link to an audio file, however deep in the reply. */
+function findAudioUrl(value, depth = 0) {
+  if (depth > 8) return null;
   if (typeof value === "string") {
     return /^https?:\/\//.test(value) && /\.(mp3|wav|ogg)(\?|$)/i.test(value) ? value : null;
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      const hit = findAudioUrl(item);
+      const hit = findAudioUrl(item, depth + 1);
       if (hit) return hit;
     }
     return null;
   }
   if (value && typeof value === "object") {
-    // filePath / fileUrl / url first, then anything else
-    for (const key of ["filePath", "fileUrl", "url", "data"]) {
-      if (key in value) {
-        const hit = findAudioUrl(value[key]);
-        if (hit) return hit;
-      }
-    }
     for (const item of Object.values(value)) {
-      const hit = findAudioUrl(item);
+      const hit = findAudioUrl(item, depth + 1);
       if (hit) return hit;
     }
   }
   return null;
 }
 
-/** Any long base64 blob in the reply is probably the audio. */
+/** A long base64 blob in the reply is almost certainly the audio. */
 function findBase64(value, depth = 0) {
   if (depth > 6) return null;
   if (typeof value === "string") {
@@ -88,131 +108,172 @@ function findBase64(value, depth = 0) {
   return null;
 }
 
-export class RateLimited extends Error {}
-
-/** The id and the service's own estimate, out of a «pending» reply. */
-function pendingJob(payload) {
-  const inner = payload?.data?.data ?? payload?.data ?? payload;
-  const id = inner?.id ?? inner?.requestId ?? inner?.trackId;
-  if (!id) return null;
+/** What the service is telling us, out of either reply shape. */
+function readReply(payload) {
+  const outer = payload?.data ?? {};
+  const inner = outer?.data ?? {};
+  const result = inner?.aiResponse?.result ?? {};
   const seconds = Number(inner?.estimationTime);
-  return { id: String(id), waitMs: Math.max(800, (Number.isFinite(seconds) ? seconds : 2) * 1000) };
+  return {
+    status: String(outer?.status ?? "").toLowerCase(),
+    message: String(outer?.message ?? ""),
+    id: inner?.id ? String(inner.id) : null,
+    filename: result?.filename ? String(result.filename) : null,
+    timestamps: Array.isArray(result?.timestamps) ? result.timestamps : null,
+    waitMs: Math.max(700, (Number.isFinite(seconds) ? seconds : 2) * 1000),
+  };
 }
 
-function statusOf(payload) {
-  return String(payload?.data?.status ?? payload?.status ?? "").toLowerCase();
+async function getJson(url, token) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: { "gateway-token": token, accept: "application/json" },
+    });
+  } catch (err) {
+    throw new Error(why(err));
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (response.status === 429) throw new RateLimited("سهمیه پر شد (۴۲۹)");
+  return { status: response.status, bytes, type: response.headers.get("content-type") || "" };
 }
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Goes back for the finished file.
+ * Collects the finished file.
  *
- * Waits the service's own estimate, then asks until the audio is there. `onNote` gets a line
- * whenever something worth saying happens, so a long wait does not look like a hang.
+ * The documentation gives «download/{id}» without saying whether {id} is the request id or the
+ * returned file name, so both are tried — there are only two handles and both are in hand. The
+ * one that works is remembered for the rest of the run and named in the log.
  */
-async function collect({ token, id, waitMs, tries = 40, onNote }) {
-  const templates = learnedTracking ? [learnedTracking] : TRACKING_URLS;
-  await sleep(waitMs);
+let learnedHandle = null;          // "id" or "filename"
 
-  for (let attempt = 1; attempt <= tries; attempt++) {
-    for (const template of templates) {
-      const url = template.replace("{id}", encodeURIComponent(id));
-      let response;
-      try {
-        response = await fetch(url, {
-          method: "GET",
-          headers: { "gateway-token": token, accept: "application/json" },
-        });
-      } catch (err) {
-        continue;                                   // this shape is not reachable; try the next
-      }
-      if (response.status === 404 || response.status === 405) continue;
-      if (response.status === 429) throw new RateLimited("سهمیه پر شد (۴۲۹) هنگامِ گرفتنِ نتیجه");
+export function handleInUse() {
+  return learnedHandle;
+}
 
-      const bytes = Buffer.from(await response.arrayBuffer());
-      if (!response.ok) {
-        if (attempt === 1 && onNote) {
-          onNote(`tracking ${response.status}: ${bytes.toString("utf8").slice(0, 160)}`);
-        }
-        continue;
-      }
+async function download({ token, family, id, filename, onNote }) {
+  const handles = [];
+  const add = (kind, value) => {
+    if (value) handles.push({ kind, value });
+  };
+  if (learnedHandle === "filename") {
+    add("filename", filename);
+    add("id", id);
+  } else {
+    add("id", id);
+    add("filename", filename);
+  }
+  if (filename) add("filename-stem", filename.replace(/\.[^.]+$/, ""));
 
-      if (!learnedTracking) {
-        learnedTracking = template;
-        if (onNote) onNote(`آدرسِ گرفتنِ نتیجه: ${template}`);
-      }
-
-      const direct = fromBytes(bytes, response.headers.get("content-type"));
-      if (direct) return direct;
-
-      let payload;
-      try {
-        payload = JSON.parse(bytes.toString("utf8"));
-      } catch {
-        continue;
-      }
-
-      const state = statusOf(payload);
-      if (state && state !== "pending" && state !== "processing" && state !== "inprogress") {
-        const got = await fromPayload(payload);
-        if (got) return got;
-        if (state !== "success" && state !== "done" && state !== "completed") {
-          throw new Error(`سرویس خطا داد (${state}): ${JSON.stringify(payload).slice(0, 240)}`);
-        }
-      }
-      const got = await fromPayload(payload);         // some replies carry it without a status
-      if (got) return got;
+  let lastNote = "";
+  for (const handle of handles) {
+    const url = `${family.download}/${encodeURIComponent(handle.value)}`;
+    let reply;
+    try {
+      reply = await getJson(url, token);
+    } catch (err) {
+      if (err instanceof RateLimited) throw err;
+      lastNote = err.message;
+      continue;
     }
+    if (reply.status === 404 || reply.status === 400) {
+      lastNote = `download ${reply.status} با ${handle.kind}`;
+      continue;
+    }
+    if (reply.status !== 200) {
+      lastNote = `download ${reply.status}: ${reply.bytes.toString("utf8").slice(0, 160)}`;
+      continue;
+    }
+
+    const direct = audioFromBody(reply.bytes, reply.type);
+    if (direct) {
+      if (learnedHandle !== handle.kind) {
+        learnedHandle = handle.kind;
+        if (onNote) onNote(`فایل با ${handle.kind} دانلود شد`);
+      }
+      return direct;
+    }
+
+    // not the bytes themselves — then a link or a base64 blob inside JSON
+    try {
+      const payload = JSON.parse(reply.bytes.toString("utf8"));
+      const link = findAudioUrl(payload);
+      if (link) {
+        const file = await fetch(link);
+        if (!file.ok) throw new Error(`دانلودِ فایل نشد: HTTP ${file.status}`);
+        const data = Buffer.from(await file.arrayBuffer());
+        learnedHandle = handle.kind;
+        if (onNote) onNote(`فایل از لینکِ داخلِ پاسخ گرفته شد`);
+        return { buffer: data, ext: extFromBytes(data) || ".mp3" };
+      }
+      const b64 = findBase64(payload);
+      if (b64) {
+        const data = Buffer.from(b64.replace(/\s/g, ""), "base64");
+        learnedHandle = handle.kind;
+        return { buffer: data, ext: extFromBytes(data) || ".mp3" };
+      }
+      lastNote = `پاسخِ download شناخته نشد: ${JSON.stringify(payload).slice(0, 200)}`;
+    } catch (err) {
+      lastNote = err.message;
+    }
+  }
+  throw new Error(lastNote || "فایل دانلود نشد");
+}
+
+/** Asks «is it ready?» until it is. */
+async function track({ token, family, id, waitMs, tries = 40, onNote }) {
+  await sleep(waitMs);
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    let reply;
+    try {
+      reply = await getJson(`${family.track}/${encodeURIComponent(id)}`, token);
+    } catch (err) {
+      if (err instanceof RateLimited) throw err;
+      reply = null;
+    }
+
+    if (reply && reply.status === 200) {
+      try {
+        const info = readReply(JSON.parse(reply.bytes.toString("utf8")));
+        if (info.status === "success" || info.filename) return info;
+        if (info.status && !["pending", "processing", "inprogress", "queued"].includes(info.status)) {
+          throw new Error(`سرویس خطا داد (${info.status}): ${info.message}`);
+        }
+      } catch (err) {
+        if (!(err instanceof SyntaxError)) throw err;
+      }
+    } else if (attempt === 1 && onNote) {
+      onNote(reply ? `track ${reply.status} — به‌جایش مستقیم download امتحان می‌شود`
+                   : "track در دسترس نبود — مستقیم download");
+    }
+
+    // no tracking for this family (or it is not answering): the file may simply be ready
+    if (!reply || reply.status === 404 || reply.status === 405) {
+      return { status: "unknown", id, filename: null, timestamps: null };
+    }
+
     if (onNote && attempt % 10 === 0) onNote(`هنوز آماده نیست — تلاشِ ${attempt}`);
-    await sleep(Math.min(5000, 1000 + attempt * 250));
+    await sleep(Math.min(5000, 900 + attempt * 250));
   }
   throw new Error("نتیجه در زمانِ معقول آماده نشد");
 }
 
-/** Audio straight out of a response body, if that is what it is. */
-function fromBytes(bytes, contentType) {
-  const sniffed = extFromBytes(bytes);
-  const byHeader = AUDIO_EXT[(contentType || "").split(";")[0].trim()];
-  if (!sniffed && !byHeader) return null;
-  return { buffer: bytes, ext: sniffed || byHeader, raw: null };
-}
-
-/** Audio pointed at, or embedded, in a JSON reply. */
-async function fromPayload(payload) {
-  const link = findAudioUrl(payload);
-  if (link) {
-    const file = await fetch(link);
-    if (!file.ok) throw new Error(`دانلودِ فایل نشد: HTTP ${file.status} — ${link}`);
-    const data = Buffer.from(await file.arrayBuffer());
-    const ext = extFromBytes(data) || (link.match(/\.(mp3|wav|ogg)/i)?.[0] ?? ".mp3");
-    return { buffer: data, ext, raw: payload };
-  }
-  const b64 = findBase64(payload);
-  if (b64) {
-    const data = Buffer.from(b64.replace(/\s/g, ""), "base64");
-    return { buffer: data, ext: extFromBytes(data) || ".mp3", raw: payload };
-  }
-  return null;
-}
-
 /**
- * Records one line. Resolves to { buffer, ext, raw } — `raw` is the JSON reply when there was
- * one, so the caller can show it once. Throws RateLimited on 429 so the queue can back off.
+ * Records one line and hands back { buffer, ext, raw, timestamps }.
  *
- * The service is asynchronous: the first reply is a receipt with an id and an estimate, and the
- * audio is collected afterwards. All of that happens inside this call, so a caller only ever
- * waits for one thing. `onNote` is for the log while that wait goes on.
+ * `raw` is the receipt, kept so the studio can print the shape once. `onNote` is for the log
+ * while the service is thinking. Throws RateLimited on 429 so the queue can back off.
  */
 export async function speak({ token, text, speaker, speed = 1, endpoint = "short",
-                              timeout = 180000, onNote = null }) {
-  const url = ENDPOINTS[endpoint] || ENDPOINTS.short;
+                              timestamps = false, timeout = 180000, onNote = null }) {
+  const family = FAMILIES[endpoint] || FAMILIES.short;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
   let response;
   try {
-    response = await fetch(url, {
+    response = await fetch(family.request, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -220,23 +281,25 @@ export async function speak({ token, text, speaker, speed = 1, endpoint = "short
         accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text, speaker, speed, timestamp: false }),
+      body: JSON.stringify({ text, speaker, speed, timestamp: Boolean(timestamps) }),
     });
+  } catch (err) {
+    throw new Error(`${family.request} — ${why(err)}`);
   } finally {
     clearTimeout(timer);
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());
-
   if (response.status === 429) {
     throw new RateLimited(`سهمیه پر شد (۴۲۹): ${bytes.toString("utf8").slice(0, 200)}`);
   }
-  if (!response.ok) {
+  if (response.status !== 200 && response.status !== 201) {
     throw new Error(`HTTP ${response.status} — ${bytes.toString("utf8").slice(0, 300)}`);
   }
 
-  const direct = fromBytes(bytes, response.headers.get("content-type"));
-  if (direct) return direct;
+  // just in case a future version answers with the file outright
+  const immediate = audioFromBody(bytes, response.headers.get("content-type"));
+  if (immediate) return { ...immediate, raw: null, timestamps: null };
 
   let payload;
   try {
@@ -245,16 +308,18 @@ export async function speak({ token, text, speaker, speed = 1, endpoint = "short
     throw new Error(`پاسخِ ناشناخته: ${bytes.toString("utf8").slice(0, 300)}`);
   }
 
-  // the usual case: the reply is a receipt, and the audio is collected with its id
-  const job = pendingJob(payload);
-  if (job) {
-    const collected = await collect({ token, id: job.id, waitMs: job.waitMs, onNote });
-    return { ...collected, raw: collected.raw ?? payload };
+  let info = readReply(payload);
+  if (!info.id && !info.filename) {
+    throw new Error(`در پاسخ نه شناسه بود نه نامِ فایل: ${JSON.stringify(payload).slice(0, 300)}`);
   }
 
-  // some replies carry the file outright
-  const got = await fromPayload(payload);
-  if (got) return got;
+  // «pending» means it is still being made; «success» means only the download is left
+  if (info.status && info.status !== "success" && !info.filename) {
+    if (onNote) onNote(info.message || "در حال پردازش…");
+    const tracked = await track({ token, family, id: info.id, waitMs: info.waitMs, onNote });
+    info = { ...info, ...tracked, id: info.id };
+  }
 
-  throw new Error(`در پاسخ فایلی پیدا نشد: ${JSON.stringify(payload).slice(0, 300)}`);
+  const file = await download({ token, family, id: info.id, filename: info.filename, onNote });
+  return { ...file, raw: payload, timestamps: info.timestamps };
 }
