@@ -124,19 +124,39 @@ function readReply(payload) {
   };
 }
 
-async function getJson(url, token) {
+/**
+ * One GET, timed and reported.
+ *
+ * `onHttp` gets the method, the address, the status, how long it took and the first part of the
+ * body — which is what the diagnostics tab shows, and what makes «it does not work» into
+ * something readable.
+ */
+async function getJson(url, token, { onHttp, signal, name = "GET" } = {}) {
+  const started = Date.now();
   let response;
   try {
     response = await fetch(url, {
       method: "GET",
+      signal,
       headers: { "gateway-token": token, accept: "application/json" },
     });
   } catch (err) {
-    throw new Error(why(err));
+    const note = why(err);
+    if (onHttp) onHttp({ name, method: "GET", url, status: 0, ms: Date.now() - started, body: note });
+    throw new Error(note);
   }
   const bytes = Buffer.from(await response.arrayBuffer());
+  const type = response.headers.get("content-type") || "";
+  if (onHttp) {
+    onHttp({
+      name, method: "GET", url, status: response.status, ms: Date.now() - started, type,
+      bytes: bytes.length,
+      body: type.includes("json") || bytes.length < 2000
+        ? bytes.toString("utf8").slice(0, 1200) : `«${bytes.length} بایتِ دودویی»`,
+    });
+  }
   if (response.status === 429) throw new RateLimited("سهمیه پر شد (۴۲۹)");
-  return { status: response.status, bytes, type: response.headers.get("content-type") || "" };
+  return { status: response.status, bytes, type };
 }
 
 /**
@@ -152,7 +172,7 @@ export function handleInUse() {
   return learnedHandle;
 }
 
-async function download({ token, family, id, filename, onNote }) {
+async function download({ token, family, id, filename, onNote, onHttp, signal }) {
   const handles = [];
   const add = (kind, value) => {
     if (value) handles.push({ kind, value });
@@ -171,7 +191,7 @@ async function download({ token, family, id, filename, onNote }) {
     const url = `${family.download}/${encodeURIComponent(handle.value)}`;
     let reply;
     try {
-      reply = await getJson(url, token);
+      reply = await getJson(url, token, { onHttp, signal, name: `download (${handle.kind})` });
     } catch (err) {
       if (err instanceof RateLimited) throw err;
       lastNote = err.message;
@@ -222,12 +242,13 @@ async function download({ token, family, id, filename, onNote }) {
 }
 
 /** Asks «is it ready?» until it is. */
-async function track({ token, family, id, waitMs, tries = 40, onNote }) {
+async function track({ token, family, id, waitMs, tries = 40, onNote, onHttp, signal }) {
   await sleep(waitMs);
   for (let attempt = 1; attempt <= tries; attempt++) {
     let reply;
     try {
-      reply = await getJson(`${family.track}/${encodeURIComponent(id)}`, token);
+      reply = await getJson(`${family.track}/${encodeURIComponent(id)}`, token,
+                            { onHttp, signal, name: `track #${attempt}` });
     } catch (err) {
       if (err instanceof RateLimited) throw err;
       reply = null;
@@ -266,11 +287,15 @@ async function track({ token, family, id, waitMs, tries = 40, onNote }) {
  * while the service is thinking. Throws RateLimited on 429 so the queue can back off.
  */
 export async function speak({ token, text, speaker, speed = 1, endpoint = "short",
-                              timestamps = false, timeout = 180000, onNote = null }) {
+                              timestamps = false, timeout = 180000, onNote = null,
+                              onHttp = null, signal = null }) {
   const family = FAMILIES[endpoint] || FAMILIES.short;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
+  if (signal) signal.addEventListener("abort", () => controller.abort(), { once: true });
+  const pass = { onNote, onHttp, signal: controller.signal };
 
+  const started = Date.now();
   let response;
   try {
     response = await fetch(family.request, {
@@ -284,12 +309,23 @@ export async function speak({ token, text, speaker, speed = 1, endpoint = "short
       body: JSON.stringify({ text, speaker, speed, timestamp: Boolean(timestamps) }),
     });
   } catch (err) {
-    throw new Error(`${family.request} — ${why(err)}`);
+    const note = `${family.request} — ${why(err)}`;
+    if (onHttp) onHttp({ name: "request", method: "POST", url: family.request, status: 0,
+                         ms: Date.now() - started, body: note });
+    throw new Error(note);
   } finally {
     clearTimeout(timer);
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());
+  if (onHttp) {
+    onHttp({
+      name: "request", method: "POST", url: family.request, status: response.status,
+      ms: Date.now() - started, bytes: bytes.length,
+      type: response.headers.get("content-type") || "",
+      body: bytes.toString("utf8").slice(0, 1600),
+    });
+  }
   if (response.status === 429) {
     throw new RateLimited(`سهمیه پر شد (۴۲۹): ${bytes.toString("utf8").slice(0, 200)}`);
   }
@@ -316,10 +352,10 @@ export async function speak({ token, text, speaker, speed = 1, endpoint = "short
   // «pending» means it is still being made; «success» means only the download is left
   if (info.status && info.status !== "success" && !info.filename) {
     if (onNote) onNote(info.message || "در حال پردازش…");
-    const tracked = await track({ token, family, id: info.id, waitMs: info.waitMs, onNote });
+    const tracked = await track({ token, family, id: info.id, waitMs: info.waitMs, ...pass });
     info = { ...info, ...tracked, id: info.id };
   }
 
-  const file = await download({ token, family, id: info.id, filename: info.filename, onNote });
+  const file = await download({ token, family, id: info.id, filename: info.filename, ...pass });
   return { ...file, raw: payload, timestamps: info.timestamps };
 }

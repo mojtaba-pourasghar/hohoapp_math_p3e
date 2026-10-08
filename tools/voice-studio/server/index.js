@@ -374,6 +374,75 @@ app.post("/api/publish/audio", (_req, res) => {
 
 
 
+
+// ── «does the service work at all?» ──────────────────────────────────────────
+// One call, with every exchange written down: the address, the status, how long it took and
+// the start of the body. When something does not work this is what turns «it failed» into a
+// sentence someone can act on.
+const diag = { running: false, controller: null, steps: [], startedAt: 0, outcome: null };
+
+app.get("/api/diag", (_req, res) => res.json({
+  running: diag.running, steps: diag.steps, startedAt: diag.startedAt, outcome: diag.outcome,
+  speakers: SPEAKERS,
+}));
+
+app.post("/api/diag", async (req, res) => {
+  if (!config.token) return res.status(400).json({ error: "توکن خالی است" });
+  if (diag.running) return res.status(409).json({ error: "یک تست در حال اجراست" });
+
+  const speaker = String(req.body?.speaker || config.speaker);
+  const endpoint = req.body?.endpoint === "long" ? "long" : "short";
+  const text = String(req.body?.text || "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو.");
+  const timestamps = req.body?.timestamps === true;
+
+  diag.controller = new AbortController();
+  Object.assign(diag, { running: true, steps: [], startedAt: Date.now(), outcome: null });
+  push("diag", { running: true, steps: [] });
+  say("info", `تستِ وب‌سرویس — ${endpoint === "long" ? "avasho-large" : "avasho"}، صدای ${speaker}`);
+  res.json({ started: true });
+
+  const step = (entry) => {
+    diag.steps.push({ at: Date.now() - diag.startedAt, ...entry });
+    push("diag", { running: true, steps: diag.steps });
+  };
+
+  try {
+    const { buffer, ext, timestamps: marks } = await speak({
+      token: config.token, text, speaker, speed: Number(config.speed) || 1,
+      endpoint, timestamps,
+      signal: diag.controller.signal,
+      onHttp: step,
+      onNote: (note) => say("info", `تست: ${note}`),
+    });
+
+    fs.mkdirSync(config.outDir, { recursive: true });
+    const name = `_diag-${speaker}${ext}`;
+    fs.writeFileSync(path.join(config.outDir, name), buffer);
+    diag.outcome = {
+      ok: true, file: name, bytes: buffer.length, ext,
+      words: marks ? marks.length : 0,
+      ms: Date.now() - diag.startedAt,
+    };
+    say("ok", `تست موفق — ${name}، ${Math.round(buffer.length / 1024)} کیلوبایت، `
+      + `${((Date.now() - diag.startedAt) / 1000).toFixed(1)} ثانیه`);
+  } catch (err) {
+    diag.outcome = { ok: false, error: err.message, ms: Date.now() - diag.startedAt };
+    say("error", `تست ناموفق: ${err.message}`);
+  } finally {
+    diag.running = false;
+    diag.controller = null;
+    push("diag", { running: false, steps: diag.steps, outcome: diag.outcome });
+  }
+});
+
+app.post("/api/diag/stop", (_req, res) => {
+  if (diag.controller) {
+    diag.controller.abort();
+    say("warn", "تست متوقف شد");
+  }
+  res.json({ ok: true });
+});
+
 // ── fixing the words of one line ─────────────────────────────────────────────
 // The manifest is generated from the lesson sources, so an edit typed here would be lost the
 // next time it is rebuilt. It is therefore kept in tools/voice-overrides.json — which goes into
@@ -434,7 +503,8 @@ app.delete("/api/text/:key", (req, res) => {
 });
 
 // ── sending the finished files to the host ───────────────────────────────────
-const upload = { running: false, what: "", done: 0, total: 0, sent: 0, skipped: 0, failed: 0 };
+const upload = { running: false, stopping: false, what: "", done: 0, total: 0,
+                 sent: 0, skipped: 0, failed: 0 };
 
 function uploadSnapshot() {
   return { ...upload };
@@ -477,8 +547,8 @@ app.post("/api/ftp/upload/audio", async (req, res) => {
     appAssets: path.resolve(ROOT, "../../app/src/main/assets/voice-index.json"),
   });
 
-  Object.assign(upload, { running: true, what: "صداها", done: 0, total: files.length + 1,
-                          sent: 0, skipped: 0, failed: 0 });
+  Object.assign(upload, { running: true, stopping: false, what: "صداها",
+                          done: 0, total: files.length + 1, sent: 0, skipped: 0, failed: 0 });
   push("upload", uploadSnapshot());
   res.json({ started: true, total: files.length });
   say("info", `آپلودِ صداها به ${config.ftp.audioDir} — ${files.length} فایل`
@@ -487,6 +557,7 @@ app.post("/api/ftp/upload/audio", async (req, res) => {
   try {
     const outcome = await uploadFiles({
       settings: config.ftp, remoteDir: config.ftp.audioDir, files, skipExisting,
+      shouldStop: () => upload.stopping,
       onStep: (name, state) => {
         upload.done += 1;
         if (state === "sent") upload.sent += 1;
@@ -501,14 +572,18 @@ app.post("/api/ftp/upload/audio", async (req, res) => {
       },
     });
 
-    await uploadFiles({
-      settings: config.ftp, remoteDir: config.ftp.audioDir,
-      files: [path.join(config.outDir, "index.json")], skipExisting: false,
-      onStep: () => { upload.done += 1; upload.sent += 1; push("upload", uploadSnapshot()); },
-    });
+    if (!outcome.stopped) {
+      await uploadFiles({
+        settings: config.ftp, remoteDir: config.ftp.audioDir,
+        files: [path.join(config.outDir, "index.json")], skipExisting: false,
+        onStep: () => { upload.done += 1; upload.sent += 1; push("upload", uploadSnapshot()); },
+      });
+    }
 
-    say("info", `آپلود تمام شد — ${outcome.sent} فرستاده، ${outcome.skipped} از قبل بود، `
-      + `${outcome.failed} ناموفق. فهرست (${index.count} کلیپ) هم رفت.`);
+    say("info", (outcome.stopped ? "آپلود متوقف شد — " : "آپلود تمام شد — ")
+      + `${outcome.sent} فرستاده، ${outcome.skipped} از قبل بود، ${outcome.failed} ناموفق.`
+      + (outcome.stopped ? " فهرست فرستاده نشد؛ دوباره که زدی از همان‌جا ادامه می‌دهد."
+                         : ` فهرست (${index.count} کلیپ) هم رفت.`));
     for (const line of outcome.errors.slice(0, 10)) say("error", line);
   } catch (err) {
     say("error", `آپلود شکست: ${err.message}`);
@@ -528,7 +603,7 @@ app.post("/api/ftp/upload/karbarg", async (req, res) => {
     return res.status(400).json({ error: err.message });
   }
 
-  Object.assign(upload, { running: true, what: "کاربرگ‌ها", done: 0, total: 0,
+  Object.assign(upload, { running: true, stopping: false, what: "کاربرگ‌ها", done: 0, total: 0,
                           sent: 0, skipped: 0, failed: 0 });
   push("upload", uploadSnapshot());
   res.json({ started: true });
@@ -553,6 +628,14 @@ app.post("/api/ftp/upload/karbarg", async (req, res) => {
 });
 
 app.get("/api/ftp/status", (_req, res) => res.json(uploadSnapshot()));
+
+app.post("/api/ftp/stop", (_req, res) => {
+  if (upload.running) {
+    upload.stopping = true;
+    say("warn", "درخواستِ توقفِ آپلود — فایلِ در جریان تمام می‌شود و بعد می‌ایستد");
+  }
+  res.json(uploadSnapshot());
+});
 
 app.get("/api/karbarg", (_req, res) => {
   try {

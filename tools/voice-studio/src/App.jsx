@@ -37,6 +37,12 @@ export default function App() {
   const [uploading, setUploading] = useState({ running: false, done: 0, total: 0, sent: 0, skipped: 0, failed: 0, what: "" });
   const [editing, setEditing] = useState(null);      // { key, spoken }
   const [testStamp, setTestStamp] = useState(0);
+  const [tab, setTab] = useState("studio");
+  const [diag, setDiag] = useState({ running: false, steps: [], outcome: null });
+  const [probe, setProbe] = useState({
+    endpoint: "short", speaker: "", timestamps: false,
+    text: "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو.",
+  });
   const logBox = useRef(null);
 
   const load = useCallback(async () => {
@@ -51,6 +57,8 @@ export default function App() {
       setLines(manifest.lines);
       const karbarg = await api("/karbarg");
       setSheets(karbarg.sheets || []);
+      const probeState = await api("/diag");
+      setDiag({ running: probeState.running, steps: probeState.steps, outcome: probeState.outcome });
       setError("");
     } catch (err) {
       setError(err.message);
@@ -67,6 +75,7 @@ export default function App() {
       if (data.type === "log") setLog((old) => [...old.slice(-400), data.entry]);
       if (data.type === "status") setStatus((old) => ({ ...old, ...data }));
       if (data.type === "upload") setUploading((old) => ({ ...old, ...data }));
+      if (data.type === "diag") setDiag((old) => ({ ...old, ...data }));
     };
     return () => stream.close();
   }, []);
@@ -171,6 +180,12 @@ export default function App() {
           </p>
         </div>
         <div className="grow" />
+        <button className={tab === "studio" ? "chip sel" : "chip"} onClick={() => setTab("studio")}>
+          استودیو
+        </button>
+        <button className={tab === "diag" ? "chip sel" : "chip"} onClick={() => setTab("diag")}>
+          تستِ وب‌سرویس
+        </button>
         <button className="ghost" onClick={load} disabled={busy}>تازه‌سازی</button>
         {status.running
           ? <button className="warn" onClick={stop}>ایستادن</button>
@@ -182,6 +197,7 @@ export default function App() {
       {error && <div className="err">{error}</div>}
       {!config.tokenSet && <div className="err">توکنِ آواشو را پایین وارد کن تا ساخت شروع شود.</div>}
 
+      {tab === "studio" && (<>
       <div className="stats">
         <div className="stat">
           <div className="label">کلِ جمله‌ها</div>
@@ -476,6 +492,11 @@ export default function App() {
           }}>
             آپلودِ کاربرگ‌ها
           </button>
+          {uploading.running && (
+            <button className="warn" onClick={() => api("/ftp/stop", { method: "POST" })}>
+              توقفِ آپلود
+            </button>
+          )}
         </div>
 
         {(uploading.running || uploading.done > 0) && (
@@ -589,6 +610,106 @@ export default function App() {
           عنوان و توضیح می‌خواند و لینکِ دانلود می‌سازد.
         </p>
       </div>
+
+      </>)}
+
+      {tab === "diag" && (
+        <div className="card">
+          <h2>🔎 تستِ وب‌سرویس <span className="hint">یک تماسِ کامل، با همه‌ی مرحله‌ها</span></h2>
+          <div className="grid">
+            <div>
+              <label>نوعِ درخواست</label>
+              <select value={probe.endpoint}
+                      onChange={(e) => setProbe({ ...probe, endpoint: e.target.value })}>
+                <option value="short">avasho — متنِ کوتاه</option>
+                <option value="long">avasho-large — متنِ بلند</option>
+              </select>
+            </div>
+            <div>
+              <label>گوینده</label>
+              <select value={probe.speaker || config.speaker}
+                      onChange={(e) => setProbe({ ...probe, speaker: e.target.value })}>
+                {config.speakers.map((sp) => <option key={sp} value={sp}>{sp}</option>)}
+              </select>
+            </div>
+            <label className="check">
+              <input type="checkbox" checked={probe.timestamps}
+                     onChange={(e) => setProbe({ ...probe, timestamps: e.target.checked })} />
+              زمان‌بندیِ کلمه‌ها را هم بخواه
+            </label>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label>متنِ تست</label>
+            <textarea rows={3} style={{ width: "100%" }} value={probe.text}
+                      onChange={(e) => setProbe({ ...probe, text: e.target.value })} />
+          </div>
+          <div className="row" style={{ marginTop: 12 }}>
+            <button className="go" disabled={diag.running || !config.tokenSet}
+                    onClick={async () => {
+                      setDiag({ running: true, steps: [], outcome: null });
+                      try {
+                        await api("/diag", { method: "POST", body: JSON.stringify({
+                          ...probe, speaker: probe.speaker || config.speaker }) });
+                        setError("");
+                      } catch (err) { setError(err.message); setDiag({ running: false, steps: [], outcome: null }); }
+                    }}>
+              {diag.running ? "در حال تست…" : "شروعِ تست"}
+            </button>
+            {diag.running && (
+              <button className="warn" onClick={() => api("/diag/stop", { method: "POST" })}>
+                توقفِ تست
+              </button>
+            )}
+            {!config.tokenSet && <span className="note">اول در تبِ استودیو توکن را بده.</span>}
+          </div>
+
+          {diag.steps.length > 0 && (
+            <div className="files" style={{ marginTop: 14 }}>
+              {diag.steps.map((st, i) => (
+                <div key={i} style={{ padding: "10px 12px", borderBottom: "1px solid #f2ede5" }}>
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <strong style={{ fontSize: 13 }}>
+                      {st.name} — <span className={st.status >= 200 && st.status < 300 ? "" : "tag"}>
+                        {st.status === 0 ? "به سرویس نرسید" : `HTTP ${st.status}`}
+                      </span>
+                    </strong>
+                    <span className="tag">{st.ms} میلی‌ثانیه{st.bytes ? ` · ${fa(st.bytes)} بایت` : ""}</span>
+                  </div>
+                  <div className="key" style={{ margin: "4px 0", wordBreak: "break-all" }}>
+                    {st.method} {st.url}
+                  </div>
+                  <pre style={{ margin: 0, direction: "ltr", textAlign: "left", whiteSpace: "pre-wrap",
+                                fontSize: 11, background: "#faf7f2", padding: 9, borderRadius: 8,
+                                maxHeight: 180, overflow: "auto" }}>{st.body}</pre>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {diag.outcome && (
+            <div style={{ marginTop: 14 }}>
+              {diag.outcome.ok ? (
+                <>
+                  <p className="note" style={{ color: "#1f6f66", fontWeight: 700 }}>
+                    ✓ وب‌سرویس کار می‌کند — {fa(Math.round(diag.outcome.bytes / 1024))} کیلوبایت
+                    {diag.outcome.ext}، در {(diag.outcome.ms / 1000).toFixed(1)} ثانیه
+                    {diag.outcome.words ? ` · ${fa(diag.outcome.words)} کلمه زمان‌بندی شد` : ""}
+                  </p>
+                  <audio controls src={`/api/audio/_diag-${probe.speaker || config.speaker}?t=${diag.outcome.ms}`} />
+                </>
+              ) : (
+                <div className="err">✗ {diag.outcome.error}</div>
+              )}
+            </div>
+          )}
+
+          <p className="note">
+            سه مرحله را می‌بینی: <code>request</code>، بعد اگر لازم بود <code>track</code>، و
+            آخر <code>download</code>. اگر جایی ایستاد، همان کادرِ خام می‌گوید سرویس چه گفت —
+            و همان را بفرست تا درستش کنم.
+          </p>
+        </div>
+      )}
 
       <div className="card">
         <div className="log-head">

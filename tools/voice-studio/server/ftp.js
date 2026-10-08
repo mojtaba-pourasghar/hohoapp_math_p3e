@@ -61,9 +61,10 @@ export async function probe(settings, remoteDir) {
  * `onStep` is called with (name, state) as it goes — "sent", "skipped" or "failed" — so the
  * studio's log reads like the upload is happening, which with four thousand files it is.
  */
-export async function uploadFiles({ settings, remoteDir, files, skipExisting = true, onStep }) {
+export async function uploadFiles({ settings, remoteDir, files, skipExisting = true, onStep,
+                                   shouldStop = () => false }) {
   const { client, connect } = clientFor(settings);
-  const result = { sent: 0, skipped: 0, failed: 0, bytes: 0, errors: [] };
+  const result = { sent: 0, skipped: 0, failed: 0, bytes: 0, errors: [], stopped: false };
   try {
     await connect();
     await client.ensureDir(remoteDir);       // creates the whole path and moves into it
@@ -80,6 +81,10 @@ export async function uploadFiles({ settings, remoteDir, files, skipExisting = t
     }
 
     for (const local of files) {
+      if (shouldStop()) {
+        result.stopped = true;
+        break;
+      }
       const name = path.basename(local);
       let size = 0;
       try {
