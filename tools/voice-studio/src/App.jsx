@@ -88,6 +88,7 @@ export default function App() {
       const probeState = await api("/diag");
       setDiag({ running: probeState.running, steps: probeState.steps, outcome: probeState.outcome });
       setSample(await api("/diag/sample"));
+      setUploading(await api("/ftp/status"));
       setError("");
     } catch (err) {
       setError(err.message);
@@ -154,6 +155,29 @@ export default function App() {
       setForm((old) => ({ ...old, ...next }));
       setError("");
       if (patch.manifestPath || patch.outDir) load();
+    } catch (err) { setError(err.message); }
+    setBusy(false);
+  };
+
+  /** Saves the FTP box as it stands (password included) and hands back the fresh config. */
+  const saveFtp = async () => {
+    const next = await api("/config", { method: "POST", body: JSON.stringify({
+      ftp: { ...form.ftp, ...(ftpPass ? { password: ftpPass } : {}) },
+    }) });
+    setConfig(next);
+    setForm((old) => ({ ...old, ...next }));
+    setFtpPass("");
+    return next;
+  };
+
+  /** Nothing on the FTP side runs before the box it reads from is saved. */
+  const ftpDo = async (path, body = {}) => {
+    setBusy(true);
+    try {
+      const next = await saveFtp();
+      if (!next.ftp?.passwordSet) throw new Error("رمزِ FTP داده نشده");
+      await api(path, { method: "POST", body: JSON.stringify(body) });
+      setError("");
     } catch (err) { setError(err.message); }
     setBusy(false);
   };
@@ -519,36 +543,27 @@ export default function App() {
         </div>
 
         <div className="row" style={{ marginTop: 12 }}>
-          <button className="ghost" disabled={busy} onClick={() => {
-            save({ ftp: { ...form.ftp, ...(ftpPass ? { password: ftpPass } : {}) } });
-            setFtpPass("");
+          <button className="ghost" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try { await saveFtp(); setError(""); } catch (err) { setError(err.message); }
+            setBusy(false);
           }}>
             ذخیره‌ی تنظیماتِ FTP
           </button>
-          <button className="ghost" disabled={busy} onClick={async () => {
-            setBusy(true);
-            try { await api("/ftp/test", { method: "POST", body: JSON.stringify({ which: "audio" }) }); setError(""); }
-            catch (err) { setError(err.message); }
-            setBusy(false);
-          }}>
+          <button className="ghost" disabled={busy}
+                  onClick={() => ftpDo("/ftp/test", { which: "audio" })}>
             تستِ اتصال
           </button>
-          <button className="go" disabled={busy || uploading.running} onClick={async () => {
-            try { await api("/ftp/upload/audio", { method: "POST", body: JSON.stringify({}) }); setError(""); }
-            catch (err) { setError(err.message); }
-          }}>
+          <button className="go" disabled={busy || uploading.running}
+                  onClick={() => ftpDo("/ftp/upload/audio")}>
             آپلودِ صداها (فقط تازه‌ها)
           </button>
-          <button disabled={busy || uploading.running} onClick={async () => {
-            try { await api("/ftp/upload/audio", { method: "POST", body: JSON.stringify({ all: true }) }); setError(""); }
-            catch (err) { setError(err.message); }
-          }}>
+          <button disabled={busy || uploading.running}
+                  onClick={() => ftpDo("/ftp/upload/audio", { all: true })}>
             آپلودِ همه دوباره
           </button>
-          <button className="chip" disabled={busy || uploading.running} onClick={async () => {
-            try { await api("/ftp/upload/karbarg", { method: "POST", body: JSON.stringify({}) }); setError(""); }
-            catch (err) { setError(err.message); }
-          }}>
+          <button className="chip" disabled={busy || uploading.running}
+                  onClick={() => ftpDo("/ftp/upload/karbarg")}>
             آپلودِ کاربرگ‌ها
           </button>
           {uploading.running && (
@@ -557,6 +572,54 @@ export default function App() {
             </button>
           )}
         </div>
+
+        {uploading.link?.state && (
+          <div style={{ marginTop: 12 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <strong style={{ fontSize: 13 }}>
+                وضعیتِ اتصال:{" "}
+                <span className={uploading.link.error ? "state bad"
+                                 : uploading.link.state === "وصل است" ? "state ok" : "state warn"}>
+                  {uploading.link.state}
+                </span>
+                {uploading.link.note ? <span className="key"> · {uploading.link.note}</span> : null}
+              </strong>
+              <span className="tag">
+                {config.ftp?.host}:{fa(config.ftp?.port ?? 21)}
+                {config.ftp?.secure ? " · FTPS" : ""}
+              </span>
+            </div>
+            {uploading.link.error && <div className="err" style={{ marginTop: 8 }}>
+              {uploading.link.error}
+            </div>}
+            {uploading.link.warning && <div className="err" style={{ marginTop: 8 }}>
+              ⚠ {uploading.link.warning}
+            </div>}
+            {uploading.link.info && (
+              <p className="note">
+                پوشه‌ی ورود <code>{uploading.link.info.loginDir}</code> · مقصد{" "}
+                <code>{uploading.link.info.remoteDir}</code>{" "}
+                {uploading.link.info.remoteExists
+                  ? `— ${fa(uploading.link.info.remoteCount)} فایل آنجاست`
+                  : "— هنوز ساخته نشده؛ موقعِ آپلود ساخته می‌شود"}
+                {uploading.link.info.names?.length
+                  ? ` (${uploading.link.info.names.join("، ")}…)` : ""}
+              </p>
+            )}
+            {uploading.link.lines?.length > 0 && (
+              <details open={!uploading.link.info}>
+                <summary className="note" style={{ cursor: "pointer" }}>
+                  گفت‌وگو با سرور ({fa(uploading.link.lines.length)} خط)
+                </summary>
+                <pre style={{ direction: "ltr", textAlign: "left", whiteSpace: "pre-wrap",
+                              fontSize: 11, background: "#faf7f2", padding: 9, borderRadius: 8,
+                              maxHeight: 220, overflow: "auto" }}>
+                  {uploading.link.lines.join("\n")}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
 
         {(uploading.running || uploading.done > 0) && (
           <div style={{ marginTop: 12 }}>

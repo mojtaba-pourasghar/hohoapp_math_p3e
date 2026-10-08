@@ -19,7 +19,7 @@ import {
   AUDIO_BASE, KARBARG_BASE, writeAudioIndex, addWorksheet, listWorksheets,
   removeWorksheet, writeWorksheetIndex,
 } from "./publish.js";
-import { probe, uploadFiles, uploadTree, audioFilesIn } from "./ftp.js";
+import { probe, uploadFiles, uploadTree, audioFilesIn, ftpHint } from "./ftp.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -760,14 +760,94 @@ app.delete("/api/text/:key", (req, res) => {
 const upload = { running: false, stopping: false, what: "", done: 0, total: 0,
                  sent: 0, skipped: 0, failed: 0 };
 
+// Where the connection got to, and the handshake itself. The page shows both: an FTP that
+// says nothing is indistinguishable from an FTP that is broken.
+const link = { state: "", phase: "", note: "", lines: [], at: 0, info: null, error: "",
+               warning: "" };
+
 function uploadSnapshot() {
-  return { ...upload };
+  return { ...upload, link };
 }
 
+/** Records a phase, both in the log and in the panel. */
+function ftpPhase(name, note = "") {
+  const words = {
+    connect: "در حالِ اتصال به", login: "وارد شد با کاربرِ", pwd: "پوشه‌ی ورود:",
+    dir: "پوشه‌ی مقصد:", list: "فهرستِ پوشه:",
+  };
+  link.phase = name;
+  link.note = note;
+  link.state = name === "connect" ? "در حالِ اتصال" : "وصل است";
+  say("info", `FTP · ${words[name] || name} ${note}`);
+  push("upload", uploadSnapshot());
+}
+
+/** One line of the conversation on the wire. The password never reaches here. */
+function ftpLine(text) {
+  link.lines = [...link.lines.slice(-60), text];
+  push("upload", uploadSnapshot());
+}
+
+/**
+ * The cPanel trap, in both shapes it takes.
+ *
+ * Some hosts log you in above public_html, some drop you straight inside it. A path that
+ * starts with /public_html is right for the first and wrong for the second — and when it is
+ * wrong nothing fails: the files go to a folder that really exists, just not the one the web
+ * server serves, and the app never finds them. So the login folder is read and compared.
+ */
+function pathTrap(info) {
+  const head = String(info.remoteDir || "").split("/").filter(Boolean)[0];
+  if (!head) return "";
+  const landed = String(info.loginDir || "").replace(/\/+$/, "");
+  const names = info.loginNames || [];
+
+  if (landed.endsWith(`/${head}`)) {
+    return `پوشه‌ی ورودِ تو خودش «${head}» است و مسیرِ مقصد هم با «${head}» شروع می‌شود — `
+      + `فایل‌ها در ${landed}/${head}/… می‌افتند. «${head}/» را از ابتدای مسیر بردار.`;
+  }
+  if (names.length && !names.some((n) => n.replace(/\/$/, "") === head)) {
+    return `در پوشه‌ی ورود چیزی به نامِ «${head}» نیست (اینجا هست: ${names.slice(0, 6).join("، ")})`
+      + ` — یعنی یا همین حالا داخلِ آن هستی یا نامش چیزِ دیگری است. این مسیر یک پوشه‌ی تازه`
+      + ` می‌سازد و اپ فایل‌ها را پیدا نمی‌کند.`;
+  }
+  return "";
+}
+
+function ftpFailed(err) {
+  const hint = ftpHint(err, config.ftp);
+  link.state = "وصل نشد";
+  link.error = hint ? `${err.message} — ${hint}` : err.message;
+  say("error", `FTP · ${link.error}`);
+  push("upload", uploadSnapshot());
+  return link.error;
+}
+
+function startLink(what) {
+  Object.assign(link, { state: "در حالِ اتصال", phase: "", note: "", lines: [],
+                        at: Date.now(), info: null, error: "", warning: "" });
+  const { host, port, user, secure, audioDir, karbargDir } = config.ftp;
+  say("info", `FTP · ${what} — ${host}:${port || 21}، کاربر ${user}`
+    + `${secure ? "، FTPS" : ""} → ${what.includes("کاربرگ") ? karbargDir : audioDir}`);
+  push("upload", uploadSnapshot());
+}
+
+/**
+ * The settings have to be there before anything is attempted — and the refusal has to be
+ * visible. It used to answer the request with an error and write nothing in the log, so from
+ * the page it looked as though the button did nothing at all.
+ */
 function requireFtp(res) {
   const { host, user, password } = config.ftp;
-  if (!host || !user || !password) {
-    res.status(400).json({ error: "آدرس و نام کاربری و رمزِ FTP را پر کن" });
+  const missing = [!host && "آدرسِ سرور", !user && "نام کاربری", !password && "رمز"].filter(Boolean);
+  if (missing.length) {
+    const message = `تنظیماتِ FTP کامل نیست: ${missing.join(" و ")} داده نشده`
+      + " — پُرش کن و «ذخیره‌ی تنظیماتِ FTP» را بزن";
+    link.state = "تنظیمات ناقص";
+    link.error = message;
+    say("error", `FTP · ${message}`);
+    push("upload", uploadSnapshot());
+    res.status(400).json({ error: message });
     return false;
   }
   return true;
@@ -776,14 +856,26 @@ function requireFtp(res) {
 app.post("/api/ftp/test", async (req, res) => {
   if (!requireFtp(res)) return;
   const which = req.body?.which === "karbarg" ? "karbargDir" : "audioDir";
+  const what = which === "karbargDir" ? "تستِ اتصال (کاربرگ‌ها)" : "تستِ اتصال (صداها)";
+
+  // the answer goes back now; the handshake arrives on the stream. A connect can take twenty
+  // seconds, and twenty seconds of a page saying nothing is what «کار نمی‌کند» looked like.
+  startLink(what);
+  res.json({ started: true });
+
   try {
-    const info = await probe(config.ftp, config.ftp[which]);
-    say("ok", `FTP وصل شد. پوشه‌ی ورود: ${info.loginDir} — ${info.remoteDir}: `
+    const info = await probe(config.ftp, config.ftp[which],
+                             { onLine: ftpLine, onPhase: ftpPhase });
+    link.state = "وصل است";
+    link.info = info;
+
+    link.warning = pathTrap(info);
+    if (link.warning) say("warn", `FTP · ${link.warning}`);
+    push("upload", uploadSnapshot());
+    say("ok", `FTP وصل شد · پوشه‌ی ورود ${info.loginDir} · ${info.remoteDir}: `
       + (info.remoteExists ? `${info.remoteCount} فایل` : "هنوز ساخته نشده (موقع آپلود ساخته می‌شود)"));
-    res.json(info);
   } catch (err) {
-    say("error", `FTP وصل نشد: ${err.message}`);
-    res.status(502).json({ error: err.message });
+    ftpFailed(err);
   }
 });
 
@@ -803,14 +895,15 @@ app.post("/api/ftp/upload/audio", async (req, res) => {
 
   Object.assign(upload, { running: true, stopping: false, what: "صداها",
                           done: 0, total: files.length + 1, sent: 0, skipped: 0, failed: 0 });
-  push("upload", uploadSnapshot());
+  startLink("آپلودِ صداها");
   res.json({ started: true, total: files.length });
-  say("info", `آپلودِ صداها به ${config.ftp.audioDir} — ${files.length} فایل`
+  say("info", `${files.length} فایل`
     + (skipExisting ? " (آنچه روی سرور هست رد می‌شود)" : " (همه دوباره)"));
 
   try {
     const outcome = await uploadFiles({
       settings: config.ftp, remoteDir: config.ftp.audioDir, files, skipExisting,
+      onLine: ftpLine, onPhase: ftpPhase,
       shouldStop: () => upload.stopping,
       onStep: (name, state) => {
         upload.done += 1;
@@ -840,7 +933,7 @@ app.post("/api/ftp/upload/audio", async (req, res) => {
                          : ` فهرست (${index.count} کلیپ) هم رفت.`));
     for (const line of outcome.errors.slice(0, 10)) say("error", line);
   } catch (err) {
-    say("error", `آپلود شکست: ${err.message}`);
+    ftpFailed(err);                          // the reason, and what to change, in one line
   } finally {
     upload.running = false;
     push("upload", uploadSnapshot());
@@ -859,13 +952,14 @@ app.post("/api/ftp/upload/karbarg", async (req, res) => {
 
   Object.assign(upload, { running: true, stopping: false, what: "کاربرگ‌ها", done: 0, total: 0,
                           sent: 0, skipped: 0, failed: 0 });
-  push("upload", uploadSnapshot());
+  startLink("آپلودِ کاربرگ‌ها");
   res.json({ started: true });
-  say("info", `آپلودِ کاربرگ‌ها به ${config.ftp.karbargDir} — پوشه‌ی سرور با اینجا یکی می‌شود`);
+  say("info", "پوشه‌ی سرور با اینجا یکی می‌شود");
 
   try {
     await uploadTree({
       settings: config.ftp, remoteDir: config.ftp.karbargDir, localDir: config.karbargDir,
+      onLine: ftpLine, onPhase: ftpPhase,
       onStep: (name) => {
         upload.sent += 1;
         upload.done += 1;
@@ -874,7 +968,7 @@ app.post("/api/ftp/upload/karbarg", async (req, res) => {
     });
     say("ok", "کاربرگ‌ها آپلود شدند");
   } catch (err) {
-    say("error", `آپلودِ کاربرگ شکست: ${err.message}`);
+    ftpFailed(err);
   } finally {
     upload.running = false;
     push("upload", uploadSnapshot());
@@ -886,7 +980,9 @@ app.get("/api/ftp/status", (_req, res) => res.json(uploadSnapshot()));
 app.post("/api/ftp/stop", (_req, res) => {
   if (upload.running) {
     upload.stopping = true;
+    link.state = "در حالِ ایستادن";
     say("warn", "درخواستِ توقفِ آپلود — فایلِ در جریان تمام می‌شود و بعد می‌ایستد");
+    push("upload", uploadSnapshot());
   }
   res.json(uploadSnapshot());
 });

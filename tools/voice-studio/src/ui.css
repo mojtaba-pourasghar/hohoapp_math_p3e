@@ -125,3 +125,9 @@ textarea:focus { outline: 2px solid var(--orange-soft); border-color: var(--oran
 .file.sample { grid-template-columns: 180px 1fr auto; align-items: center; }
 optgroup { font-weight: 700; color: var(--muted); }
 optgroup option { font-weight: 400; color: var(--ink); }
+
+/* the FTP connection state, outside the dark log where .ok/.warn live */
+.state { font-weight: 700; }
+.state.ok { color: #1f6f66; }
+.state.warn { color: #9a6b12; }
+.state.bad { color: #9c2b46; }
