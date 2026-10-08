@@ -15,5 +15,6 @@ public enum Screen {
     REWARDS,
     PROFILE,
     PARENT_GATE,
-    PARENT_PANEL
+    PARENT_PANEL,
+    PAYWALL
 }

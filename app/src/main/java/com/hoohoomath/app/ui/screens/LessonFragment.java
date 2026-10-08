@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat;
 
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.AppState;
+import com.hoohoomath.app.data.Access;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.PageLessons;
@@ -81,6 +82,16 @@ public class LessonFragment extends BaseFragment {
             LessonAudio.stop();
             nav().go(Screen.MAP);
         });
+
+        // The last gate, and the one that matters: «برویم صفحه‌ی بعد کتاب» walks straight from
+        // page to page across the whole book, so the lesson itself has to check — otherwise the
+        // free pages are a door left open onto all hundred and forty-four.
+        if (!paid() && !(page > 0 ? Access.page(page) : Access.section(chapter, section))) {
+            LessonAudio.stop();
+            goPaywall(page > 0 ? "صفحه‌ی " + fa(page) + " کتاب"
+                : "فصل " + Book.chapter(chapter).numberFa + "، بخشِ " + fa(section + 1));
+            return;
+        }
 
         if (script == null) {
             ((TextView) view.findViewById(R.id.lesson_caption)).setText("درسِ صوتی این بخش هنوز آماده نیست.");

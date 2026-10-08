@@ -19,6 +19,23 @@ public abstract class BaseFragment extends Fragment {
         return nav().mascot();
     }
 
+    /** Whether everything is open — the free part plus what the subscription adds. */
+    protected boolean paid() {
+        return com.hoohoomath.app.billing.Entitlement.unlocked(requireContext());
+    }
+
+    /**
+     * Sends the child to the paywall, telling it what they were reaching for.
+     *
+     * `what` becomes the first line of that screen («فصل ۳ بخشِ اشتراکی است»), so the answer to
+     * «why can I not open this?» is on the screen that asks for money, not a step away from it.
+     */
+    protected void goPaywall(String what) {
+        android.os.Bundle args = new android.os.Bundle();
+        args.putString("wanted", what == null ? "" : what);
+        nav().go(Screen.PAYWALL, args);
+    }
+
     /** Shown once when the screen first appears; screens override to give هوهو a contextual tip. */
     protected String entryTip() {
         return null;

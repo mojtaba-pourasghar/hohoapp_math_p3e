@@ -662,7 +662,7 @@ export default function App() {
             <label>فصل</label>
             <select value={sheetForm.chapter}
                     onChange={(e) => setSheetForm({ ...sheetForm, chapter: Number(e.target.value) })}>
-              <option value={-1}>هر فصلی</option>
+              <option value={-1}>متفرقه (به فصلی مربوط نیست)</option>
               {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                 <option key={n} value={n - 1}>فصل {fa(n)}</option>
               ))}
@@ -713,7 +713,7 @@ export default function App() {
                 <span className="say">
                   {sheet.title}
                   {sheet.note ? ` — ${sheet.note}` : ""}
-                  {sheet.chapter >= 0 ? ` · فصل ${fa(sheet.chapter + 1)}` : ""}
+                  {sheet.chapter >= 0 ? ` · فصل ${fa(sheet.chapter + 1)}` : " · متفرقه"}
                 </span>
                 <span className="row">
                   <span className="tag done">{fa(Math.round(sheet.bytes / 1024))}KB</span>

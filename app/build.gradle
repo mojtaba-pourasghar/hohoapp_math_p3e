@@ -50,6 +50,12 @@ android {
         }
     }
 
+    // AGP 8 builds no AIDL unless asked. The store's billing interface is an .aidl file, so
+    // without this the generated IInAppBillingService simply does not exist and nothing compiles.
+    buildFeatures {
+        aidl true
+    }
+
     defaultConfig {
         applicationId "com.hoohoomath.app"
         minSdk 26

@@ -118,6 +118,7 @@ public class ParentPanelFragment extends BaseFragment {
             settings.addView(buildSettingRow(SETTING_LABELS[i], i, s));
         }
         settings.addView(buildVoiceRow());
+        settings.addView(buildSubscriptionRow());
 
         LinearLayout results = view.findViewById(R.id.panel_results);
         results.removeAllViews();
@@ -240,6 +241,38 @@ public class ParentPanelFragment extends BaseFragment {
         row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(UiKit.text(requireContext(), "برو ›", 13f, R.color.teal_dark, true));
         row.setOnClickListener(v -> nav().go(Screen.VOICE_DOWNLOAD));
+        return row;
+    }
+
+    /**
+     * The subscription, where a parent expects to find it.
+     *
+     * The child never has to go looking for a price: the paywall is reached by tapping something
+     * locked, and otherwise it lives in here, behind the parent gate, with what is already free
+     * spelled out.
+     */
+    private View buildSubscriptionRow() {
+        boolean on = com.hoohoomath.app.billing.Entitlement.unlocked(requireContext());
+        LinearLayout row = UiKit.row(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int pad = UiKit.dp(requireContext(), 12);
+        row.setPadding(pad, pad, pad, pad);
+        UiKit.applyCardBg(row, requireContext(),
+            on ? R.color.teal_bg : R.color.orange_bg,
+            on ? R.color.teal_border : R.color.orange_border);
+        row.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
+
+        LinearLayout labels = UiKit.column(requireContext());
+        labels.addView(UiKit.text(requireContext(), on ? "اشتراک فعال است" : "ادامه‌ی درس‌ها",
+            13.5f, R.color.text_primary, true));
+        labels.addView(UiKit.text(requireContext(),
+            on ? "همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها باز است"
+               : "رایگان: " + com.hoohoomath.app.data.Access.freeSummary(),
+            11.5f, R.color.text_muted, false));
+        row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(UiKit.text(requireContext(), on ? "ببین ›" : "باز کن ›", 13f,
+            on ? R.color.teal_dark : R.color.orange_text, true));
+        row.setOnClickListener(v -> nav().go(Screen.PAYWALL));
         return row;
     }
 

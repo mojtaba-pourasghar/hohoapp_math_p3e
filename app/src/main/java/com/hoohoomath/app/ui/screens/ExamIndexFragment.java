@@ -12,9 +12,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hoohoomath.app.R;
+import com.hoohoomath.app.data.Access;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Level;
+import com.hoohoomath.app.data.QuizMode;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 
@@ -57,8 +59,15 @@ public class ExamIndexFragment extends BaseFragment {
         for (Level level : Level.values()) {
             // a half-finished set is picked up where it stopped, so the card says so
             boolean halfDone = s.hasAttempt("EXAM_" + ch.index + "_" + level.index);
-            list.addView(ScreenHelpers.buildLevelCard(requireContext(), level,
-                halfDone ? "آزمون نیمه‌کاره — از همان سؤال ادامه می‌دهی" : "۱۵ سؤال چهارگزینه‌ای · از همه‌ی بخش‌های فصل", () -> {
+            boolean open = paid() || Access.quiz(QuizMode.EXAM, ch.index, level.index);
+            String meta = !open ? "🔒 با اشتراک باز می‌شود"
+                : halfDone ? "آزمون نیمه‌کاره — از همان سؤال ادامه می‌دهی"
+                : "۱۵ سؤال چهارگزینه‌ای · از همه‌ی بخش‌های فصل";
+            list.addView(ScreenHelpers.buildLevelCard(requireContext(), level, meta, () -> {
+                if (!open) {
+                    goPaywall("آزمونِ «" + level.title + "» فصل " + ch.numberFa);
+                    return;
+                }
                 Bundle args = new Bundle();
                 args.putString("mode", "EXAM");
                 args.putInt("chapter", ch.index);

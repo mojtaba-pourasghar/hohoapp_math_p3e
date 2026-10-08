@@ -2,6 +2,7 @@ package com.hoohoomath.app;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.PorterDuff;
 import android.os.Bundle;
@@ -12,8 +13,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+
+import com.hoohoomath.app.billing.Bazaar;
+import com.hoohoomath.app.billing.Entitlement;
+import com.hoohoomath.app.billing.Receipt;
 
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.tts.NarrationText;
@@ -30,6 +36,7 @@ import com.hoohoomath.app.ui.screens.LessonFragment;
 import com.hoohoomath.app.ui.screens.MapFragment;
 import com.hoohoomath.app.ui.screens.ParentGateFragment;
 import com.hoohoomath.app.ui.screens.ParentPanelFragment;
+import com.hoohoomath.app.ui.screens.PaywallFragment;
 import com.hoohoomath.app.ui.screens.ProfileFragment;
 import com.hoohoomath.app.ui.screens.QuizFragment;
 import com.hoohoomath.app.ui.screens.ResultFragment;
@@ -73,6 +80,22 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         // ones and the chapter the child is on come down now so the first lesson already has
         // هوهو's own voice; the other chapters trickle in behind that.
         VoiceStore.startOnLaunch(this, AppState.get().taughtChapter);
+
+        // Asks Bazaar what this account owns, once per launch. That is how a subscription bought
+        // on another phone — or on this one before a reinstall — comes back without the parent
+        // doing anything. A purchase that has gone is cleared, but only when the store actually
+        // answered: a phone with no signal must never lock a paid child out.
+        restore = new Bazaar(this);
+        restore.restore(new Bazaar.Answer() {
+            @Override public void onPurchase(Receipt.Purchase purchase) {
+                if (purchase == null) Entitlement.revoke(MainActivity.this);
+                else Entitlement.grant(MainActivity.this, purchase.sku, purchase.token, purchase.until);
+            }
+
+            @Override public void onProblem(String message) {
+                // no store, no connection, nothing to conclude — what is stored stays
+            }
+        });
 
         navBar = findViewById(R.id.nav_bar);
         mascotOverlay = findViewById(R.id.mascot_overlay);
@@ -219,6 +242,38 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     }
 
     @Override
+    /**
+     * The answer from Bazaar's payment screen.
+     *
+     * It arrives at the activity, not at the fragment that asked, so it is handed on to the
+     * paywall if that is still what is on screen — and the purchase is verified and recorded
+     * either way, so a parent who hits «back» the moment they have paid still gets what they
+     * paid for.
+     */
+    /** Kept so the binding to the store can be let go of when the activity goes. */
+    private Bazaar restore;
+
+    @Override
+    protected void onDestroy() {
+        if (restore != null) restore.disconnect();
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != Bazaar.PURCHASE_REQUEST) return;
+
+        Receipt.Purchase purchase = Bazaar.fromResult(data);
+        if (purchase != null) {
+            Entitlement.grant(this, purchase.sku, purchase.token, purchase.until);
+        }
+        Fragment showing = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        if (showing instanceof PaywallFragment) {
+            ((PaywallFragment) showing).onPurchaseResult(purchase);
+        }
+    }
+
     public void go(Screen screen) {
         go(screen, null);
     }
@@ -290,6 +345,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
             case WORKSHEET_INDEX: f = new WorksheetIndexFragment(); break;
             case WORKSHEET_DOWNLOAD: f = new WorksheetDownloadFragment(); break;
             case VOICE_DOWNLOAD: f = new VoiceDownloadFragment(); break;
+            case PAYWALL: f = new PaywallFragment(); break;
             case EXAM_INDEX: f = new ExamIndexFragment(); break;
             case QUIZ: f = new QuizFragment(); break;
             case RESULT: f = new ResultFragment(); break;

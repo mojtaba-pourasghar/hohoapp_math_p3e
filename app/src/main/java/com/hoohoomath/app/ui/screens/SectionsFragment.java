@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.hoohoomath.app.R;
+import com.hoohoomath.app.data.Access;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.Lessons;
@@ -105,10 +106,17 @@ public class SectionsFragment extends BaseFragment {
         int nextRound = s.getRound(practiceKey) + 1;
         boolean halfDone = s.hasAttempt(practiceKey);
 
-        String title = PersianDigits.fa(i + 1) + ". " + ch.sections.get(i) + (learned ? "  ✓" : "");
-        String sub = halfDone
-            ? "تمرین نیمه‌کاره داری؛ از همان‌جا ادامه می‌دهی."
-            : "۱۵ سؤال تازه در هر دور · دور " + PersianDigits.fa(nextRound);
+        // the free part of the app: فصل ۱ بخش ۱ و ۲. Everything else needs the subscription,
+        // and says so on the card instead of being hidden from the list.
+        boolean open = paid() || Access.section(ch.index, i);
+
+        String title = PersianDigits.fa(i + 1) + ". " + ch.sections.get(i)
+            + (learned ? "  ✓" : "") + (open ? "" : "  🔒");
+        String sub = !open
+            ? "این بخش با اشتراک باز می‌شود."
+            : halfDone
+                ? "تمرین نیمه‌کاره داری؛ از همان‌جا ادامه می‌دهی."
+                : "۱۵ سؤال تازه در هر دور · دور " + PersianDigits.fa(nextRound);
         card.addView(UiKit.text(requireContext(), title, 14.5f, R.color.text_primary, true));
         card.addView(UiKit.text(requireContext(), sub, 11.5f, R.color.text_muted, false));
 
@@ -117,7 +125,7 @@ public class SectionsFragment extends BaseFragment {
         if (!pages.isEmpty()) {
             card.addView(UiKit.text(requireContext(), "صفحه‌های کتاب:", 11.5f, R.color.teal_dark, true),
                 UiKit.marginParams(requireContext(), 9, 0));
-            card.addView(buildPageRow(ch.index, pages));
+            card.addView(buildPageRow(ch.index, pages, open));
         }
 
         LinearLayout buttons = UiKit.row(requireContext());
@@ -126,6 +134,10 @@ public class SectionsFragment extends BaseFragment {
         if (hasLesson) {
             TextView lesson = pill(learned ? "خلاصه‌ی بخش ✓" : "خلاصه‌ی بخش", R.color.orange, R.color.white);
             lesson.setOnClickListener(v -> {
+                if (!open) {
+                    goPaywall("فصل " + ch.numberFa + "، بخشِ " + PersianDigits.fa(i + 1));
+                    return;
+                }
                 Bundle args = new Bundle();
                 args.putInt("chapter", ch.index);
                 args.putInt("section", i);
@@ -138,6 +150,10 @@ public class SectionsFragment extends BaseFragment {
 
         TextView practice = pill(halfDone ? "ادامه بده" : "تمرین کن", R.color.teal, R.color.white);
         practice.setOnClickListener(v -> {
+            if (!open) {
+                goPaywall("تمرینِ فصل " + ch.numberFa + "، بخشِ " + PersianDigits.fa(i + 1));
+                return;
+            }
             Bundle args = new Bundle();
             args.putString("mode", "PRACTICE");
             args.putInt("chapter", ch.index);
@@ -151,7 +167,7 @@ public class SectionsFragment extends BaseFragment {
     }
 
     /** One chip per page of the book, so the child walks the pages the way the book prints them. */
-    private View buildPageRow(int chapter, List<Integer> pages) {
+    private View buildPageRow(int chapter, List<Integer> pages, boolean open) {
         AppState s = state();
         HorizontalScrollView scroll = new HorizontalScrollView(requireContext());
         scroll.setHorizontalScrollBarEnabled(false);
@@ -161,7 +177,7 @@ public class SectionsFragment extends BaseFragment {
         for (int page : pages) {
             boolean done = s.isPageDone(page);
             TextView chip = UiKit.chip(requireContext(),
-                "صفحه‌ی " + PersianDigits.fa(page) + (done ? " ✓" : ""),
+                "صفحه‌ی " + PersianDigits.fa(page) + (done ? " ✓" : open ? "" : " 🔒"),
                 ContextCompat.getColor(requireContext(), done ? R.color.teal_bg : R.color.orange_bg),
                 ContextCompat.getColor(requireContext(), done ? R.color.teal_border : R.color.orange_border),
                 ContextCompat.getColor(requireContext(), done ? R.color.teal_dark : R.color.orange_text));
@@ -170,6 +186,10 @@ public class SectionsFragment extends BaseFragment {
             lp.setMarginEnd(UiKit.dp(requireContext(), 6));
             chip.setLayoutParams(lp);
             chip.setOnClickListener(v -> {
+                if (!open) {
+                    goPaywall("صفحه‌ی " + PersianDigits.fa(page) + " کتاب");
+                    return;
+                }
                 Bundle args = new Bundle();
                 args.putInt("chapter", chapter);
                 args.putInt("page", page);
