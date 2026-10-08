@@ -120,3 +120,8 @@ textarea {
 }
 textarea:focus { outline: 2px solid var(--orange-soft); border-color: var(--orange); }
 .file { align-items: start; }
+
+/* a voice sample needs room for the name, the gender and the pace before the player */
+.file.sample { grid-template-columns: 180px 1fr auto; align-items: center; }
+optgroup { font-weight: 700; color: var(--muted); }
+optgroup option { font-weight: 400; color: var(--ink); }

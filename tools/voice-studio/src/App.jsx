@@ -12,6 +12,33 @@ const api = async (path, options) => {
   return body;
 };
 
+const GENDERS = [
+  { id: "female", label: "صدای زن" },
+  { id: "male", label: "صدای مرد" },
+];
+
+/** The fourteen voices, grouped, with their Persian names. Used in both tabs. */
+function VoicePicker({ voices, speakers, value, onChange }) {
+  if (!voices || !voices.length) {
+    return (
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {(speakers || []).map((sp) => <option key={sp} value={sp}>{sp}</option>)}
+      </select>
+    );
+  }
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      {GENDERS.map((g) => (
+        <optgroup key={g.id} label={g.label}>
+          {voices.filter((v) => v.gender === g.id).map((v) => (
+            <option key={v.name} value={v.name}>{v.label} — {v.name}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 const GROUPS = [
   { id: "pages", label: "کتاب، صفحه به صفحه" },
   { id: "sections", label: "خلاصه‌ی بخش‌ها" },
@@ -39,9 +66,10 @@ export default function App() {
   const [testStamp, setTestStamp] = useState(0);
   const [tab, setTab] = useState("studio");
   const [diag, setDiag] = useState({ running: false, steps: [], outcome: null });
+  const [sample, setSample] = useState({ running: false, mode: "", items: [] });
   const [probe, setProbe] = useState({
-    endpoint: "short", speaker: "", timestamps: false,
-    text: "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو.",
+    endpoint: "short", speaker: "", speed: "", timestamps: false,
+    text: "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو. بیا با هَم تا دَه بِشماریم.",
   });
   const logBox = useRef(null);
 
@@ -59,6 +87,7 @@ export default function App() {
       setSheets(karbarg.sheets || []);
       const probeState = await api("/diag");
       setDiag({ running: probeState.running, steps: probeState.steps, outcome: probeState.outcome });
+      setSample(await api("/diag/sample"));
       setError("");
     } catch (err) {
       setError(err.message);
@@ -76,6 +105,7 @@ export default function App() {
       if (data.type === "status") setStatus((old) => ({ ...old, ...data }));
       if (data.type === "upload") setUploading((old) => ({ ...old, ...data }));
       if (data.type === "diag") setDiag((old) => ({ ...old, ...data }));
+      if (data.type === "sample") setSample((old) => ({ ...old, ...data }));
     };
     return () => stream.close();
   }, []);
@@ -120,6 +150,19 @@ export default function App() {
       if (patch.manifestPath || patch.outDir) load();
     } catch (err) { setError(err.message); }
     setBusy(false);
+  };
+
+  const sampleRun = async (what) => {
+    try {
+      await api("/diag/sample", { method: "POST", body: JSON.stringify({
+        ...what,
+        text: probe.text,
+        endpoint: probe.endpoint,
+        speaker: probe.speaker || config.speaker,
+        speed: probe.speed === "" ? config.speed : probe.speed,
+      }) });
+      setError("");
+    } catch (err) { setError(err.message); }
   };
 
   const generate = async (keys, limit, force = false) => {
@@ -175,8 +218,9 @@ export default function App() {
         <div>
           <h1>استودیوی صداگذاری هوهو</h1>
           <p>
-            متن از <code>audio_manifest.txt</code> · صدا با آواشو ({config.speaker}) ·
-            فایل‌ها در <code>{config.outDir}</code>
+            متن از <code>audio_manifest.txt</code> · صدای{" "}
+            {(config.voices || []).find((v) => v.name === config.speaker)?.label || config.speaker}
+            {" "}با سرعتِ {config.speed} · فایل‌ها در <code>{config.outDir}</code>
           </p>
         </div>
         <div className="grow" />
@@ -241,12 +285,11 @@ export default function App() {
           </div>
           <div>
             <label>گوینده</label>
-            <select value={form.speaker} onChange={(e) => setForm({ ...form, speaker: e.target.value })}>
-              {config.speakers.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <VoicePicker voices={config.voices} speakers={config.speakers} value={form.speaker}
+                         onChange={(speaker) => setForm({ ...form, speaker })} />
           </div>
           <div>
-            <label>سرعت</label>
+            <label>سرعت <span className="hint">۱ سرعتِ خودِ سرویس · ۰٫۹ آرام‌ترِ کلاسی</span></label>
             <input type="number" step="0.1" min="0.5" max="2" value={form.speed}
                    onChange={(e) => setForm({ ...form, speed: e.target.value })} />
           </div>
@@ -627,10 +670,15 @@ export default function App() {
             </div>
             <div>
               <label>گوینده</label>
-              <select value={probe.speaker || config.speaker}
-                      onChange={(e) => setProbe({ ...probe, speaker: e.target.value })}>
-                {config.speakers.map((sp) => <option key={sp} value={sp}>{sp}</option>)}
-              </select>
+              <VoicePicker voices={config.voices} speakers={config.speakers}
+                           value={probe.speaker || config.speaker}
+                           onChange={(speaker) => setProbe({ ...probe, speaker })} />
+            </div>
+            <div>
+              <label>سرعت</label>
+              <input type="number" step="0.1" min="0.5" max="2"
+                     value={probe.speed === "" ? config.speed : probe.speed}
+                     onChange={(e) => setProbe({ ...probe, speed: e.target.value })} />
             </div>
             <label className="check">
               <input type="checkbox" checked={probe.timestamps}
@@ -649,7 +697,8 @@ export default function App() {
                       setDiag({ running: true, steps: [], outcome: null });
                       try {
                         await api("/diag", { method: "POST", body: JSON.stringify({
-                          ...probe, speaker: probe.speaker || config.speaker }) });
+                          ...probe, speaker: probe.speaker || config.speaker,
+                          speed: probe.speed === "" ? config.speed : probe.speed }) });
                         setError("");
                       } catch (err) { setError(err.message); setDiag({ running: false, steps: [], outcome: null }); }
                     }}>
@@ -708,6 +757,78 @@ export default function App() {
             آخر <code>download</code>. اگر جایی ایستاد، همان کادرِ خام می‌گوید سرویس چه گفت —
             و همان را بفرست تا درستش کنم.
           </p>
+        </div>
+      )}
+
+      {tab === "diag" && (
+        <div className="card">
+          <h2>🎙 نمونه‌ها <span className="hint">صدا و سرعت را با گوش انتخاب کن، نه با حدس</span></h2>
+          <p className="note" style={{ marginTop: 0 }}>
+            همان جمله‌ی بالا با هر صدا — یا با چند سرعتِ مختلف — ساخته می‌شود و همین‌جا پخش.
+            هرکدام را پسندیدی، «همین» را بزن تا گوینده و سرعتِ درس‌ها بشود. نمونه‌ها نامشان با
+            <code> _ </code> شروع می‌شود، پس هیچ‌وقت در <code>index.json</code> و روی هاست
+            نمی‌روند.
+          </p>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <button className="go" disabled={sample.running || !config.tokenSet}
+                    onClick={() => sampleRun({ mode: "voices" })}>
+              نمونه‌ی همه‌ی گوینده‌ها ({fa((config.voices || []).length)})
+            </button>
+            <button disabled={sample.running || !config.tokenSet}
+                    onClick={() => sampleRun({ mode: "voices", gender: "female" })}>
+              فقط صدای زن
+            </button>
+            <button disabled={sample.running || !config.tokenSet}
+                    onClick={() => sampleRun({ mode: "voices", gender: "male" })}>
+              فقط صدای مرد
+            </button>
+            <button disabled={sample.running || !config.tokenSet}
+                    onClick={() => sampleRun({ mode: "speeds" })}>
+              نمونه‌ی سرعت‌ها (۰٫۸ تا ۱٫۱)
+            </button>
+            {sample.running && (
+              <button className="warn" onClick={() => api("/diag/sample/stop", { method: "POST" })}>
+                توقف
+              </button>
+            )}
+          </div>
+
+          {sample.items.length > 0 && (
+            <div className="files" style={{ marginTop: 14 }}>
+              {sample.items.map((item) => {
+                const voice = (config.voices || []).find((v) => v.name === item.speaker);
+                const chosen = config.speaker === item.speaker
+                  && Number(config.speed) === Number(item.speed);
+                return (
+                  <div key={item.key} className="file sample">
+                    <span style={{ minWidth: 150 }}>
+                      <strong>{voice ? voice.label : item.speaker}</strong>{" "}
+                      <span className="tag">{voice ? voice.gender === "male" ? "مرد" : "زن" : ""}</span>{" "}
+                      <span className="key">سرعت {item.speed}</span>
+                    </span>
+                    {item.state === "آماده" ? (
+                      <>
+                        <audio controls src={`/api/audio/${item.key}?t=${item.bytes || 0}`} />
+                        <button className="tiny" disabled={chosen}
+                                onClick={async () => {
+                                  const next = await api("/diag/sample/pick", { method: "POST",
+                                    body: JSON.stringify({ speaker: item.speaker, speed: item.speed }) });
+                                  setConfig(next);
+                                  setForm((old) => ({ ...old, ...next }));
+                                }}>
+                          {chosen ? "✓ همین است" : "همین"}
+                        </button>
+                      </>
+                    ) : (
+                      <span className={item.error ? "err" : "note"} style={{ margin: 0 }}>
+                        {item.error ? `${item.state} — ${item.error}` : item.state}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

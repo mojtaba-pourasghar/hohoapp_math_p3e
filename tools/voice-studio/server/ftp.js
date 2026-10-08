@@ -143,7 +143,7 @@ export function audioFilesIn(dir) {
     const ext = path.extname(name).toLowerCase();
     if (name === "index.json") continue;              // sent last, once the clips are all there
     if (!AUDIO_EXT.includes(ext)) continue;
-    if (name.startsWith("_test-")) continue;
+    if (name.startsWith("_")) continue;               // the studio's own listening clips
     out.push(path.join(dir, name));
   }
   return out;

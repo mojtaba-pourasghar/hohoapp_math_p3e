@@ -26,7 +26,10 @@ export function writeAudioIndex({ outDir, baseUrl = AUDIO_BASE, speaker = "", ap
   for (const name of fs.readdirSync(outDir).sort()) {
     const ext = path.extname(name).toLowerCase();
     if (!AUDIO_EXT.includes(ext)) continue;
-    if (name.startsWith("_test-")) continue;        // the listening tests are not lesson clips
+    // _test-…, _diag-…, _sample-… : the studio's own listening clips, never lesson narration.
+    // No lesson key starts with an underscore, so one rule covers all of them — and keeps a
+    // voice sample from being uploaded to the host as though هوهو said it in a lesson.
+    if (name.startsWith("_")) continue;
     const size = fs.statSync(path.join(outDir, name)).size;
     if (size < 512) continue;
     files[path.basename(name, ext)] = name;

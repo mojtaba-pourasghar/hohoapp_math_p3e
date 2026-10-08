@@ -13,7 +13,7 @@ import os from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readManifest, existingKeys, GROUP_LABELS } from "./manifest.js";
-import { speak, SPEAKERS, RateLimited } from "./avasho.js";
+import { speak, SPEAKERS, VOICES, RateLimited } from "./avasho.js";
 import {
   AUDIO_BASE, KARBARG_BASE, writeAudioIndex, addWorksheet, listWorksheets,
   removeWorksheet, writeWorksheetIndex,
@@ -35,7 +35,11 @@ const DEFAULTS = {
   audioBase: AUDIO_BASE,
   karbargBase: KARBARG_BASE,
   speaker: "pune",         // پونه — the voice the lessons are recorded with
-  speed: 1,
+  // 1 is the service's own pace, which for a third-grader runs ahead of the animation on the
+  // stage. A shade under it lets the words breathe and the sentence stay in one piece, which
+  // is what «روان» means here. The test tab's «نمونه‌ی سرعت‌ها» button is for settling this
+  // by ear rather than by argument.
+  speed: 0.9,
   // Every line in the manifest is a sentence or two (the longest is 539 characters), so the
   // short family is the right one. avasho-large is for pages of text and answers «pending»
   // even for a line, which is what made the generation section look broken.
@@ -77,6 +81,20 @@ function normalizeSpeaker(value) {
   const name = String(value || "").trim().toLowerCase();
   return SPEAKERS.includes(name) ? name : DEFAULTS.speaker;
 }
+
+/** A pace the service will accept: half speed to double, one decimal. */
+function speedOf(value, fallback = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return Number(fallback) || 1;
+  return Math.round(Math.min(2, Math.max(0.5, n)) * 10) / 10;
+}
+
+/** One sentence هوهو really says, so a sample is judged on the real thing. */
+const SAMPLE_TEXT = "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو. بیا با هَم تا دَه بِشماریم.";
+
+/** _sample-pune-090 — the speed in the name, so two paces never overwrite each other. */
+const sampleKey = (speaker, speed) =>
+  `_sample-${speaker}-${String(Math.round(speed * 100)).padStart(3, "0")}`;
 
 let config = { ...DEFAULTS };
 let migrated = null;
@@ -348,6 +366,7 @@ const publicConfig = () => ({
   configFile: CONFIG_FILE,
   savedAt,
   speakers: SPEAKERS,
+  voices: VOICES,
   groupLabels: GROUP_LABELS,
   ffmpeg: true,
 });
@@ -450,7 +469,7 @@ const diag = { running: false, controller: null, steps: [], startedAt: 0, outcom
 
 app.get("/api/diag", (_req, res) => res.json({
   running: diag.running, steps: diag.steps, startedAt: diag.startedAt, outcome: diag.outcome,
-  speakers: SPEAKERS,
+  speakers: SPEAKERS, voices: VOICES,
 }));
 
 app.post("/api/diag", async (req, res) => {
@@ -460,13 +479,15 @@ app.post("/api/diag", async (req, res) => {
   // the same two guards the job uses, so the two sections can never drift apart again
   const speaker = normalizeSpeaker(req.body?.speaker || config.speaker);
   const endpoint = normalizeEndpoint(req.body?.endpoint);
-  const text = String(req.body?.text || "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو.");
+  const text = String(req.body?.text || SAMPLE_TEXT);
+  const speed = speedOf(req.body?.speed, config.speed);
   const timestamps = req.body?.timestamps === true;
 
   diag.controller = new AbortController();
   Object.assign(diag, { running: true, steps: [], startedAt: Date.now(), outcome: null });
   push("diag", { running: true, steps: [] });
-  say("info", `تستِ وب‌سرویس — ${endpoint === "long" ? "avasho-large" : "avasho"}، صدای ${speaker}`);
+  say("info", `تستِ وب‌سرویس — ${endpoint === "long" ? "avasho-large" : "avasho"}، `
+    + `صدای ${speaker}، سرعتِ ${speed}`);
   res.json({ started: true });
 
   const step = (entry) => {
@@ -476,7 +497,7 @@ app.post("/api/diag", async (req, res) => {
 
   try {
     const { buffer, ext, timestamps: marks } = await speak({
-      token: config.token, text, speaker, speed: Number(config.speed) || 1,
+      token: config.token, text, speaker, speed,
       endpoint, timestamps,
       signal: diag.controller.signal,
       onHttp: step,
@@ -509,6 +530,111 @@ app.post("/api/diag/stop", (_req, res) => {
     say("warn", "تست متوقف شد");
   }
   res.json({ ok: true });
+});
+
+// ── نمونه‌ها: choosing a voice and a pace by ear ──────────────────────────────
+//
+// Fourteen voices and a handful of speeds are not a thing to argue about; they are a thing to
+// listen to. This records the same sentence across whichever set is asked for and leaves the
+// clips in the output folder under «_sample-…», where the page plays them side by side. The
+// underscore keeps them out of index.json, so a sample can never reach the host as a lesson.
+const sampler = { running: false, controller: null, mode: "", text: "", items: [] };
+
+function samplerState() {
+  return { running: sampler.running, mode: sampler.mode, text: sampler.text, items: sampler.items };
+}
+
+app.get("/api/diag/sample", (_req, res) => res.json(samplerState()));
+
+app.post("/api/diag/sample", async (req, res) => {
+  if (!config.token) return res.status(400).json({ error: "توکن خالی است" });
+  if (sampler.running) return res.status(409).json({ error: "یک نمونه‌گیری در حال اجراست" });
+
+  const mode = req.body?.mode === "speeds" ? "speeds" : "voices";
+  const text = String(req.body?.text || SAMPLE_TEXT);
+  const endpoint = normalizeEndpoint(req.body?.endpoint);
+  const speed = speedOf(req.body?.speed, config.speed);
+  const speaker = normalizeSpeaker(req.body?.speaker || config.speaker);
+
+  let pairs;
+  if (mode === "speeds") {
+    const speeds = Array.isArray(req.body?.speeds) && req.body.speeds.length
+      ? req.body.speeds.map((v) => speedOf(v, 1))
+      : [0.8, 0.9, 1, 1.1];
+    pairs = [...new Set(speeds)].map((sp) => ({ speaker, speed: sp }));
+  } else {
+    const gender = ["male", "female"].includes(req.body?.gender) ? req.body.gender : null;
+    pairs = VOICES.filter((v) => !gender || v.gender === gender)
+                  .map((v) => ({ speaker: v.name, speed }));
+  }
+
+  sampler.controller = new AbortController();
+  Object.assign(sampler, { running: true, mode, text, items: pairs.map((pair) => ({
+    ...pair, key: sampleKey(pair.speaker, pair.speed), state: "waiting",
+  })) });
+  push("sample", samplerState());
+  say("info", mode === "speeds"
+    ? `نمونه‌ی سرعت‌ها — ${speaker}، ${pairs.map((p) => p.speed).join("، ")}`
+    : `نمونه‌ی گوینده‌ها — ${pairs.length} صدا، سرعتِ ${speed}`);
+  res.json({ started: true, items: sampler.items.length });
+
+  fs.mkdirSync(config.outDir, { recursive: true });
+  for (const item of sampler.items) {
+    if (sampler.controller?.signal.aborted) {
+      item.state = "ایستاد";
+      continue;
+    }
+    item.state = "در حال ساخت";
+    push("sample", samplerState());
+    try {
+      const { buffer, ext } = await speak({
+        token: config.token, text, speaker: item.speaker, speed: item.speed,
+        endpoint, timestamps: false, signal: sampler.controller.signal,
+      });
+      // one name per voice-and-speed, whatever the container turns out to be
+      for (const old of [".ogg", ".mp3", ".wav"]) {
+        const stale = path.join(config.outDir, item.key + old);
+        if (old !== ext && fs.existsSync(stale)) fs.unlinkSync(stale);
+      }
+      fs.writeFileSync(path.join(config.outDir, item.key + ext), buffer);
+      item.state = "آماده";
+      item.bytes = buffer.length;
+      say("ok", `نمونه: ${item.speaker} با سرعتِ ${item.speed} — `
+        + `${Math.round(buffer.length / 1024)} کیلوبایت`);
+    } catch (err) {
+      item.state = "نشد";
+      item.error = err.message;
+      say("error", `نمونه‌ی ${item.speaker}: ${err.message}`);
+    }
+    push("sample", samplerState());
+    if (Number(config.delayMs) > 0) await sleep(Number(config.delayMs));
+  }
+
+  sampler.running = false;
+  sampler.controller = null;
+  const ready = sampler.items.filter((i) => i.state === "آماده").length;
+  say("info", `نمونه‌ها تمام — ${ready} از ${sampler.items.length} آماده`);
+  push("sample", samplerState());
+});
+
+app.post("/api/diag/sample/stop", (_req, res) => {
+  if (sampler.controller) {
+    sampler.controller.abort();
+    say("warn", "نمونه‌گیری متوقف شد");
+  }
+  res.json({ ok: true });
+});
+
+/** Takes the voice and the pace that were just listened to and makes them the settings. */
+app.post("/api/diag/sample/pick", (req, res) => {
+  const speaker = normalizeSpeaker(req.body?.speaker);
+  const speed = speedOf(req.body?.speed, config.speed);
+  config.speaker = speaker;
+  config.speed = speed;
+  saveConfig();
+  const voice = VOICES.find((v) => v.name === speaker);
+  say("ok", `گوینده‌ی درس‌ها: ${voice ? voice.label : speaker} (${speaker})، سرعتِ ${speed}`);
+  res.json(publicConfig());
 });
 
 // ── fixing the words of one line ─────────────────────────────────────────────

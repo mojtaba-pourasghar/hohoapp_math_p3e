@@ -31,7 +31,30 @@ export const FAMILIES = {
 /** Kept for anything still importing the old name. */
 export const ENDPOINTS = { short: FAMILIES.short.request, long: FAMILIES.long.request };
 
-export const SPEAKERS = ["sara", "pune", "bahar", "shahrzad", "sheyda", "shirin"];
+/**
+ * Every voice the service offers, with the Persian name shown in the studio.
+ *
+ * هوهو is a female teacher, so the lessons are recorded with one of the female voices — but
+ * the male ones are here too, for a second character or for whoever wants to listen first.
+ */
+export const VOICES = [
+  { name: "sara",      gender: "female", label: "سارا" },
+  { name: "pune",      gender: "female", label: "پونه" },
+  { name: "bahar",     gender: "female", label: "بهار" },
+  { name: "shahrzad",  gender: "female", label: "شهرزاد" },
+  { name: "sheyda",    gender: "female", label: "شیدا" },
+  { name: "shirin",    gender: "female", label: "شیرین" },
+  { name: "kiani",     gender: "male",   label: "کیانی" },
+  { name: "nourai",    gender: "male",   label: "نورایی" },
+  { name: "dara",      gender: "male",   label: "دارا" },
+  { name: "parviz",    gender: "male",   label: "پرویز" },
+  { name: "bahman",    gender: "male",   label: "بهمن" },
+  { name: "farhad",    gender: "male",   label: "فرهاد" },
+  { name: "shahriyar", gender: "male",   label: "شهریار" },
+  { name: "ariya",     gender: "male",   label: "آریا" },
+];
+
+export const SPEAKERS = VOICES.map((v) => v.name);
 
 const AUDIO_EXT = { "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav",
                     "audio/x-wav": ".wav", "audio/ogg": ".ogg", "audio/wave": ".wav" };
