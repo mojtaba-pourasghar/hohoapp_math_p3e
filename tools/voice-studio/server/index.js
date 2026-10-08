@@ -273,11 +273,33 @@ async function recordOne(line, { force = false } = {}) {
   }
 }
 
-async function runJob(keys, { force = false } = {}) {
+/**
+ * Starts a batch and comes back straight away.
+ *
+ * The page used to wait on the whole run: one request held open for four thousand clips, with
+ * the buttons disabled and the list below untouched until the very end. Now the checks happen
+ * here, the answer goes back, and the run reports itself over the stream.
+ */
+function startJob(keys, { force = false } = {}) {
   if (job.running) return { error: "یک کار در حال اجراست" };
   if (!config.token) return { error: "توکن خالی است" };
   if (!keys.length) return { error: "چیزی برای ساختن نیست" };
+  try {
+    readManifest(config.manifestPath);
+  } catch (err) {
+    return { error: `منیفست خوانده نشد: ${err.message}` };
+  }
+  runJob(keys, { force }).catch((err) => {
+    job.running = false;
+    job.controller = null;
+    job.lastError = err.message;
+    say("error", `کار ایستاد: ${err.message}`);
+    push("status", snapshot());
+  });
+  return { started: true };
+}
 
+async function runJob(keys, { force = false } = {}) {
   const lines = readManifest(config.manifestPath);
   const byKey = new Map(lines.map((l) => [l.key, l]));
   const todo = keys.map((k) => byKey.get(k)).filter(Boolean);
@@ -306,6 +328,10 @@ async function runJob(keys, { force = false } = {}) {
         job.lastError = result.error;
         say("error", `${line.key}: ${result.error}`);
       }
+      // the list at the bottom of the page follows along: one line, one frame, as it happens.
+      // Waiting for the whole batch to end before rereading the folder made a run look frozen.
+      push("line", { key: line.key, done: result.ok, stamp: Date.now(),
+                     file: result.ok ? result.saved : null, size: result.ok ? result.size : 0 });
       push("status", snapshot());
       if (Number(config.delayMs) > 0) await sleep(Number(config.delayMs));
     }
@@ -320,7 +346,6 @@ async function runJob(keys, { force = false } = {}) {
     : `تمام — ${job.done} ساخته، ${job.failed} ناموفق`);
   job.stopping = false;
   push("status", snapshot());
-  return { started: false };
 }
 
 // ── the scheduler: wake up now and then and take the next batch ───────────────
@@ -344,7 +369,7 @@ function applySchedule() {
     }
     const batch = missing.slice(0, Math.max(1, Number(config.schedule.batchSize) || 25));
     say("info", `زمان‌بندی: دسته‌ی تازه، ${batch.length} کلیپ`);
-    runJob(batch);
+    startJob(batch);
   }, every * 1000);
 }
 
@@ -913,9 +938,9 @@ app.post("/api/generate", async (req, res) => {
   const picked = keys.length ? keys : missingKeys();
   const limit = Number(req.body?.limit);
   const batch = Number.isFinite(limit) && limit > 0 ? picked.slice(0, limit) : picked;
-  const outcome = await Promise.resolve(runJob(batch, { force: req.body?.force === true }));
-  if (outcome?.error) return res.status(409).json(outcome);
-  res.json({ ok: true });
+  const outcome = startJob(batch, { force: req.body?.force === true });
+  if (outcome.error) return res.status(409).json(outcome);
+  res.json({ ok: true, started: batch.length });
 });
 
 app.post("/api/stop", (_req, res) => {

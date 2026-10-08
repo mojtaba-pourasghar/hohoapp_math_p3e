@@ -106,6 +106,12 @@ export default function App() {
       if (data.type === "upload") setUploading((old) => ({ ...old, ...data }));
       if (data.type === "diag") setDiag((old) => ({ ...old, ...data }));
       if (data.type === "sample") setSample((old) => ({ ...old, ...data }));
+      // one clip finished: patch its row where it stands, so the list keeps up with the run
+      if (data.type === "line") {
+        setLines((old) => old.map((l) => l.key === data.key
+          ? { ...l, done: data.done, file: data.file, size: data.size, stamp: data.stamp }
+          : l));
+      }
     };
     return () => stream.close();
   }, []);
@@ -958,10 +964,15 @@ export default function App() {
                     {config.useVowels ? l.spoken : l.written}
                   </span>
                   <span className="row">
-                    {l.done && <audio controls preload="none" src={`/api/audio/${l.key}`} />}
-                    {l.done
-                      ? <span className="tag done">{Math.round(l.size / 1024)}KB</span>
-                      : <span className="tag">بی‌فایل</span>}
+                    {/* the stamp changes when the clip is remade, so «از نو» is not answered
+                        out of the browser's cache with the old recording */}
+                    {l.done && <audio controls preload="none"
+                                      src={`/api/audio/${l.key}?v=${l.stamp || l.size}`} />}
+                    {status.current.includes(l.key)
+                      ? <span className="tag">در حال ساخت…</span>
+                      : l.done
+                        ? <span className="tag done">{Math.round(l.size / 1024)}KB</span>
+                        : <span className="tag">بی‌فایل</span>}
                     <button className="tiny ghost"
                             onClick={() => setEditing({ key: l.key, spoken: l.spoken })}>متن</button>
                     <button className="tiny go" disabled={busy || status.running || !config.tokenSet}
