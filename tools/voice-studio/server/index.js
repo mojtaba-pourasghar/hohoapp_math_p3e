@@ -18,6 +18,7 @@ import {
   AUDIO_BASE, KARBARG_BASE, writeAudioIndex, addWorksheet, listWorksheets,
   removeWorksheet, writeWorksheetIndex,
 } from "./publish.js";
+import { probe, uploadFiles, uploadTree, audioFilesIn } from "./ftp.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -43,13 +44,29 @@ const DEFAULTS = {
   convertOgg: false,        // needs ffmpeg on PATH
   oggBitrate: "24k",
   schedule: { enabled: false, everySeconds: 300, batchSize: 25 },
+
+  // where the finished files are sent. The paths are the real ones on the server, under
+  // /public_html — the same folders the app's URLs point at.
+  ftp: {
+    host: "ftp.mp-apdl.ir",
+    port: 21,
+    user: "",
+    password: "",
+    secure: false,
+    audioDir: "/public_html/grade-3/math/audio",
+    karbargDir: "/public_html/grade-3/math/karbarg",
+  },
 };
 
 let config = { ...DEFAULTS };
 try {
   if (fs.existsSync(CONFIG_FILE)) {
     const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-    config = { ...DEFAULTS, ...saved, schedule: { ...DEFAULTS.schedule, ...(saved.schedule || {}) } };
+    config = {
+      ...DEFAULTS, ...saved,
+      schedule: { ...DEFAULTS.schedule, ...(saved.schedule || {}) },
+      ftp: { ...DEFAULTS.ftp, ...(saved.ftp || {}) },
+    };
   }
 } catch (err) {
   console.error("config خوانده نشد:", err.message);
@@ -245,6 +262,7 @@ app.use(express.json({ limit: "64mb" }));   // a worksheet PDF arrives as base64
 
 const publicConfig = () => ({
   ...config,
+  ftp: { ...config.ftp, password: undefined, passwordSet: Boolean(config.ftp.password) },
   token: undefined,
   tokenSet: Boolean(config.token),
   tokenHint: config.token ? `${config.token.slice(0, 6)}…${config.token.slice(-4)}` : "",
@@ -281,6 +299,13 @@ app.post("/api/config", (req, res) => {
   if (body.schedule) {
     config.schedule = { ...config.schedule, ...body.schedule };
     applySchedule();
+  }
+  if (body.ftp) {
+    const next = { ...config.ftp, ...body.ftp };
+    if (body.ftp.password === undefined) next.password = config.ftp.password;  // keep the old one
+    if (body.ftp.password === "") next.password = "";                          // unless cleared
+    config.ftp = next;
+    say("info", "تنظیماتِ FTP ذخیره شد" + (next.password ? "" : " (رمز خالی است)"));
   }
   saveConfig();
   res.json(publicConfig());
@@ -320,6 +345,128 @@ app.post("/api/publish/audio", (_req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+
+// ── sending the finished files to the host ───────────────────────────────────
+const upload = { running: false, what: "", done: 0, total: 0, sent: 0, skipped: 0, failed: 0 };
+
+function uploadSnapshot() {
+  return { ...upload };
+}
+
+function requireFtp(res) {
+  const { host, user, password } = config.ftp;
+  if (!host || !user || !password) {
+    res.status(400).json({ error: "آدرس و نام کاربری و رمزِ FTP را پر کن" });
+    return false;
+  }
+  return true;
+}
+
+app.post("/api/ftp/test", async (req, res) => {
+  if (!requireFtp(res)) return;
+  const which = req.body?.which === "karbarg" ? "karbargDir" : "audioDir";
+  try {
+    const info = await probe(config.ftp, config.ftp[which]);
+    say("ok", `FTP وصل شد. پوشه‌ی ورود: ${info.loginDir} — ${info.remoteDir}: `
+      + (info.remoteExists ? `${info.remoteCount} فایل` : "هنوز ساخته نشده (موقع آپلود ساخته می‌شود)"));
+    res.json(info);
+  } catch (err) {
+    say("error", `FTP وصل نشد: ${err.message}`);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post("/api/ftp/upload/audio", async (req, res) => {
+  if (!requireFtp(res)) return;
+  if (upload.running) return res.status(409).json({ error: "یک آپلود در حال اجراست" });
+
+  const skipExisting = req.body?.all !== true;      // «همه را دوباره بفرست» خاموشش می‌کند
+  const files = audioFilesIn(config.outDir);
+  if (!files.length) return res.status(400).json({ error: "در پوشه‌ی خروجی کلیپی نیست" });
+
+  // the index must describe what is actually there, so it is rebuilt and sent last
+  const index = writeAudioIndex({
+    outDir: config.outDir, baseUrl: config.audioBase, speaker: config.speaker,
+    appAssets: path.resolve(ROOT, "../../app/src/main/assets/voice-index.json"),
+  });
+
+  Object.assign(upload, { running: true, what: "صداها", done: 0, total: files.length + 1,
+                          sent: 0, skipped: 0, failed: 0 });
+  push("upload", uploadSnapshot());
+  res.json({ started: true, total: files.length });
+  say("info", `آپلودِ صداها به ${config.ftp.audioDir} — ${files.length} فایل`
+    + (skipExisting ? " (آنچه روی سرور هست رد می‌شود)" : " (همه دوباره)"));
+
+  try {
+    const outcome = await uploadFiles({
+      settings: config.ftp, remoteDir: config.ftp.audioDir, files, skipExisting,
+      onStep: (name, state) => {
+        upload.done += 1;
+        if (state === "sent") upload.sent += 1;
+        else if (state === "skipped") upload.skipped += 1;
+        else upload.failed += 1;
+        if (state !== "skipped" || upload.done % 50 === 0) {
+          say(state === "failed" ? "error" : "ok",
+              `${upload.done}/${upload.total} ${name} — ${state === "sent" ? "فرستاده شد"
+                : state === "skipped" ? "از قبل بود" : "نرفت"}`);
+        }
+        push("upload", uploadSnapshot());
+      },
+    });
+
+    await uploadFiles({
+      settings: config.ftp, remoteDir: config.ftp.audioDir,
+      files: [path.join(config.outDir, "index.json")], skipExisting: false,
+      onStep: () => { upload.done += 1; upload.sent += 1; push("upload", uploadSnapshot()); },
+    });
+
+    say("info", `آپلود تمام شد — ${outcome.sent} فرستاده، ${outcome.skipped} از قبل بود، `
+      + `${outcome.failed} ناموفق. فهرست (${index.count} کلیپ) هم رفت.`);
+    for (const line of outcome.errors.slice(0, 10)) say("error", line);
+  } catch (err) {
+    say("error", `آپلود شکست: ${err.message}`);
+  } finally {
+    upload.running = false;
+    push("upload", uploadSnapshot());
+  }
+});
+
+app.post("/api/ftp/upload/karbarg", async (req, res) => {
+  if (!requireFtp(res)) return;
+  if (upload.running) return res.status(409).json({ error: "یک آپلود در حال اجراست" });
+
+  try {
+    writeWorksheetIndex({ dir: config.karbargDir, baseUrl: config.karbargBase });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  Object.assign(upload, { running: true, what: "کاربرگ‌ها", done: 0, total: 0,
+                          sent: 0, skipped: 0, failed: 0 });
+  push("upload", uploadSnapshot());
+  res.json({ started: true });
+  say("info", `آپلودِ کاربرگ‌ها به ${config.ftp.karbargDir} — پوشه‌ی سرور با اینجا یکی می‌شود`);
+
+  try {
+    await uploadTree({
+      settings: config.ftp, remoteDir: config.ftp.karbargDir, localDir: config.karbargDir,
+      onStep: (name) => {
+        upload.sent += 1;
+        upload.done += 1;
+        push("upload", uploadSnapshot());
+      },
+    });
+    say("ok", "کاربرگ‌ها آپلود شدند");
+  } catch (err) {
+    say("error", `آپلودِ کاربرگ شکست: ${err.message}`);
+  } finally {
+    upload.running = false;
+    push("upload", uploadSnapshot());
+  }
+});
+
+app.get("/api/ftp/status", (_req, res) => res.json(uploadSnapshot()));
 
 app.get("/api/karbarg", (_req, res) => {
   try {

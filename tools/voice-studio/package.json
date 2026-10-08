@@ -10,6 +10,7 @@
     "dev": "concurrently -n server,web -c yellow,cyan \"node server/index.js\" \"vite\""
   },
   "dependencies": {
+    "basic-ftp": "^6.2.2",
     "express": "^4.19.2"
   },
   "devDependencies": {
@@ -19,5 +20,7 @@
     "react-dom": "^18.3.1",
     "vite": "^5.4.8"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

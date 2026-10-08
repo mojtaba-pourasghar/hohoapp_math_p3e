@@ -33,6 +33,8 @@ export default function App() {
   const [published, setPublished] = useState(null);
   const [sheets, setSheets] = useState([]);
   const [sheetForm, setSheetForm] = useState({ title: "", note: "", chapter: -1, file: null });
+  const [ftpPass, setFtpPass] = useState("");
+  const [uploading, setUploading] = useState({ running: false, done: 0, total: 0, sent: 0, skipped: 0, failed: 0, what: "" });
   const logBox = useRef(null);
 
   const load = useCallback(async () => {
@@ -62,6 +64,7 @@ export default function App() {
       const data = JSON.parse(event.data);
       if (data.type === "log") setLog((old) => [...old.slice(-400), data.entry]);
       if (data.type === "status") setStatus((old) => ({ ...old, ...data }));
+      if (data.type === "upload") setUploading((old) => ({ ...old, ...data }));
     };
     return () => stream.close();
   }, []);
@@ -367,10 +370,108 @@ export default function App() {
             <code> app/src/main/assets/voice-index.json </code> گذاشته شد.
           </p>
         )}
+
+        <h2 style={{ marginTop: 20 }}>
+          🚀 آپلود با FTP
+          <span className="hint">
+            {config.ftp?.passwordSet ? "رمز ذخیره شده است" : "رمز هنوز داده نشده"}
+          </span>
+        </h2>
+        <div className="grid">
+          <div>
+            <label>آدرسِ سرورِ FTP</label>
+            <input type="text" value={form.ftp?.host || ""}
+                   onChange={(e) => setForm({ ...form, ftp: { ...form.ftp, host: e.target.value } })} />
+          </div>
+          <div>
+            <label>پورت</label>
+            <input type="number" value={form.ftp?.port ?? 21}
+                   onChange={(e) => setForm({ ...form, ftp: { ...form.ftp, port: Number(e.target.value) } })} />
+          </div>
+          <div>
+            <label>نام کاربری</label>
+            <input type="text" value={form.ftp?.user || ""}
+                   onChange={(e) => setForm({ ...form, ftp: { ...form.ftp, user: e.target.value } })} />
+          </div>
+          <div>
+            <label>رمز</label>
+            <input type="password" value={ftpPass}
+                   placeholder={config.ftp?.passwordSet ? "ذخیره شده — برای تغییر بنویس" : "رمزِ FTP"}
+                   onChange={(e) => setFtpPass(e.target.value)} />
+          </div>
+          <div>
+            <label>پوشه‌ی صداها روی سرور</label>
+            <input type="text" value={form.ftp?.audioDir || ""}
+                   onChange={(e) => setForm({ ...form, ftp: { ...form.ftp, audioDir: e.target.value } })} />
+          </div>
+          <div>
+            <label>پوشه‌ی کاربرگ‌ها روی سرور</label>
+            <input type="text" value={form.ftp?.karbargDir || ""}
+                   onChange={(e) => setForm({ ...form, ftp: { ...form.ftp, karbargDir: e.target.value } })} />
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={Boolean(form.ftp?.secure)}
+                   onChange={(e) => setForm({ ...form, ftp: { ...form.ftp, secure: e.target.checked } })} />
+            FTPS (explicit) — اگر هاست می‌خواهد
+          </label>
+        </div>
+
+        <div className="row" style={{ marginTop: 12 }}>
+          <button className="ghost" disabled={busy} onClick={() => {
+            save({ ftp: { ...form.ftp, ...(ftpPass ? { password: ftpPass } : {}) } });
+            setFtpPass("");
+          }}>
+            ذخیره‌ی تنظیماتِ FTP
+          </button>
+          <button className="ghost" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try { await api("/ftp/test", { method: "POST", body: JSON.stringify({ which: "audio" }) }); setError(""); }
+            catch (err) { setError(err.message); }
+            setBusy(false);
+          }}>
+            تستِ اتصال
+          </button>
+          <button className="go" disabled={busy || uploading.running} onClick={async () => {
+            try { await api("/ftp/upload/audio", { method: "POST", body: JSON.stringify({}) }); setError(""); }
+            catch (err) { setError(err.message); }
+          }}>
+            آپلودِ صداها (فقط تازه‌ها)
+          </button>
+          <button disabled={busy || uploading.running} onClick={async () => {
+            try { await api("/ftp/upload/audio", { method: "POST", body: JSON.stringify({ all: true }) }); setError(""); }
+            catch (err) { setError(err.message); }
+          }}>
+            آپلودِ همه دوباره
+          </button>
+          <button className="chip" disabled={busy || uploading.running} onClick={async () => {
+            try { await api("/ftp/upload/karbarg", { method: "POST", body: JSON.stringify({}) }); setError(""); }
+            catch (err) { setError(err.message); }
+          }}>
+            آپلودِ کاربرگ‌ها
+          </button>
+        </div>
+
+        {(uploading.running || uploading.done > 0) && (
+          <div style={{ marginTop: 12 }}>
+            <div className="bar">
+              <i style={{ width: `${uploading.total ? (uploading.done / uploading.total) * 100 : 0}%` }} />
+            </div>
+            <p className="note">
+              {uploading.running ? `در حال آپلودِ ${uploading.what}: ` : "آخرین آپلود: "}
+              {fa(uploading.done)} از {fa(uploading.total)} — {fa(uploading.sent)} فرستاده،
+              {" "}{fa(uploading.skipped)} از قبل بود، {fa(uploading.failed)} ناموفق
+            </p>
+          </div>
+        )}
+
         <p className="note">
-          بعدش: محتویاتِ <code>{config.outDir}</code> را با همان <code>index.json</code> در
-          <code> {config.audioBase} </code> آپلود کن. اپ همان فهرست را می‌خواند و فایل‌ها را
-          خودش دانلود می‌کند.
+          «فقط تازه‌ها» فایلی را که با همان نام و همان حجم روی سرور هست رد می‌کند، پس اجرای
+          دوباره فقط چیزهای جدید را می‌فرستد. <code>index.json</code> همیشه آخر از همه و از نو
+          ساخته می‌شود، تا هیچ‌وقت فهرستی از فایل‌هایی که هنوز نرفته‌اند روی سرور نباشد.
+        </p>
+        <p className="note">
+          آپلودِ کاربرگ‌ها پوشه‌ی سرور را با پوشه‌ی اینجا یکی می‌کند — کاربرگی که اینجا پاک
+          کرده باشی، آنجا هم پاک می‌شود.
         </p>
       </div>
 
