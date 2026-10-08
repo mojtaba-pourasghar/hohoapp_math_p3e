@@ -10,6 +10,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readManifest, existingKeys, GROUP_LABELS } from "./manifest.js";
@@ -538,10 +539,30 @@ app.post("/api/diag/stop", (_req, res) => {
 // listen to. This records the same sentence across whichever set is asked for and leaves the
 // clips in the output folder under «_sample-…», where the page plays them side by side. The
 // underscore keeps them out of index.json, so a sample can never reach the host as a lesson.
-const sampler = { running: false, controller: null, mode: "", text: "", items: [] };
+const sampler = { running: false, controller: null, mode: "", text: "", items: [],
+                  duplicates: [] };
 
 function samplerState() {
-  return { running: sampler.running, mode: sampler.mode, text: sampler.text, items: sampler.items };
+  return { running: sampler.running, mode: sampler.mode, text: sampler.text,
+           items: sampler.items, duplicates: sampler.duplicates };
+}
+
+/**
+ * Names whose clip is byte-for-byte another's.
+ *
+ * Two different voices reading the same sentence cannot produce the same bytes, so a match is
+ * the service handing back one recording for several names — the one answer to «I chose a man
+ * and got a woman» that does not depend on anyone's ear.
+ */
+function identicalSets(items) {
+  const byHash = new Map();
+  for (const item of items) {
+    if (!item.hash) continue;
+    const label = item.speed === items[0]?.speed
+      ? item.speaker : `${item.speaker}@${item.speed}`;
+    byHash.set(item.hash, [...(byHash.get(item.hash) || []), label]);
+  }
+  return [...byHash.values()].filter((set) => set.length > 1);
 }
 
 app.get("/api/diag/sample", (_req, res) => res.json(samplerState()));
@@ -569,9 +590,10 @@ app.post("/api/diag/sample", async (req, res) => {
   }
 
   sampler.controller = new AbortController();
-  Object.assign(sampler, { running: true, mode, text, items: pairs.map((pair) => ({
-    ...pair, key: sampleKey(pair.speaker, pair.speed), state: "waiting",
-  })) });
+  Object.assign(sampler, { running: true, mode, text, duplicates: [],
+    items: pairs.map((pair) => ({
+      ...pair, key: sampleKey(pair.speaker, pair.speed), state: "در نوبت",
+    })) });
   push("sample", samplerState());
   say("info", mode === "speeds"
     ? `نمونه‌ی سرعت‌ها — ${speaker}، ${pairs.map((p) => p.speed).join("، ")}`
@@ -590,6 +612,11 @@ app.post("/api/diag/sample", async (req, res) => {
       const { buffer, ext } = await speak({
         token: config.token, text, speaker: item.speaker, speed: item.speed,
         endpoint, timestamps: false, signal: sampler.controller.signal,
+        // what went out and what came back, kept per row: «it made a female voice» is then a
+        // thing anyone can check instead of a thing to take on trust
+        onHttp: (entry) => {
+          if (entry.name === "request") item.reply = String(entry.body || "").slice(0, 400);
+        },
       });
       // one name per voice-and-speed, whatever the container turns out to be
       for (const old of [".ogg", ".mp3", ".wav"]) {
@@ -599,8 +626,11 @@ app.post("/api/diag/sample", async (req, res) => {
       fs.writeFileSync(path.join(config.outDir, item.key + ext), buffer);
       item.state = "آماده";
       item.bytes = buffer.length;
+      // the fingerprint of the audio itself. Two names that come back with the same one got
+      // the same recording, and that means the service ignored the name it was given.
+      item.hash = crypto.createHash("sha1").update(buffer).digest("hex").slice(0, 10);
       say("ok", `نمونه: ${item.speaker} با سرعتِ ${item.speed} — `
-        + `${Math.round(buffer.length / 1024)} کیلوبایت`);
+        + `${Math.round(buffer.length / 1024)} کیلوبایت · ${item.hash}`);
     } catch (err) {
       item.state = "نشد";
       item.error = err.message;
@@ -613,7 +643,12 @@ app.post("/api/diag/sample", async (req, res) => {
   sampler.running = false;
   sampler.controller = null;
   const ready = sampler.items.filter((i) => i.state === "آماده").length;
-  say("info", `نمونه‌ها تمام — ${ready} از ${sampler.items.length} آماده`);
+  sampler.duplicates = identicalSets(sampler.items);
+  for (const set of sampler.duplicates) {
+    say("warn", `سرویس برای ${set.join("، ")} فایلِ یکسان داد — نامِ گوینده را نگرفته است`);
+  }
+  say("info", `نمونه‌ها تمام — ${ready} از ${sampler.items.length} آماده`
+    + (sampler.duplicates.length ? `، ${sampler.duplicates.length} دسته تکراری` : ""));
   push("sample", samplerState());
 });
 

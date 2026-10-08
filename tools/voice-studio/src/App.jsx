@@ -284,14 +284,24 @@ export default function App() {
                    onChange={(e) => setForm({ ...form, manifestPath: e.target.value })} />
           </div>
           <div>
-            <label>گوینده</label>
+            <label>گوینده <span className="hint">
+              {config.speaker === form.speaker ? "همین ذخیره شده" : "در حال ذخیره…"}
+            </span></label>
             <VoicePicker voices={config.voices} speakers={config.speakers} value={form.speaker}
-                         onChange={(speaker) => setForm({ ...form, speaker })} />
+                         onChange={(speaker) => {
+                           setForm({ ...form, speaker });
+                           save({ speaker });        // picked is chosen; no second button
+                         }} />
           </div>
           <div>
-            <label>سرعت <span className="hint">۱ سرعتِ خودِ سرویس · ۰٫۹ آرام‌ترِ کلاسی</span></label>
+            <label>سرعت <span className="hint">
+              {Number(config.speed) === Number(form.speed)
+                ? "۱ سرعتِ خودِ سرویس · ۰٫۹ آرام‌ترِ کلاسی"
+                : "ذخیره نشده — «ذخیره‌ی تنظیمات» را بزن"}
+            </span></label>
             <input type="number" step="0.1" min="0.5" max="2" value={form.speed}
-                   onChange={(e) => setForm({ ...form, speed: e.target.value })} />
+                   onChange={(e) => setForm({ ...form, speed: e.target.value })}
+                   onBlur={(e) => save({ speed: e.target.value })} />
           </div>
           <div>
             <label>سرویسِ آواشو</label>
@@ -793,6 +803,17 @@ export default function App() {
             )}
           </div>
 
+          {(sample.duplicates || []).length > 0 && (
+            <div className="err" style={{ marginTop: 14 }}>
+              <strong>سرویس نامِ گوینده را نگرفته است.</strong>{" "}
+              {(sample.duplicates || []).map((set) => set.join("، ")).join(" · ")} —
+              فایلِ این‌ها بایت‌به‌بایت یکی است، و دو صدای مختلف نمی‌توانند یک جمله را یکسان
+              بخوانند. پس هرچه انتخاب کنی، سرویس همان صدای پیش‌فرضِ خودش را می‌دهد؛ ما نام را
+              درست فرستاده‌ایم و زیرِ هر ردیف، در کادرِ پاسخ، دیده می‌شود. این را به
+              پشتیبانیِ ایویرا بگو.
+            </div>
+          )}
+
           {sample.items.length > 0 && (
             <div className="files" style={{ marginTop: 14 }}>
               {sample.items.map((item) => {
@@ -808,7 +829,15 @@ export default function App() {
                     </span>
                     {item.state === "آماده" ? (
                       <>
-                        <audio controls src={`/api/audio/${item.key}?t=${item.bytes || 0}`} />
+                        <span>
+                          <audio controls src={`/api/audio/${item.key}?t=${item.hash || 0}`} />
+                          <div className="key" style={{ marginTop: 2 }}>
+                            {fa(item.bytes)} بایت · اثرِ انگشت {item.hash}
+                            {(sample.duplicates || []).some((set) =>
+                              set.includes(item.speaker) || set.includes(`${item.speaker}@${item.speed}`))
+                              && <span className="tag" style={{ marginInlineStart: 6 }}>تکراری</span>}
+                          </div>
+                        </span>
                         <button className="tiny" disabled={chosen}
                                 onClick={async () => {
                                   const next = await api("/diag/sample/pick", { method: "POST",
@@ -828,6 +857,20 @@ export default function App() {
                 );
               })}
             </div>
+          )}
+
+          {sample.items.some((i) => i.reply) && (
+            <details style={{ marginTop: 12 }}>
+              <summary className="note" style={{ cursor: "pointer" }}>
+                پاسخِ خامِ سرویس برای هر نمونه — ببین نام را تحویل گرفته یا نه
+              </summary>
+              <pre style={{ direction: "ltr", textAlign: "left", whiteSpace: "pre-wrap",
+                            fontSize: 11, background: "#faf7f2", padding: 9, borderRadius: 8,
+                            maxHeight: 260, overflow: "auto" }}>
+                {sample.items.filter((i) => i.reply)
+                  .map((i) => `speaker=${i.speaker} speed=${i.speed}\n${i.reply}`).join("\n\n")}
+              </pre>
+            </details>
           )}
         </div>
       )}
