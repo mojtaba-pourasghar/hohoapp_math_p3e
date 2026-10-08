@@ -78,12 +78,39 @@ jobs:
           echo "کلیدِ امضا آماده شد ($(stat -c%s "$RUNNER_TEMP/signing/hoohoo.p12") بایت)"
 
       - name: Build debug APK
+        id: build
         env:
           HOOHOO_KEYSTORE: ${{ steps.signing.outputs.ready == 'yes' && format('{0}/signing/hoohoo.p12', runner.temp) || '' }}
           HOOHOO_KEYSTORE_PASSWORD: ${{ secrets.HOOHOO_KEYSTORE_PASSWORD }}
           HOOHOO_KEY_ALIAS: ${{ secrets.HOOHOO_KEY_ALIAS }}
           HOOHOO_KEY_PASSWORD: ${{ secrets.HOOHOO_KEY_PASSWORD }}
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee /tmp/build.log
+
+      # Why the build failed, somewhere it can actually be read.
+      #
+      # The runner's log lives on blob storage, which the development environment cannot reach,
+      # so a failed compile used to be a wall: «failure» and nothing else. Annotations come back
+      # from api.github.com, so the compiler's own lines are turned into annotations — and into
+      # the run summary, for whoever is looking at the web page instead.
+      - name: Say why the build failed
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          echo "### بیلد شکست" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -c 8000 /tmp/build.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # javac and AGP both print «…/File.java:12: error: …»; those lines are the whole story
+          grep -E "error:|^e: |FAILURE:|Execution failed|Caused by:" /tmp/build.log \
+            | head -n 25 > /tmp/build-errors.log || true
+          if [ ! -s /tmp/build-errors.log ]; then
+            tail -n 25 /tmp/build.log > /tmp/build-errors.log || true
+          fi
+          while IFS= read -r line; do
+            printf '::error title=بیلد::%s\n' "$(printf '%s' "$line" | tr -d '\r' | cut -c1-400)"
+          done < /tmp/build-errors.log
 
       # Which certificate signed it — the one number that says whether this APK installs over
       # the last one. It goes in the log and in the build summary, so a key that silently
@@ -195,7 +222,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAIL=$(tail -c 4000 /tmp/release.log 2>/dev/null || echo "بدون لاگ")
+          TAIL=$(tail -c 4000 /tmp/release.log 2>/dev/null \
+                 || tail -c 4000 /tmp/build.log 2>/dev/null \
+                 || echo "بدون لاگ")
           gh issue create \
             --title "انتشار نسخه‌ی ${{ steps.version.outputs.version }} ناموفق بود" \
             --body "$(printf 'ران: %s\n\n```\n%s\n```\n' "$GITHUB_RUN_ID" "$TAIL")" || true

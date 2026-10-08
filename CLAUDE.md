@@ -201,8 +201,15 @@
   سؤال‌های یک دوره یکی می‌شدند**. حالا بیت‌ها درست قاطی می‌شوند (`QuestionGenerator.seeded`).
 - صدای یک صفحه‌ی تازه را teardownِ صفحه‌ی قبلی می‌کُشد؛ روایت با `view.post(...)` در فریم بعد
   شروع می‌شود.
-- لاگ‌های Actions روی استوریج بلاب هستند که از محیط توسعه بسته است. برای دیدن خطا،
-  ورک‌فلو باید خودش خطا را جایی بگذارد که از `api.github.com` خوانده شود (مثل ایشو).
+- لاگ‌های Actions روی استوریج بلاب هستند که از محیط توسعه بسته است. حالا خودِ ورک‌فلو
+  خطای کامپایل را به **annotation** تبدیل می‌کند (استپِ «Say why the build failed»)، و
+  annotationها از `api.github.com` خوانده می‌شوند:
+
+  ```
+  RUN=$(gh api "repos/<owner>/<repo>/actions/runs?per_page=1" --jq '.workflow_runs[0].id')
+  JOB=$(gh api "repos/<owner>/<repo>/actions/runs/$RUN/jobs" --jq '.jobs[0].id')
+  gh api "repos/<owner>/<repo>/check-runs/$JOB/annotations" --jq '.[] | .message'
+  ```
 
 ## قواعد محتوا و پیمایش
 
