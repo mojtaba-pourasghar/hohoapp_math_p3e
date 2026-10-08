@@ -34,8 +34,11 @@ const DEFAULTS = {
   karbargDir: path.resolve(ROOT, "../karbarg-out"),
   audioBase: AUDIO_BASE,
   karbargBase: KARBARG_BASE,
-  speaker: "shahrzad",
+  speaker: "pune",         // پونه — the voice the lessons are recorded with
   speed: 1,
+  // Every line in the manifest is a sentence or two (the longest is 539 characters), so the
+  // short family is the right one. avasho-large is for pages of text and answers «pending»
+  // even for a line, which is what made the generation section look broken.
   endpoint: "short",
   useVowels: true,          // send the third column, the one with the vowels
   concurrency: 2,
@@ -58,7 +61,25 @@ const DEFAULTS = {
   },
 };
 
+/**
+ * Two settings decide whether the service answers at all, so neither is taken on trust.
+ *
+ * A stored «long» is rewritten to «short»: the long family is for pages of text, and the
+ * studio only ever sends single sentences. A session that had once picked long kept the
+ * generation section on it for good, and that was the whole of «the test tab works but
+ * generating does not» — the test tab normalises its endpoint, the job did not.
+ */
+function normalizeEndpoint(value) {
+  return value === "long" ? "long" : "short";
+}
+
+function normalizeSpeaker(value) {
+  const name = String(value || "").trim().toLowerCase();
+  return SPEAKERS.includes(name) ? name : DEFAULTS.speaker;
+}
+
 let config = { ...DEFAULTS };
+let migrated = null;
 try {
   if (fs.existsSync(CONFIG_FILE)) {
     const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
@@ -67,10 +88,21 @@ try {
       schedule: { ...DEFAULTS.schedule, ...(saved.schedule || {}) },
       ftp: { ...DEFAULTS.ftp, ...(saved.ftp || {}) },
     };
+    if (normalizeEndpoint(config.endpoint) === "long") {
+      migrated = `نقطه‌ی سرویس از avasho-large به متنِ کوتاه برگشت (جمله‌های درس کوتاه‌اند)`;
+      config.endpoint = "short";
+    }
+    if (normalizeSpeaker(config.speaker) !== config.speaker) {
+      migrated = `${migrated ? migrated + "؛ " : ""}صدای «${config.speaker}» شناخته نشد — `
+        + `${DEFAULTS.speaker}`;
+      config.speaker = normalizeSpeaker(config.speaker);
+    }
   }
 } catch (err) {
   console.error("config خوانده نشد:", err.message);
 }
+config.endpoint = normalizeEndpoint(config.endpoint);
+config.speaker = normalizeSpeaker(config.speaker);
 
 let savedAt = fs.existsSync(CONFIG_FILE) ? fs.statSync(CONFIG_FILE).mtimeMs : 0;
 
@@ -115,6 +147,8 @@ const job = {
   startedAt: null,
   lastError: null,
   shapeShown: false,
+  traceShown: false,
+  controller: null,
 };
 
 function snapshot() {
@@ -154,13 +188,30 @@ async function recordOne(line, { force = false } = {}) {
 
   for (;;) {
     attempt += 1;
+
+    // Every exchange is kept, exactly as the test tab keeps them. On the first line they go
+    // into the log so a run can be read while it is young, and after that only a failure
+    // prints them — otherwise four thousand clips would bury the log.
+    const trace = [];
+    const step = (entry) => {
+      trace.push(entry);
+      if (!job.traceShown) {
+        say("info", `${line.key} · ${entry.name} ${entry.method} ${entry.status} `
+          + `(${entry.ms} میلی‌ثانیه) ${String(entry.body || "").slice(0, 300)}`);
+      }
+    };
+
     try {
       const { buffer, ext, raw } = await speak({
         token: config.token, text, speaker: config.speaker,
         speed: Number(config.speed) || 1, endpoint: config.endpoint,
+        timestamps: false,
+        signal: job.controller ? job.controller.signal : null,
+        onHttp: step,
         onNote: (note) => say("info", `${line.key}: ${note}`),
       });
 
+      job.traceShown = true;
       if (raw && !job.shapeShown) {
         job.shapeShown = true;
         say("info", `شکلِ پاسخِ سرویس: ${JSON.stringify(raw).slice(0, 400)}`);
@@ -185,6 +236,14 @@ async function recordOne(line, { force = false } = {}) {
       return { ok: true, saved, size };
     } catch (err) {
       const limited = err instanceof RateLimited;
+      if (job.traceShown && trace.length) {
+        for (const entry of trace) {
+          say("warn", `${line.key} · ${entry.name} ${entry.method} ${entry.status} `
+            + `(${entry.ms} میلی‌ثانیه) ${String(entry.body || "").slice(0, 300)}`);
+        }
+      }
+      job.traceShown = true;
+      if (job.stopping) return { ok: false, error: "ایستاد" };
       if (attempt > Number(config.retries)) {
         return { ok: false, error: err.message };
       }
@@ -205,8 +264,10 @@ async function runJob(keys, { force = false } = {}) {
   const todo = keys.map((k) => byKey.get(k)).filter(Boolean);
 
   Object.assign(job, { running: true, stopping: false, total: todo.length, done: 0,
-                       failed: 0, current: [], startedAt: Date.now(), lastError: null });
-  say("info", `شروع: ${todo.length} کلیپ با صدای ${config.speaker} → ${config.outDir}`);
+                       failed: 0, current: [], startedAt: Date.now(), lastError: null,
+                       traceShown: false, controller: new AbortController() });
+  say("info", `شروع: ${todo.length} کلیپ — صدای ${config.speaker}، `
+    + `${config.endpoint === "long" ? "avasho-large" : "avasho (متنِ کوتاه)"} → ${config.outDir}`);
   push("status", snapshot());
 
   let cursor = 0;
@@ -234,6 +295,7 @@ async function runJob(keys, { force = false } = {}) {
   await Promise.all(workers);
   job.running = false;
   job.current = [];
+  job.controller = null;
   say("info", job.stopping
     ? `ایستاد — ${job.done} ساخته، ${job.failed} ناموفق`
     : `تمام — ${job.done} ساخته، ${job.failed} ناموفق`);
@@ -294,9 +356,14 @@ app.get("/api/config", (_req, res) => res.json(publicConfig()));
 
 app.post("/api/config", (req, res) => {
   const body = req.body || {};
-  for (const key of ["manifestPath", "outDir", "karbargDir", "speaker", "endpoint",
-                     "audioBase", "karbargBase"]) {
+  for (const key of ["manifestPath", "outDir", "karbargDir", "audioBase", "karbargBase"]) {
     if (typeof body[key] === "string" && body[key].trim()) config[key] = body[key].trim();
+  }
+  if (typeof body.speaker === "string" && body.speaker.trim()) {
+    config.speaker = normalizeSpeaker(body.speaker);
+  }
+  if (typeof body.endpoint === "string" && body.endpoint.trim()) {
+    config.endpoint = normalizeEndpoint(body.endpoint.trim());
   }
   for (const key of ["speed", "concurrency", "delayMs", "retries"]) {
     if (body[key] !== undefined && body[key] !== "") config[key] = Number(body[key]);
@@ -390,8 +457,9 @@ app.post("/api/diag", async (req, res) => {
   if (!config.token) return res.status(400).json({ error: "توکن خالی است" });
   if (diag.running) return res.status(409).json({ error: "یک تست در حال اجراست" });
 
-  const speaker = String(req.body?.speaker || config.speaker);
-  const endpoint = req.body?.endpoint === "long" ? "long" : "short";
+  // the same two guards the job uses, so the two sections can never drift apart again
+  const speaker = normalizeSpeaker(req.body?.speaker || config.speaker);
+  const endpoint = normalizeEndpoint(req.body?.endpoint);
   const text = String(req.body?.text || "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو.");
   const timestamps = req.body?.timestamps === true;
 
@@ -692,7 +760,9 @@ app.post("/api/generate", async (req, res) => {
 app.post("/api/stop", (_req, res) => {
   if (job.running) {
     job.stopping = true;
-    say("warn", "درخواستِ ایستادن — کلیپ‌های در جریان تمام می‌شوند");
+    // the test tab can be stopped mid-request; so can this one now
+    if (job.controller) job.controller.abort();
+    say("warn", "درخواستِ ایستادن");
   }
   res.json(snapshot());
 });
@@ -754,6 +824,12 @@ if (fs.existsSync(dist)) {
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`\n  استودیوی صداگذاری هوهو → http://127.0.0.1:${PORT}\n`);
   console.log(`  منیفست : ${config.manifestPath}`);
-  console.log(`  خروجی  : ${config.outDir}\n`);
+  console.log(`  خروجی  : ${config.outDir}`);
+  console.log(`  صدا    : ${config.speaker}`);
+  console.log(`  سرویس  : ${config.endpoint === "long" ? "avasho-large" : "avasho (متنِ کوتاه)"}\n`);
+  if (migrated) {
+    say("warn", migrated);
+    saveConfig();
+  }
   if (config.schedule.enabled) applySchedule();
 });

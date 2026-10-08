@@ -19,3 +19,8 @@ __pycache__/
 # the built APK: it is published to the «latest» release, not carried in the repo —
 # with the narration inside it is bigger than the 100 MB a file in a repo may be
 /dist/
+
+# the studio writes the finished clips and the worksheet folders here, on the
+# developer's own machine; they go to the host over FTP, not into the repo
+/tools/voice-out/
+/tools/karbarg-out/

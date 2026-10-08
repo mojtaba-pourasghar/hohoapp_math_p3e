@@ -251,10 +251,10 @@ export default function App() {
                    onChange={(e) => setForm({ ...form, speed: e.target.value })} />
           </div>
           <div>
-            <label>endpoint</label>
+            <label>سرویسِ آواشو</label>
             <select value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })}>
-              <option value="short">avasho (متنِ کوتاه)</option>
-              <option value="long">avasho-large (متنِ بلند)</option>
+              <option value="short">avasho — متنِ کوتاه (درست برای جمله‌های درس)</option>
+              <option value="long">avasho-large — متنِ بلند</option>
             </select>
           </div>
           <div>
