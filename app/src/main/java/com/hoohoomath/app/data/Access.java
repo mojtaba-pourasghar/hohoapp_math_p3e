@@ -1,11 +1,11 @@
 package com.hoohoomath.app.data;
 
 /**
- * What is free, and what needs the subscription.
+ * What is free, and what needs the full version.
  *
  * The rules live here, on their own, with no Android in sight: one place to read, one place to
- * change, and a thing that can be checked without a phone. Whether the subscription has been
- * bought is a different question and lives in billing/Entitlement — this class only answers «is
+ * change, and a thing that can be checked without a phone. Whether it has been bought is a
+ * different question and lives in billing/Entitlement — this class only answers «is
  * this piece inside the free part?».
  *
  * The free part is a real taste of the app, not a locked shop window:

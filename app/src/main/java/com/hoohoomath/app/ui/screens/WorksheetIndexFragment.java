@@ -55,7 +55,7 @@ public class WorksheetIndexFragment extends BaseFragment {
         ((TextView) view.findViewById(R.id.chapter_subtitle))
             .setText(paid()
                 ? "کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست. هر هشت فصل و هر سه سطح باز است."
-                : "کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست. یک کاربرگ رایگان است، بقیه با اشتراک.");
+                : "کاربرگ ۳۰ سؤالی را همین‌جا می‌نویسی؛ کاغذ لازم نیست. یک کاربرگ رایگان است، بقیه با نسخه‌ی کامل.");
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
@@ -63,7 +63,7 @@ public class WorksheetIndexFragment extends BaseFragment {
             // a half-finished set is picked up where it stopped, so the card says so
             boolean halfDone = s.hasAttempt("WORKSHEET_" + ch.index + "_" + level.index);
             boolean open = paid() || Access.quiz(QuizMode.WORKSHEET, ch.index, level.index);
-            String meta = !open ? "🔒 با اشتراک باز می‌شود"
+            String meta = !open ? "🔒 با نسخه‌ی کامل باز می‌شود"
                 : halfDone ? "کاربرگ نیمه‌کاره — از همان سؤال ادامه می‌دهی"
                 : "۳۰ سؤال · همین‌جا جواب می‌نویسی";
             list.addView(ScreenHelpers.buildLevelCard(requireContext(), level, meta, () -> {

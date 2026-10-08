@@ -67,13 +67,13 @@ public class PaywallFragment extends BaseFragment {
         String wanted = args != null ? args.getString("wanted", "") : "";
 
         ((TextView) root.findViewById(R.id.chapter_title))
-            .setText(Entitlement.unlocked(requireContext()) ? "اشتراکت فعال است" : "ادامه‌ی درس‌ها");
+            .setText(Entitlement.unlocked(requireContext()) ? "نسخه‌ی کامل فعال است" : "ادامه‌ی درس‌ها");
         ((TextView) root.findViewById(R.id.chapter_subtitle)).setText(
             Entitlement.unlocked(requireContext())
                 ? "همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها باز است. ممنون که هوهو را همراهی می‌کنی!"
                 : wanted.isEmpty()
-                    ? "بخشِ رایگانِ اپ همیشه باز است؛ بقیه‌ی فصل‌ها با اشتراک."
-                    : wanted + " بخشِ اشتراکی است.");
+                    ? "بخشِ رایگانِ اپ همیشه باز است؛ بقیه‌ی فصل‌ها با یک بار خرید."
+                    : wanted + " در نسخه‌ی کامل است.");
 
         LinearLayout list = root.findViewById(R.id.list_container);
         list.removeAllViews();
@@ -87,7 +87,7 @@ public class PaywallFragment extends BaseFragment {
         }
 
         list.addView(card("همین حالا رایگان است", Access.freeSummary()
-            + "\n\nصدای هوهو روی همه‌ی درس‌ها رایگان است — چه رایگان چه اشتراکی.",
+            + "\n\nصدای هوهو روی همه‌ی درس‌ها رایگان است — چه بخشِ رایگان چه نسخه‌ی کامل.",
             R.color.teal_border));
 
         if (!busyMessage.isEmpty()) {
@@ -136,13 +136,13 @@ public class PaywallFragment extends BaseFragment {
     }
 
     /**
-     * «اشتراکم را برگردان» — for a new phone, or after a reinstall.
+     * «خریدم را برگردان» — for a new phone, or after a reinstall.
      *
      * Bazaar keeps the purchase against the account, so this needs no receipt and no support
      * ticket: it asks the store what this account owns and believes the signature.
      */
     private View restoreLink() {
-        TextView link = UiKit.text(requireContext(), "اشتراک را از بازار برگردان", 13f,
+        TextView link = UiKit.text(requireContext(), "خریدم را از بازار برگردان", 13f,
             R.color.teal_dark, true);
         link.setGravity(Gravity.CENTER);
         int vp = UiKit.dp(requireContext(), 13);
@@ -160,7 +160,7 @@ public class PaywallFragment extends BaseFragment {
                         return;
                     }
                     Entitlement.grant(requireContext(), purchase.sku, purchase.token, purchase.until);
-                    Toast.makeText(requireContext(), "اشتراکت برگشت!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(requireContext(), "خریدت برگشت!", Toast.LENGTH_LONG).show();
                     render();
                 }
 
@@ -208,7 +208,7 @@ public class PaywallFragment extends BaseFragment {
         } else {
             Entitlement.grant(requireContext(), purchase.sku, purchase.token, purchase.until);
             busyMessage = "";
-            Toast.makeText(requireContext(), "اشتراک فعال شد. همه‌ی فصل‌ها باز است!",
+            Toast.makeText(requireContext(), "خرید انجام شد. همه‌ی فصل‌ها باز است!",
                 Toast.LENGTH_LONG).show();
         }
         render();

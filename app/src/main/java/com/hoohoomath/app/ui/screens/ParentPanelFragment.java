@@ -263,7 +263,7 @@ public class ParentPanelFragment extends BaseFragment {
         row.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
 
         LinearLayout labels = UiKit.column(requireContext());
-        labels.addView(UiKit.text(requireContext(), on ? "اشتراک فعال است" : "ادامه‌ی درس‌ها",
+        labels.addView(UiKit.text(requireContext(), on ? "نسخه‌ی کامل فعال است" : "ادامه‌ی درس‌ها",
             13.5f, R.color.text_primary, true));
         labels.addView(UiKit.text(requireContext(),
             on ? "همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها باز است"

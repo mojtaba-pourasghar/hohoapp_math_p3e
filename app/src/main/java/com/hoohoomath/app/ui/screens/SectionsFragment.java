@@ -113,7 +113,7 @@ public class SectionsFragment extends BaseFragment {
         String title = PersianDigits.fa(i + 1) + ". " + ch.sections.get(i)
             + (learned ? "  ✓" : "") + (open ? "" : "  🔒");
         String sub = !open
-            ? "این بخش با اشتراک باز می‌شود."
+            ? "این بخش با نسخه‌ی کامل باز می‌شود."
             : halfDone
                 ? "تمرین نیمه‌کاره داری؛ از همان‌جا ادامه می‌دهی."
                 : "۱۵ سؤال تازه در هر دور · دور " + PersianDigits.fa(nextRound);

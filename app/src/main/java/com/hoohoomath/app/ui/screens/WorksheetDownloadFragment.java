@@ -185,7 +185,7 @@ public class WorksheetDownloadFragment extends BaseFragment {
     /** A locked sheet is still listed, with the reason and a way to open it. */
     private void showLocked(LinearLayout area, WorksheetDownload sheet) {
         area.removeAllViews();
-        TextView button = UiKit.primaryButton(requireContext(), "🔒 با اشتراک باز می‌شود",
+        TextView button = UiKit.primaryButton(requireContext(), "🔒 با نسخه‌ی کامل باز می‌شود",
             color(R.color.orange), R.color.white);
         button.setOnClickListener(v -> goPaywall("کاربرگِ «" + sheet.title + "»"));
         area.addView(button);

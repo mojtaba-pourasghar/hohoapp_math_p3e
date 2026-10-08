@@ -27,7 +27,7 @@ public abstract class BaseFragment extends Fragment {
     /**
      * Sends the child to the paywall, telling it what they were reaching for.
      *
-     * `what` becomes the first line of that screen («فصل ۳ بخشِ اشتراکی است»), so the answer to
+     * `what` becomes the first line of that screen («فصل ۳ در نسخه‌ی کامل است»), so the answer to
      * «why can I not open this?» is on the screen that asks for money, not a step away from it.
      */
     protected void goPaywall(String what) {

@@ -213,7 +213,7 @@ public final class Bazaar {
             case 4: return "این محصول در بازار پیدا نشد.";
             case 5: return "درخواستِ خرید درست نبود.";
             case 6: return "بازار خطا داد. چند لحظه بعد دوباره امتحان کن.";
-            case 7: return "این اشتراک از قبل خریداری شده است.";
+            case 7: return "این برنامه از قبل خریداری شده است.";
             case 8: return "چیزی برای خرید نیست.";
             default: return "خرید انجام نشد (کد " + code + ").";
         }

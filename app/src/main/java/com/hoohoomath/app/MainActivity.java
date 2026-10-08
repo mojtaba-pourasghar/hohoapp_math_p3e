@@ -241,15 +241,6 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         UiKit.tapSound(item);
     }
 
-    @Override
-    /**
-     * The answer from Bazaar's payment screen.
-     *
-     * It arrives at the activity, not at the fragment that asked, so it is handed on to the
-     * paywall if that is still what is on screen — and the purchase is verified and recorded
-     * either way, so a parent who hits «back» the moment they have paid still gets what they
-     * paid for.
-     */
     /** Kept so the binding to the store can be let go of when the activity goes. */
     private Bazaar restore;
 
@@ -259,6 +250,14 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         super.onDestroy();
     }
 
+    /**
+     * The answer from Bazaar's payment screen.
+     *
+     * It arrives at the activity, not at the fragment that asked, so it is handed on to the
+     * paywall if that is still what is on screen — and the purchase is verified and recorded
+     * either way, so a parent who hits «back» the moment they have paid still gets what they
+     * paid for.
+     */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

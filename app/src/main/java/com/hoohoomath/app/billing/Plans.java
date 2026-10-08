@@ -32,15 +32,13 @@ public final class Plans {
     }
 
     /**
-     * The plans, in the order the paywall shows them.
-     *
-     * ⚠ These are the ids and prices to check against the panel before publishing.
+     * What is registered in the panel: one product, bought once, and then the app is the
+     * family's for good. No subscription to run out, nothing to renew — which for a textbook
+     * that is replaced every year is the honest shape.
      */
     public static final List<Plan> ALL = Arrays.asList(
-        new Plan("hoohoo_full_1m", Bazaar.SUBSCRIPTION, "اشتراک یک‌ماهه", "", "یک ماه، همه‌ی فصل‌ها"),
-        new Plan("hoohoo_full_3m", Bazaar.SUBSCRIPTION, "اشتراک سه‌ماهه", "", "یک ترم تحصیلی"),
-        new Plan("hoohoo_full_1y", Bazaar.SUBSCRIPTION, "اشتراک یک‌ساله", "", "همه‌ی سال تحصیلی"),
-        new Plan("hoohoo_full_forever", Bazaar.ONE_OFF, "خریدِ دائمی", "", "یک بار، برای همیشه"));
+        new Plan("hoohoo_full_p3e", Bazaar.ONE_OFF, "نسخه‌ی کامل هوهو ریاضی سوم",
+                 "۲۴۰٬۰۰۰ تومان", "یک بار خرید، برای همیشه — همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها"));
 
     private Plans() {}
 
