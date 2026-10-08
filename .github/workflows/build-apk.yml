@@ -57,8 +57,53 @@ jobs:
           echo "کلیپ‌های ضبط‌شده: $(ls app/src/main/res/raw/*.ogg 2>/dev/null | wc -l)"
           du -sh app/src/main/res/raw/
 
+      # The signing key, out of a secret and onto the runner's disk for the length of the build.
+      #
+      # Without a fixed key every run signs with a fresh throwaway debug certificate, and then
+      # Android will not install the new APK over the old one — the app looks broken when only
+      # its signature changed. The key is never in the repo; it is base64 in HOOHOO_KEYSTORE_B64.
+      - name: Unpack the signing key
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.HOOHOO_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+            echo "::warning title=کلیدِ امضا نیست::این APK با کلیدِ موقت امضا می‌شود و روی گوشی‌ای که نسخه‌ی قبلی را دارد نصب نمی‌شود. رازِ HOOHOO_KEYSTORE_B64 را اضافه کن."
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/signing"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/signing/hoohoo.p12"
+          echo "ready=yes" >> "$GITHUB_OUTPUT"
+          echo "کلیدِ امضا آماده شد ($(stat -c%s "$RUNNER_TEMP/signing/hoohoo.p12") بایت)"
+
       - name: Build debug APK
+        env:
+          HOOHOO_KEYSTORE: ${{ steps.signing.outputs.ready == 'yes' && format('{0}/signing/hoohoo.p12', runner.temp) || '' }}
+          HOOHOO_KEYSTORE_PASSWORD: ${{ secrets.HOOHOO_KEYSTORE_PASSWORD }}
+          HOOHOO_KEY_ALIAS: ${{ secrets.HOOHOO_KEY_ALIAS }}
+          HOOHOO_KEY_PASSWORD: ${{ secrets.HOOHOO_KEY_PASSWORD }}
         run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      # Which certificate signed it — the one number that says whether this APK installs over
+      # the last one. It goes in the log and in the build summary, so a key that silently
+      # changed can never again be found out from a phone.
+      - name: Say who signed it
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          FINGERPRINT=$(python3 tools/apk_signer.py "$APK")
+          echo "$FINGERPRINT"
+          {
+            echo "### امضای این APK"
+            echo ""
+            echo '```'
+            echo "$FINGERPRINT"
+            echo '```'
+            if [ "${{ steps.signing.outputs.ready }}" != "yes" ]; then
+              echo ""
+              echo "⚠ کلیدِ ثابت داده نشده بود؛ این نسخه روی نصبِ قبلی به‌روزرسانی نمی‌شود."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Two names on purpose: a versioned one for the permanent release, and a fixed
       # "hoohoo-math.apk" so the download link on the latest release never changes.
