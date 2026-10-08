@@ -62,10 +62,29 @@ public final class Net {
     }
 
     /**
+     * Told how far a download has got: bytes so far and the total, or -1 for the total when the
+     * server does not say. Returning false stops the download — that is the cancel button.
+     */
+    public interface Watcher {
+        boolean onBytes(long soFar, long total);
+    }
+
+    /**
      * Downloads to a temporary file and only then moves it into place, so a dropped connection
      * can never leave a half file that later looks like a finished one.
      */
     public static boolean download(String url, File target) {
+        return download(url, target, null);
+    }
+
+    /**
+     * The same download, reporting its progress.
+     *
+     * A printable worksheet is a megabyte or two of PDF: long enough that a page with no sign of
+     * movement looks stuck. The watcher is called as the bytes arrive, and a watcher that says
+     * stop leaves nothing behind but the discarded .part file.
+     */
+    public static boolean download(String url, File target, Watcher watcher) {
         HttpURLConnection connection = null;
         File part = new File(target.getParentFile(), target.getName() + ".part");
         try {
@@ -73,12 +92,21 @@ public final class Net {
             if (parent != null) parent.mkdirs();
             connection = open(url);
             if (connection.getResponseCode() / 100 != 2) return false;
+            long total = connection.getContentLengthLong();
 
             try (InputStream in = connection.getInputStream();
                  FileOutputStream out = new FileOutputStream(part)) {
                 byte[] buffer = new byte[16384];
+                long soFar = 0;
                 int read;
-                while ((read = in.read(buffer)) > 0) out.write(buffer, 0, read);
+                while ((read = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, read);
+                    soFar += read;
+                    if (watcher != null && !watcher.onBytes(soFar, total)) {
+                        part.delete();
+                        return false;
+                    }
+                }
             }
             if (part.length() < 256) {          // too small to be a recording or a sheet
                 part.delete();
