@@ -27,6 +27,7 @@ import com.hoohoomath.app.tts.LessonAudio;
 import com.hoohoomath.app.tts.VoiceStore;
 import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.VoiceGate;
 import com.hoohoomath.app.ui.FeedbackDialog;
 import com.hoohoomath.app.ui.LessonStageView;
 import com.hoohoomath.app.ui.Screen;
@@ -44,6 +45,9 @@ public class LessonFragment extends BaseFragment {
     private int chapter, section;
     /** > 0 when this is a lesson for one page of the printed book. */
     private int page;
+
+    /** The «صدا هنوز نیامده» window, while it is up. */
+    private android.app.Dialog gate;
     private LessonScript script;
     private int stepIndex = 0;
     private final StringBuilder typed = new StringBuilder();
@@ -110,13 +114,21 @@ public class LessonFragment extends BaseFragment {
         int saved = page > 0 ? state().pageStep(page) : state().lessonStep(chapter, section);
         stepIndex = saved > 0 && saved < script.steps.size() ? saved : 0;
 
-        renderStep();
+        // Nothing starts until this chapter's voice is on the phone. A child cannot tell «the
+        // clips have not arrived» from «هوهو sounds like a robot today», so the window says it
+        // and holds the lesson until it is fixed — or until it is clear there is no connection
+        // to fix it with, and going on with the device's voice is the better of two.
+        gate = VoiceGate.require(this, chapter, this::renderStep);
     }
 
     @Override
     public void onDestroyView() {
         LessonAudio.stop();
         if (stage != null) stage.stop();
+        if (gate != null) {
+            gate.dismiss();            // the screen is going; its window must not outlive it
+            gate = null;
+        }
         super.onDestroyView();
     }
 

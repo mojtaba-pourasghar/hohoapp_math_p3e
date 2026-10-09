@@ -25,6 +25,7 @@ import com.hoohoomath.app.data.QuizSessionHolder;
 import com.hoohoomath.app.tts.LessonAudio;
 import com.hoohoomath.app.tts.QuestionVoice;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.VoiceGate;
 import com.hoohoomath.app.ui.FeedbackDialog;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -110,7 +111,19 @@ public class QuizFragment extends BaseFragment {
             }
         });
 
-        renderQuestion(view);
+        // The words that read a question — the numbers, «به‌اضافه‌ی», «چند» — are the shared
+        // clips, chapter -1. Without them هوهو cannot read the question at all, so the same
+        // window that holds a lesson holds a quiz.
+        gate = VoiceGate.require(this, -1, () -> renderQuestion(view));
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (gate != null) {
+            gate.dismiss();
+            gate = null;
+        }
+        super.onDestroyView();
     }
 
     /** Binds a tap only when that layout actually has the control. */
@@ -142,6 +155,9 @@ public class QuizFragment extends BaseFragment {
         saveAttempt();
         renderQuestion(root);
     }
+
+    /** The «صدا هنوز نیامده» window, while it is up. */
+    private android.app.Dialog gate;
 
     private void saveAttempt() {
         state().saveAttempt(attemptKey, session.index, session.answers());
