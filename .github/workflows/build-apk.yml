@@ -77,7 +77,12 @@ jobs:
           echo "ready=yes" >> "$GITHUB_OUTPUT"
           echo "کلیدِ امضا آماده شد ($(stat -c%s "$RUNNER_TEMP/signing/hoohoo.p12") بایت)"
 
-      - name: Build debug APK
+      # Release, not debug — and that is not a detail.
+      #
+      # The lock on the paid chapters is a buildConfigField: off in debug so a chapter can be
+      # worked on without buying it, on in release. Build the debug variant here and the APK
+      # that reaches کافه‌بازار would hand the whole book out for nothing.
+      - name: Build release APK
         id: build
         env:
           HOOHOO_KEYSTORE: ${{ steps.signing.outputs.ready == 'yes' && format('{0}/signing/hoohoo.p12', runner.temp) || '' }}
@@ -86,7 +91,7 @@ jobs:
           HOOHOO_KEY_PASSWORD: ${{ secrets.HOOHOO_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee /tmp/build.log
+          ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee /tmp/build.log
 
       # Why the build failed, somewhere it can actually be read.
       #
@@ -117,7 +122,7 @@ jobs:
       # changed can never again be found out from a phone.
       - name: Say who signed it
         run: |
-          APK=app/build/outputs/apk/debug/app-debug.apk
+          APK=app/build/outputs/apk/release/app-release.apk
           FINGERPRINT=$(python3 tools/apk_signer.py "$APK")
           echo "$FINGERPRINT"
           {
@@ -138,8 +143,15 @@ jobs:
         id: collect
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/${{ steps.version.outputs.apk }}"
-          cp app/build/outputs/apk/debug/app-debug.apk dist/hoohoo-math.apk
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            # an unsigned release would be app-release-unsigned.apk, and installs nowhere
+            echo "::error title=APK نیست::$APK ساخته نشد. فایل‌های موجود:"
+            ls -l app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+          cp "$APK" "dist/${{ steps.version.outputs.apk }}"
+          cp "$APK" dist/hoohoo-math.apk
           ls -lh dist/
 
       - name: Upload as workflow artifact

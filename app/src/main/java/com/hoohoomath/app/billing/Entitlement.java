@@ -3,6 +3,8 @@ package com.hoohoomath.app.billing;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.hoohoomath.app.BuildConfig;
+
 /**
  * Whether this phone has the subscription — the answer every locked screen asks for.
  *
@@ -30,8 +32,25 @@ public final class Entitlement {
         return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    /** Everything beyond the free part is open. */
+    /**
+     * Whether the locks apply at all.
+     *
+     * They do not in a debug build: developing or testing a chapter should not mean buying it
+     * again on every phone, and the lock is never the thing under test. The release build — the
+     * one that goes to کافه‌بازار — enforces it. Set in app/build.gradle, one line per type.
+     */
+    public static boolean enforced() {
+        return BuildConfig.ENFORCE_LOCKS;
+    }
+
+    /**
+     * Everything beyond the free part is open.
+     *
+     * This is the one place the question is answered, so «off in debug» cannot be true on one
+     * screen and false on another.
+     */
     public static boolean unlocked(Context context) {
+        if (!enforced()) return true;
         SharedPreferences p = prefs(context);
         long until = p.getLong(KEY_UNTIL, 0);
         if (until == 0) return false;

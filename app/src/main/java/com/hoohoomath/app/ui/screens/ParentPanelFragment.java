@@ -252,6 +252,7 @@ public class ParentPanelFragment extends BaseFragment {
      * spelled out.
      */
     private View buildSubscriptionRow() {
+        boolean testBuild = !com.hoohoomath.app.billing.Entitlement.enforced();
         boolean on = com.hoohoomath.app.billing.Entitlement.unlocked(requireContext());
         LinearLayout row = UiKit.row(requireContext());
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -263,11 +264,13 @@ public class ParentPanelFragment extends BaseFragment {
         row.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
 
         LinearLayout labels = UiKit.column(requireContext());
-        labels.addView(UiKit.text(requireContext(), on ? "نسخه‌ی کامل فعال است" : "ادامه‌ی درس‌ها",
+        labels.addView(UiKit.text(requireContext(),
+            testBuild ? "نسخه‌ی آزمایشی" : on ? "نسخه‌ی کامل فعال است" : "ادامه‌ی درس‌ها",
             13.5f, R.color.text_primary, true));
         labels.addView(UiKit.text(requireContext(),
-            on ? "همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها باز است"
-               : "رایگان: " + com.hoohoomath.app.data.Access.freeSummary(),
+            testBuild ? "بیلدِ debug — قفل‌ها خاموش‌اند و همه‌چیز باز است"
+                : on ? "همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها باز است"
+                : "رایگان: " + com.hoohoomath.app.data.Access.freeSummary(),
             11.5f, R.color.text_muted, false));
         row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(UiKit.text(requireContext(), on ? "ببین ›" : "باز کن ›", 13f,

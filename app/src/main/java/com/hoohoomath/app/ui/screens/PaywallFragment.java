@@ -66,8 +66,12 @@ public class PaywallFragment extends BaseFragment {
         Bundle args = getArguments();
         String wanted = args != null ? args.getString("wanted", "") : "";
 
-        ((TextView) root.findViewById(R.id.chapter_title))
-            .setText(Entitlement.unlocked(requireContext()) ? "نسخه‌ی کامل فعال است" : "ادامه‌ی درس‌ها");
+        // a debug build has the locks off; saying «خریده شده» there would be a lie that is
+        // easy to carry into a screenshot
+        boolean testBuild = !Entitlement.enforced();
+        ((TextView) root.findViewById(R.id.chapter_title)).setText(
+            testBuild ? "نسخه‌ی آزمایشی"
+                : Entitlement.unlocked(requireContext()) ? "نسخه‌ی کامل فعال است" : "ادامه‌ی درس‌ها");
         ((TextView) root.findViewById(R.id.chapter_subtitle)).setText(
             Entitlement.unlocked(requireContext())
                 ? "همه‌ی فصل‌ها، کاربرگ‌ها و آزمون‌ها باز است. ممنون که هوهو را همراهی می‌کنی!"
@@ -77,6 +81,14 @@ public class PaywallFragment extends BaseFragment {
 
         LinearLayout list = root.findViewById(R.id.list_container);
         list.removeAllViews();
+
+        if (testBuild) {
+            list.addView(card("⚙ نسخه‌ی آزمایشی — قفل‌ها خاموش‌اند",
+                "این بیلدِ debug است و همه‌چیز بازِ باز است، بدونِ خرید. نسخه‌ای که به "
+                    + "کافه‌بازار می‌رود release است و قفل‌ها را اعمال می‌کند.", R.color.orange_border));
+            list.addView(backLink());
+            return;
+        }
 
         if (Entitlement.unlocked(requireContext())) {
             list.addView(card("✓ باز است",
