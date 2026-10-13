@@ -23,6 +23,7 @@ import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.PageLessons;
 import com.hoohoomath.app.data.PersianDigits;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.ChapterVoiceDownloadDialog;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
 
@@ -43,6 +44,7 @@ public class SectionsFragment extends BaseFragment {
         Bundle args = getArguments();
         currentChapter = args != null ? args.getInt("chapter", s.taughtChapter) : s.taughtChapter;
         ((TextView) view.findViewById(R.id.screen_title)).setText("تمرین بخش‌ها");
+        ChapterVoiceDownloadDialog.showIfNeeded(requireContext(), currentChapter, null);
         render(view);
     }
 

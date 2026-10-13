@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.Access;
@@ -56,6 +57,11 @@ public class ExamIndexFragment extends BaseFragment {
 
         LinearLayout list = view.findViewById(R.id.list_container);
         list.removeAllViews();
+
+        TextView onlineExamBanner = UiKit.primaryButton(requireContext(), "🏆 ورود به آزمون آنلاین کشوری",
+            ContextCompat.getColor(requireContext(), R.color.orange), ContextCompat.getColor(requireContext(), R.color.white));
+        onlineExamBanner.setOnClickListener(v -> nav().go(Screen.ONLINE_EXAM));
+        list.addView(onlineExamBanner);
         for (Level level : Level.values()) {
             // a half-finished set is picked up where it stopped, so the card says so
             boolean halfDone = s.hasAttempt("EXAM_" + ch.index + "_" + level.index);

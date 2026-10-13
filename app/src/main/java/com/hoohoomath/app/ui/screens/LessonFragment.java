@@ -27,6 +27,7 @@ import com.hoohoomath.app.tts.LessonAudio;
 import com.hoohoomath.app.tts.VoiceStore;
 import com.hoohoomath.app.tts.SoundManager;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.ChapterVoiceDownloadDialog;
 import com.hoohoomath.app.ui.FeedbackDialog;
 import com.hoohoomath.app.ui.LessonStageView;
 import com.hoohoomath.app.ui.Screen;
@@ -76,6 +77,8 @@ public class LessonFragment extends BaseFragment {
             section = script.section;
             if (page > 0) chapter = script.chapter;
         }
+
+        ChapterVoiceDownloadDialog.showIfNeeded(requireContext(), chapter, null);
 
         stage = view.findViewById(R.id.lesson_stage);
         onTap(view, R.id.lesson_back, () -> {

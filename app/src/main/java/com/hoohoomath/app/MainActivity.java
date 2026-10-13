@@ -12,10 +12,13 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+import android.widget.Toast;
+import java.util.Stack;
 
 import com.hoohoomath.app.billing.Bazaar;
 import com.hoohoomath.app.billing.Entitlement;
@@ -34,6 +37,7 @@ import com.hoohoomath.app.ui.screens.ChaptersFragment;
 import com.hoohoomath.app.ui.screens.ExamIndexFragment;
 import com.hoohoomath.app.ui.screens.LessonFragment;
 import com.hoohoomath.app.ui.screens.MapFragment;
+import com.hoohoomath.app.ui.screens.OnlineExamFragment;
 import com.hoohoomath.app.ui.screens.ParentGateFragment;
 import com.hoohoomath.app.ui.screens.ParentPanelFragment;
 import com.hoohoomath.app.ui.screens.PaywallFragment;
@@ -57,6 +61,8 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     private Screen currentScreen;
 
     private View navMap, navSections, navWorksheet, navExam, navParent;
+    private long lastBackPressTime = 0;
+    private final Stack<Screen> backStack = new Stack<>();
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -123,6 +129,28 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         if (savedInstanceState == null) {
             go(Screen.SPLASH);
         }
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (currentScreen == Screen.SPLASH) {
+                    finish();
+                    return;
+                }
+                if (currentScreen == Screen.MAP || backStack.isEmpty()) {
+                    long now = System.currentTimeMillis();
+                    if (now - lastBackPressTime < 2000) {
+                        finish();
+                    } else {
+                        lastBackPressTime = now;
+                        Toast.makeText(MainActivity.this, "برای خروج از برنامه دوباره دکمه بازگشت را بزنید", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Screen prev = backStack.pop();
+                    go(prev, null, false);
+                }
+            }
+        });
     }
 
     @Override
@@ -274,11 +302,18 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     }
 
     public void go(Screen screen) {
-        go(screen, null);
+        go(screen, null, true);
     }
 
     @Override
     public void go(Screen screen, Bundle args) {
+        go(screen, args, true);
+    }
+
+    public void go(Screen screen, Bundle args, boolean addToHistory) {
+        if (addToHistory && currentScreen != null && currentScreen != Screen.SPLASH) {
+            backStack.push(currentScreen);
+        }
         Fragment fragment = fragmentFor(screen, args);
         getSupportFragmentManager().beginTransaction()
             .replace(R.id.fragment_container, fragment)
@@ -346,6 +381,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
             case VOICE_DOWNLOAD: f = new VoiceDownloadFragment(); break;
             case PAYWALL: f = new PaywallFragment(); break;
             case EXAM_INDEX: f = new ExamIndexFragment(); break;
+            case ONLINE_EXAM: f = new OnlineExamFragment(); break;
             case QUIZ: f = new QuizFragment(); break;
             case RESULT: f = new ResultFragment(); break;
             case REWARDS: f = new RewardsFragment(); break;
