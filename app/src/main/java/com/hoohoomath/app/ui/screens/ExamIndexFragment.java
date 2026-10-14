@@ -20,6 +20,7 @@ import com.hoohoomath.app.data.Level;
 import com.hoohoomath.app.data.QuizMode;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
+import com.hoohoomath.app.ui.UiKit;
 
 public class ExamIndexFragment extends BaseFragment {
     private int currentChapter;
