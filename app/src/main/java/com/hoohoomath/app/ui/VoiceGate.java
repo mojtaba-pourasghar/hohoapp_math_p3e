@@ -14,8 +14,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.Book;
+import com.hoohoomath.app.data.VoiceCatalog;
 import com.hoohoomath.app.net.Net;
 import com.hoohoomath.app.tts.VoiceStore;
 
@@ -51,17 +55,30 @@ public final class VoiceGate {
      * screen that asked can close it if it goes away mid-download; null when nothing was shown.
      */
     public static Dialog require(Fragment host, int chapter, Runnable ready) {
+        return requireAll(host, ready, chapter);
+    }
+
+    /**
+     * The same, for a screen that needs more than one chapter's clips — a quiz reads the shared
+     * question words (-1) as well as its own chapter. One window, one bar, all of it.
+     */
+    public static Dialog requireAll(Fragment host, Runnable ready, int... chapters) {
         Context context = host.requireContext();
         // every way out of this window runs the same thing, and never after the screen has gone
         Runnable whenReady = () -> {
             if (host.isAdded()) ready.run();
         };
-        if (!VoiceStore.needs(context, chapter)) {
+
+        List<Integer> todo = new ArrayList<>();
+        for (int chapter : chapters) {
+            if (!todo.contains(chapter) && VoiceStore.needs(context, chapter)) todo.add(chapter);
+        }
+        if (todo.isEmpty()) {
             whenReady.run();
             return null;
         }
 
-        Board board = new Board(context, chapter);
+        Board board = new Board(context, todo.get(0));
         AlertDialog dialog = new AlertDialog.Builder(context)
             .setView(board.view)
             .setCancelable(false)                 // «تا دانلود تمام نشده نگذار کاری کند»
@@ -77,11 +94,15 @@ public final class VoiceGate {
             dismiss(dialog);
             whenReady.run();                      // through with the device's voice
         };
-        start(host, board, dialog, chapter, whenReady);
+        start(host, board, dialog, todo, whenReady);
         return dialog;
     }
 
-    private static void start(Fragment host, Board board, AlertDialog dialog, int chapter,
+    /**
+     * Walks the chapters one at a time, but shows them as one job: the bar counts every clip of
+     * every chapter, so the child sees one bar fill once rather than two that restart.
+     */
+    private static void start(Fragment host, Board board, AlertDialog dialog, List<Integer> todo,
                               Runnable whenReady) {
         Context context = host.requireContext();
         if (!Net.online(context)) {
@@ -91,19 +112,43 @@ public final class VoiceGate {
 
         board.working();
         VoiceStore.pause(false);                  // the background trickle may have been halted
+
+        int[] totals = new int[todo.size()];
+        int grand = 0;
+        for (int i = 0; i < todo.size(); i++) {
+            totals[i] = VoiceCatalog.keysOfChapter(context, todo.get(i)).size();
+            grand += totals[i];
+        }
+        step(host, board, dialog, todo, totals, grand, 0, 0, 0, whenReady);
+    }
+
+    private static void step(Fragment host, Board board, AlertDialog dialog, List<Integer> todo,
+                             int[] totals, int grand, int at, int base, int failedSoFar,
+                             Runnable whenReady) {
+        Context context = host.requireContext();
+        if (at >= todo.size()) {
+            dismiss(dialog);
+            whenReady.run();
+            return;
+        }
+        int chapter = todo.get(at);
+        board.name(chapter);
         VoiceStore.downloadChapter(context, chapter, new VoiceStore.Progress() {
             @Override public void onProgress(int which, int done, int total) {
-                if (host.isAdded()) board.progress(done, total);
+                if (host.isAdded()) board.progress(base + done, grand);
             }
 
             @Override public void onFinished(int which, int downloaded, int failed) {
                 if (!host.isAdded()) return;
-                if (failed > 0 && VoiceStore.needs(context, chapter)) {
-                    board.failed(failed, () -> start(host, board, dialog, chapter, whenReady));
+                int failedNow = failedSoFar + failed;
+                boolean stillMissing = VoiceStore.needs(context, chapter);
+                if (failedNow > 0 && stillMissing) {
+                    board.failed(failedNow,
+                        () -> start(host, board, dialog, todo, whenReady));   // retry the lot
                     return;
                 }
-                dismiss(dialog);
-                whenReady.run();
+                step(host, board, dialog, todo, totals, grand, at + 1, base + totals[at],
+                    failedNow, whenReady);
             }
         });
     }
@@ -176,6 +221,15 @@ public final class VoiceGate {
             view = wrap;
         }
 
+        /** The chapter being fetched right now, so a two-chapter job says which one it is on. */
+        void name(int chapter) {
+            title.setText("🔊 صدای " + nameOf(context, chapter) + " هنوز نیامده");
+        }
+
+        private static String nameOf(Context context, int chapter) {
+            return chapter < 0 ? "واژه\u200cهای سؤال\u200cها" : "فصل " + Book.chapter(chapter).numberFa;
+        }
+
         void working() {
             bar.setVisibility(View.VISIBLE);
             bar.setIndeterminate(true);
@@ -186,7 +240,8 @@ public final class VoiceGate {
         void progress(int done, int total) {
             bar.setIndeterminate(false);
             bar.setProgress(total > 0 ? Math.round(done * 100f / total) : 0);
-            count.setText(fa(done) + " از " + fa(total) + " گفتار");
+            int pct = total > 0 ? Math.round(done * 100f / total) : 0;
+            count.setText(fa(done) + " از " + fa(total) + " گفتار  (" + fa(pct) + "٪)");
         }
 
         /**

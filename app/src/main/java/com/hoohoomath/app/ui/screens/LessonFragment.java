@@ -81,6 +81,7 @@ public class LessonFragment extends BaseFragment {
             if (page > 0) chapter = script.chapter;
         }
 
+
         stage = view.findViewById(R.id.lesson_stage);
         onTap(view, R.id.lesson_back, () -> {
             LessonAudio.stop();
@@ -119,6 +120,14 @@ public class LessonFragment extends BaseFragment {
         // and holds the lesson until it is fixed — or until it is clear there is no connection
         // to fix it with, and going on with the device's voice is the better of two.
         gate = VoiceGate.require(this, chapter, this::renderStep);
+    }
+
+    /** Back walks the lesson backwards a step at a time before it leaves the lesson. */
+    @Override
+    public boolean onBackPressed() {
+        if (script == null || stepIndex <= 0) return false;
+        goToStep(stepIndex - 1);
+        return true;
     }
 
     @Override

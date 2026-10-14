@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!--
+      Announcements: a new worksheet, a new chapter, the online exam. Asked for only when there
+      is actually a notice to show, never on a first launch (see ui/Announcements).
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- the subscription is bought through Bazaar's own payment screen -->
     <uses-permission android:name="com.farsitel.bazaar.permission.PAY_THROUGH_BAZAAR" />
 

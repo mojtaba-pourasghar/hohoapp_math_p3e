@@ -12,10 +12,13 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+import android.widget.Toast;
+import java.util.Stack;
 
 import com.hoohoomath.app.billing.Bazaar;
 import com.hoohoomath.app.billing.Entitlement;
@@ -24,7 +27,10 @@ import com.hoohoomath.app.billing.Receipt;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.tts.NarrationText;
 import com.hoohoomath.app.tts.SoundManager;
+import com.hoohoomath.app.data.Notices;
 import com.hoohoomath.app.tts.VoiceStore;
+import com.hoohoomath.app.ui.Announcements;
+import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Navigator;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -34,6 +40,7 @@ import com.hoohoomath.app.ui.screens.ChaptersFragment;
 import com.hoohoomath.app.ui.screens.ExamIndexFragment;
 import com.hoohoomath.app.ui.screens.LessonFragment;
 import com.hoohoomath.app.ui.screens.MapFragment;
+import com.hoohoomath.app.ui.screens.OnlineExamFragment;
 import com.hoohoomath.app.ui.screens.ParentGateFragment;
 import com.hoohoomath.app.ui.screens.ParentPanelFragment;
 import com.hoohoomath.app.ui.screens.PaywallFragment;
@@ -57,6 +64,26 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     private Screen currentScreen;
 
     private View navMap, navSections, navWorksheet, navExam, navParent;
+    private long lastBackPressTime = 0;
+
+    /**
+     * Where the child has been, so back retraces it.
+     *
+     * The arguments travel with the screen. Without them, backing out of a lesson landed on
+     * «chapter 1 section 1» whatever chapter the child had actually come from, which reads as the
+     * app losing their place.
+     */
+    private static final class Step {
+        final Screen screen;
+        final Bundle args;
+        Step(Screen screen, Bundle args) {
+            this.screen = screen;
+            this.args = args;
+        }
+    }
+
+    private final Stack<Step> backStack = new Stack<>();
+    private Bundle currentArgs;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -120,8 +147,75 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         bindNavItem(navExam, R.drawable.ic_target, "آزمون", () -> go(Screen.EXAM_INDEX));
         bindNavItem(navParent, R.drawable.ic_shield, "والدین", this::goParent);
 
+        // The news. Whatever is already on the device is shown at once; the host is asked for
+        // more in the background, and anything new that arrives goes to the phone's tray so it
+        // can bring the child back tomorrow rather than only when they happen to open the app.
+        Announcements.post(this);
+        Notices.refresh(this, () -> {
+            Announcements.post(this);
+            Announcements.askIfUseful(this);
+        });
+        Announcements.askIfUseful(this);
+
         if (savedInstanceState == null) {
-            go(Screen.SPLASH);
+            Screen opened = screenFromNotice(getIntent());
+            go(opened != null ? opened : Screen.SPLASH);
+        }
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (currentScreen == Screen.SPLASH) {
+                    finish();
+                    return;
+                }
+                // the screen itself gets first refusal: inside a lesson or a quiz, back means
+                // «the step before this one», not «throw this away»
+                Fragment showing = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+                if (showing instanceof BaseFragment && ((BaseFragment) showing).onBackPressed()) {
+                    return;
+                }
+                if (!backStack.isEmpty()) {
+                    Step prev = backStack.pop();
+                    go(prev.screen, prev.args, false);
+                    return;
+                }
+                // nothing behind this screen: the first press warns, the second one leaves
+                long now = System.currentTimeMillis();
+                if (now - lastBackPressTime < 2000) {
+                    finish();
+                } else {
+                    lastBackPressTime = now;
+                    Toast.makeText(MainActivity.this,
+                        "برای خروج از برنامه دوباره دکمه بازگشت را بزنید", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    /** Tapped a notice in the tray while the app was already running. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        Screen opened = screenFromNotice(intent);
+        if (opened != null) go(opened);
+    }
+
+    /**
+     * The screen a notice points at, or null. An unknown name is not an error — an older copy of
+     * the app simply opens as usual rather than crashing on news written for a newer one.
+     */
+    private Screen screenFromNotice(Intent intent) {
+        if (intent == null) return null;
+        String id = intent.getStringExtra("notice_id");
+        if (id != null) Notices.markSeen(this, id);
+        String name = intent.getStringExtra("notice_screen");
+        if (name == null || name.isEmpty()) return null;
+        try {
+            return Screen.valueOf(name);
+        } catch (IllegalArgumentException unknown) {
+            return null;
         }
     }
 
@@ -274,11 +368,26 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     }
 
     public void go(Screen screen) {
-        go(screen, null);
+        go(screen, null, true);
     }
 
     @Override
     public void go(Screen screen, Bundle args) {
+        go(screen, args, true);
+    }
+
+    public void go(Screen screen, Bundle args, boolean addToHistory) {
+        if (addToHistory && currentScreen != null && currentScreen != Screen.SPLASH) {
+            // Re-rendering the same screen with new arguments — picking another chapter from the
+            // chip row — is not a place the child has been; it replaces the one they are on.
+            // Without this, back taps through every chip they tried before leaving.
+            if (!backStack.isEmpty() && backStack.peek().screen == currentScreen
+                && screen == currentScreen) {
+                backStack.pop();
+            }
+            if (screen != currentScreen) backStack.push(new Step(currentScreen, currentArgs));
+        }
+        currentArgs = args;
         Fragment fragment = fragmentFor(screen, args);
         getSupportFragmentManager().beginTransaction()
             .replace(R.id.fragment_container, fragment)
@@ -346,6 +455,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
             case VOICE_DOWNLOAD: f = new VoiceDownloadFragment(); break;
             case PAYWALL: f = new PaywallFragment(); break;
             case EXAM_INDEX: f = new ExamIndexFragment(); break;
+            case ONLINE_EXAM: f = new OnlineExamFragment(); break;
             case QUIZ: f = new QuizFragment(); break;
             case RESULT: f = new ResultFragment(); break;
             case REWARDS: f = new RewardsFragment(); break;

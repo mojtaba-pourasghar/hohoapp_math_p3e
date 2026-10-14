@@ -20,6 +20,8 @@ import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.QuizResult;
 import com.hoohoomath.app.data.QuizSession;
+import com.hoohoomath.app.data.Notices;
+import com.hoohoomath.app.ui.Announcements;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -117,6 +119,7 @@ public class ParentPanelFragment extends BaseFragment {
         for (int i = 0; i < SETTING_LABELS.length; i++) {
             settings.addView(buildSettingRow(SETTING_LABELS[i], i, s));
         }
+        settings.addView(buildNoticesRow());
         settings.addView(buildVoiceRow());
         settings.addView(buildSubscriptionRow());
 
@@ -221,6 +224,43 @@ public class ParentPanelFragment extends BaseFragment {
      * The way in to «دانلود صدای هوهو». The clips live on the host, not in the APK, so this is
      * where a parent on a good connection can pull a chapter down before a car journey.
      */
+    /**
+     * «خبرها» — the one switch over announcements.
+     *
+     * Off means both: no card on the map screen and nothing in the phone's notification tray.
+     * A parent who does not want the app talking to their child about anything but maths gets
+     * that in one tap, and it is kept apart from the five lesson settings so turning it off
+     * never resets those.
+     */
+    private View buildNoticesRow() {
+        boolean on = Notices.allowed(requireContext());
+
+        LinearLayout row = UiKit.row(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int pad = UiKit.dp(requireContext(), 12);
+        row.setPadding(pad, pad, pad, pad);
+        UiKit.applyCardBg(row, requireContext(), R.color.bg_card, R.color.border_card);
+        row.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
+
+        LinearLayout labels = UiKit.column(requireContext());
+        labels.addView(UiKit.text(requireContext(), "خبرها و اعلان‌ها", 13.5f, R.color.text_primary, true));
+        labels.addView(UiKit.text(requireContext(),
+            "درس و کاربرگِ تازه، و خبرِ آزمون آنلاین", 11.5f, R.color.text_muted, false));
+        row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView mark = UiKit.text(requireContext(), on ? "روشن" : "خاموش", 13f,
+            on ? R.color.teal_dark : R.color.text_muted, true);
+        row.addView(mark);
+        row.setOnClickListener(v -> {
+            Notices.allow(requireContext(), !on);
+            if (!on) Announcements.askIfUseful(requireActivity());
+            View root = getView();
+            if (root != null) render(root);
+        });
+        UiKit.tapSound(row);
+        return row;
+    }
+
     private View buildVoiceRow() {
         java.util.List<String> all = com.hoohoomath.app.data.VoiceCatalog.keys(requireContext());
         int have = com.hoohoomath.app.tts.VoiceStore.countHave(requireContext(), all);

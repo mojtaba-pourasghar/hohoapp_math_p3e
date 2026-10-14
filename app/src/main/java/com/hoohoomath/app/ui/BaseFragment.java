@@ -36,6 +36,17 @@ public abstract class BaseFragment extends Fragment {
         nav().go(Screen.PAYWALL, args);
     }
 
+    /**
+     * A chance to deal with the back button before the app leaves the screen.
+     *
+     * A lesson and a quiz both have steps inside them, and a child pressing back means «the step
+     * before this one» far more often than «throw this lesson away». Returning true says the
+     * press was used; false lets the activity go back a screen.
+     */
+    public boolean onBackPressed() {
+        return false;
+    }
+
     /** Shown once when the screen first appears; screens override to give هوهو a contextual tip. */
     protected String entryTip() {
         return null;

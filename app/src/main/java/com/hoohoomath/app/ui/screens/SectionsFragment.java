@@ -23,17 +23,28 @@ import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.PageLessons;
 import com.hoohoomath.app.data.PersianDigits;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.VoiceGate;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
 
 
 public class SectionsFragment extends BaseFragment {
     private int currentChapter;
+    private android.app.Dialog gate;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_list_index, container, false);
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (gate != null) {
+            gate.dismiss();            // the screen is going; its window must not outlive it
+            gate = null;
+        }
+        super.onDestroyView();
     }
 
     @Override
@@ -43,6 +54,9 @@ public class SectionsFragment extends BaseFragment {
         Bundle args = getArguments();
         currentChapter = args != null ? args.getInt("chapter", s.taughtChapter) : s.taughtChapter;
         ((TextView) view.findViewById(R.id.screen_title)).setText("تمرین بخش‌ها");
+        // Entering a chapter is where the child finds out whether هوهو can speak it. Ask for the
+        // whole chapter here, once, rather than letting each lesson discover it on its own.
+        gate = VoiceGate.require(this, currentChapter, () -> {});
         render(view);
     }
 

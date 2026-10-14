@@ -114,7 +114,16 @@ public class QuizFragment extends BaseFragment {
         // The words that read a question — the numbers, «به‌اضافه‌ی», «چند» — are the shared
         // clips, chapter -1. Without them هوهو cannot read the question at all, so the same
         // window that holds a lesson holds a quiz.
-        gate = VoiceGate.require(this, -1, () -> renderQuestion(view));
+        gate = VoiceGate.requireAll(this, () -> renderQuestion(view), -1, chapter);
+    }
+
+    /** Back steps to the question before this one, rather than throwing the set away. */
+    @Override
+    public boolean onBackPressed() {
+        View root = getView();
+        if (root == null || session == null || session.index <= 0) return false;
+        goTo(root, session.index - 1);
+        return true;
     }
 
     @Override
