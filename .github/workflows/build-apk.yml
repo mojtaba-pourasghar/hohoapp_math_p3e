@@ -89,10 +89,6 @@ jobs:
           HOOHOO_KEYSTORE_PASSWORD: ${{ secrets.HOOHOO_KEYSTORE_PASSWORD }}
           HOOHOO_KEY_ALIAS: ${{ secrets.HOOHOO_KEY_ALIAS }}
           HOOHOO_KEY_PASSWORD: ${{ secrets.HOOHOO_KEY_PASSWORD }}
-          # Instant notifications. Push is only built in when all three are present — these two
-          # and app/google-services.json in the repo — and the build says which it was.
-          METRIX_APP_ID: ${{ secrets.METRIX_APP_ID }}
-          METRIX_SIGNATURE: ${{ secrets.METRIX_SIGNATURE }}
         run: |
           set -o pipefail
           ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee /tmp/build.log

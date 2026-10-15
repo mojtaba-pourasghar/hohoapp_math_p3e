@@ -245,9 +245,9 @@ public class ParentPanelFragment extends BaseFragment {
         LinearLayout labels = UiKit.column(requireContext());
         labels.addView(UiKit.text(requireContext(), "خبرها و اعلان‌ها", 13.5f, R.color.text_primary, true));
         labels.addView(UiKit.text(requireContext(),
-            Announcements.pushBuiltIn()
-                ? "درس و کاربرگِ تازه، و خبرِ آزمون آنلاین — همان لحظه"
-                : "درس و کاربرگِ تازه، و خبرِ آزمون آنلاین — وقتی برنامه باز شود",
+            Notices.sealReady(requireContext())
+                ? "درس و کاربرگِ تازه، و خبرِ آزمون آنلاین"
+                : "⚠ کلیدِ امضا در این نسخه نیست — هیچ خبری نمایش داده نمی‌شود",
             11.5f, R.color.text_muted, false));
         row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
@@ -256,7 +256,6 @@ public class ParentPanelFragment extends BaseFragment {
         row.addView(mark);
         row.setOnClickListener(v -> {
             Notices.allow(requireContext(), !on);
-            Announcements.applyPushPreference(requireContext());
             if (!on) Announcements.askIfUseful(requireActivity());
             View root = getView();
             if (root != null) render(root);

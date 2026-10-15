@@ -57,6 +57,8 @@ const DEFAULTS = {
   // /public_html — the same folders the app's URLs point at.
   pusheAppId: "",
   pusheToken: "",
+  noticeKeyPrivate: "",     // never leaves this machine, never in an API response
+  noticeKeyPublic: "",
   ftp: {
     host: "ftp.mp-apdl.ir",
     port: 21,
@@ -389,6 +391,8 @@ const publicConfig = () => ({
   ...config,
   ftp: { ...config.ftp, password: undefined, passwordSet: Boolean(config.ftp.password) },
   token: undefined,
+  noticeKeyPrivate: undefined,          // the one secret that must never be served
+  noticeKeySet: Boolean(config.noticeKeyPrivate),
   tokenSet: Boolean(config.token),
   tokenHint: config.token ? `${config.token.slice(0, 6)}…${config.token.slice(-4)}` : "",
   configFile: CONFIG_FILE,
@@ -1200,9 +1204,25 @@ app.delete("/api/notifications/history", (_req, res) => {
   res.json({ ok: true });
 });
 
+
+/** Puts a notice's picture in the staging folder and hands back its path, as the app will see it. */
+function saveNoticeImage(name, base64) {
+  if (!name || !base64) return "";
+  const safe = String(name).toLowerCase().replace(/[^a-z0-9._-]/g, "-").replace(/^-+|-+$/g, "");
+  const file = safe || `notice-${Date.now()}.jpg`;
+  const dir = path.join(NOTICE_STAGING, "notices");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, file),
+                   Buffer.from(String(base64).split(",").pop(), "base64"));
+  return `notices/${file}`;
+}
+
+const NOTICE_STAGING = path.join(ROOT, "publish-out");
+
 app.post("/api/notifications", async (req, res) => {
   try {
-    const { title, body, imageUrl, actionUrl, scheduledAt, shamsiDate, time, sendNow } = req.body || {};
+    const { title, body, imageUrl, actionUrl, scheduledAt, shamsiDate, time, sendNow,
+            link, screen, from, until, imageName, imageBase64 } = req.body || {};
     if (!title || !body) return res.status(400).json({ error: "عنوان و متن الزامی است." });
 
     const data = getNotificationsData();
@@ -1214,6 +1234,12 @@ app.post("/api/notifications", async (req, res) => {
       body,
       imageUrl: imageUrl || "",
       actionUrl: actionUrl || "hohoapp://map",
+      // what the app actually reads
+      image: saveNoticeImage(imageName, imageBase64),
+      link: (link || "").trim(),
+      screen: (screen || "").trim(),
+      from: Number(from) || 0,
+      until: Number(until) || 0,
       shamsiDate: shamsiDate || "",
       time: time || "",
       scheduledAt: isSendNow ? new Date().toISOString() : scheduledAt,
@@ -1269,46 +1295,90 @@ app.delete("/api/notifications/:id", (req, res) => {
 app.post("/api/ftp/upload/news", async (req, res) => {
   if (!requireFtp(res)) return;
   if (upload.running) return res.status(409).json({ error: "یک آپلود در حال اجراست" });
+  if (!config.noticeKeyPrivate) {
+    return res.status(400).json({
+      error: "کلید امضا ساخته نشده. بدونِ امضا اپ هیچ خبری را نمایش نمی‌دهد — "
+        + "اول دکمه‌ی «ساختِ کلید امضا» را بزن.",
+    });
+  }
 
   const newsDir = path.dirname(config.ftp.audioDir);     // …/grade-3/math
-  const staging = path.join(ROOT, "publish-out");
-  fs.mkdirSync(staging, { recursive: true });
+  fs.mkdirSync(NOTICE_STAGING, { recursive: true });
 
+  // Only what the app reads goes up. The studio's own bookkeeping — when it was queued, what
+  // the panel showed — stays here; a notice is a title, some words, maybe a picture and one
+  // place to go.
   const sent = getNotificationsData().items.filter(i => i.status === "sent");
-  const notices = sent.map(i => ({
-    id: i.id,
-    title: i.title,
-    body: i.body || "",
-    screen: i.screen || "",
-    from: i.from || 0,
-    until: i.until || 0,
-  }));
-  const noticesPath = path.join(staging, "notices.json");
-  fs.writeFileSync(noticesPath, JSON.stringify({ notices }, null, 2), "utf8");
+  const notices = [];
+  const pictures = [];
+  for (const item of sent) {
+    const notice = {
+      id: item.id,
+      title: item.title,
+      body: item.body || "",
+      image: item.image || "",
+      link: item.link || "",
+      screen: item.screen || "",
+      from: item.from || 0,
+      until: item.until || 0,
+    };
+    if (notice.image) {
+      const onDisk = path.join(NOTICE_STAGING, notice.image);
+      if (fs.existsSync(onDisk)) {
+        // the signature covers this text, not the picture beside it — so the text carries the
+        // picture's hash, and the app throws away anything that does not match
+        notice.imageSha256 = crypto.createHash("sha256")
+          .update(fs.readFileSync(onDisk)).digest("hex");
+        pictures.push(onDisk);
+      } else {
+        say("warn", `عکسِ «${item.title}» پیدا نشد؛ خبر بدونِ عکس منتشر می‌شود.`);
+        notice.image = "";
+      }
+    }
+    notices.push(notice);
+  }
 
-  const examPath = path.join(staging, "exam.json");
+  const noticesJson = JSON.stringify({ notices }, null, 2);
+  const noticesPath = path.join(NOTICE_STAGING, "notices.json");
+  const signaturePath = path.join(NOTICE_STAGING, "notices.json.sig");
+  fs.writeFileSync(noticesPath, noticesJson, "utf8");
+  // signed over the exact bytes that go up, so what is verified is what was published
+  fs.writeFileSync(signaturePath, signNotices(noticesJson), "utf8");
+
+  const examPath = path.join(NOTICE_STAGING, "exam.json");
   fs.writeFileSync(examPath, JSON.stringify(getExamData(), null, 2), "utf8");
 
-  const files = [noticesPath, examPath];
+  const files = [noticesPath, signaturePath, examPath];
   Object.assign(upload, { running: true, stopping: false, what: "خبرها و آزمون",
-                          done: 0, total: files.length, sent: 0, skipped: 0, failed: 0 });
+                          done: 0, total: files.length + pictures.length,
+                          sent: 0, skipped: 0, failed: 0 });
   startLink("انتشارِ خبرها");
-  res.json({ started: true, notices: notices.length, dir: newsDir });
+  res.json({ started: true, notices: notices.length, pictures: pictures.length, dir: newsDir });
+
+  const step = (name, state) => {
+    upload.done += 1;
+    if (state === "failed") upload.failed += 1; else upload.sent += 1;
+    say(state === "failed" ? "error" : "ok",
+        `${name} — ${state === "failed" ? "نرفت" : "فرستاده شد"}`);
+    push("upload", uploadSnapshot());
+  };
 
   try {
+    // the pictures first: a notice whose image is not there yet would show without it
+    if (pictures.length) {
+      await uploadFiles({
+        settings: config.ftp, remoteDir: `${newsDir}/notices`, files: pictures,
+        skipExisting: false, onLine: ftpLine, onPhase: ftpPhase,
+        shouldStop: () => upload.stopping, onStep: step,
+      });
+    }
     const outcome = await uploadFiles({
       settings: config.ftp, remoteDir: newsDir, files, skipExisting: false,
       onLine: ftpLine, onPhase: ftpPhase,
-      shouldStop: () => upload.stopping,
-      onStep: (name, state) => {
-        upload.done += 1;
-        if (state === "failed") upload.failed += 1; else upload.sent += 1;
-        say(state === "failed" ? "error" : "ok", `${name} — ${state === "failed" ? "نرفت" : "فرستاده شد"}`);
-        push("upload", uploadSnapshot());
-      },
+      shouldStop: () => upload.stopping, onStep: step,
     });
-    say("info", `${notices.length} خبر و فایلِ آزمون منتشر شد.`
-      + ` اپ دفعه‌ی بعد که بالا بیاید می‌بیندشان.`);
+    say("info", `${notices.length} خبر (${pictures.length} عکس) با امضا منتشر شد.`
+      + " اپ دفعه‌ی بعد که بالا بیاید می‌بیندشان.");
     for (const line of outcome.errors.slice(0, 10)) say("error", line);
   } catch (err) {
     ftpFailed(err);
@@ -1317,6 +1387,73 @@ app.post("/api/ftp/upload/news", async (req, res) => {
     push("upload", uploadSnapshot());
   }
 });
+
+// ── مُهرِ خبرها ────────────────────────────────────────────────────────────────
+//
+// The notices sit on shared hosting, over plain http. Anyone who takes that host can replace
+// notices.json — and without a signature they would be writing straight onto the screen of
+// every child with the app, in هوهو's voice, with a link to anywhere.
+//
+// So the file is signed here, on this machine, and the app refuses anything it cannot verify.
+// The private half never leaves voice-studio.config.json (which is gitignored); only the public
+// half goes into the APK, as app/src/main/assets/notice-key.pub, and the public half can check
+// a signature but cannot make one. Taking the host therefore gets an attacker a file the app
+// throws away.
+//
+// A shared password baked into the APK would not do: it is in everyone's hands the moment
+// someone decompiles the app, and then forging a notice is as easy as writing one.
+
+const NOTICE_KEY_ASSET = path.resolve(ROOT, "../../app/src/main/assets/notice-key.pub");
+
+function noticeKeyState() {
+  return {
+    hasPrivate: Boolean(config.noticeKeyPrivate),
+    assetPath: NOTICE_KEY_ASSET,
+    assetExists: fs.existsSync(NOTICE_KEY_ASSET),
+    publicPem: config.noticeKeyPublic || "",
+  };
+}
+
+app.get("/api/notices/key", (_req, res) => res.json(noticeKeyState()));
+
+/**
+ * Makes the signing key, once. Refuses to make a second one unless asked outright, because a
+ * new key means every installed copy stops believing the notices until it is updated.
+ */
+app.post("/api/notices/key", (req, res) => {
+  if (config.noticeKeyPrivate && req.body?.replace !== true) {
+    return res.status(409).json({
+      error: "کلید امضا از قبل ساخته شده. ساختنِ کلیدِ تازه یعنی اپ‌هایی که الان نصب‌اند "
+        + "تا وقتی نسخه‌ی جدید را نگیرند هیچ خبری را قبول نمی‌کنند. اگر واقعاً می‌خواهی، "
+        + "replace:true بفرست.",
+      ...noticeKeyState(),
+    });
+  }
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+  config.noticeKeyPrivate = privateKey;
+  config.noticeKeyPublic = publicKey;
+  saveConfig();
+
+  fs.mkdirSync(path.dirname(NOTICE_KEY_ASSET), { recursive: true });
+  fs.writeFileSync(NOTICE_KEY_ASSET, publicKey, "utf8");
+
+  say("ok", "کلید امضا ساخته شد. نیمه‌ی عمومی در assets/notice-key.pub نوشته شد — "
+    + "آن را کامیت کن و یک بیلدِ تازه بده، وگرنه اپ خبرها را قبول نمی‌کند.");
+  say("warn", "نیمه‌ی خصوصی فقط در voice-studio.config.json روی همین سیستم است. "
+    + "گمش کنی، دیگر نمی‌توانی خبر امضا کنی.");
+  res.json(noticeKeyState());
+});
+
+function signNotices(json) {
+  if (!config.noticeKeyPrivate) return null;
+  const signer = crypto.createSign("SHA256");
+  signer.update(Buffer.from(json, "utf8"));
+  return signer.sign(config.noticeKeyPrivate, "base64");
+}
 
 app.get("/api/notifications/active", (_req, res) => {
   const data = getNotificationsData();

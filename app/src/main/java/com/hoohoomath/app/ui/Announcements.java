@@ -29,12 +29,13 @@ import java.util.List;
  * notices are for: «a new worksheet is up», «the online exam opens on Thursday». The child sees
  * it next time they open the app; the tray entry is the part that brings them back.
  *
- * Which means a notice can arrive late, when the app is next started, and never while the phone
- * is asleep. For news that has to land the moment it is sent — «the exam starts in half an
- * hour» — there is Metrix, which the build pulls in only when there is a Firebase config and a
- * pair of Metrix ids to go with it (see app/build.gradle). That SDK does its own work: it
- * registers itself, builds its own notifications and opens the app on a tap, so there is no code
- * here for it beyond honouring the parent's switch.
+ * Which means a notice arrives when the app is next started, not the moment it is written. That
+ * is the trade: no SDK, no account, no token, nothing about the phone leaving it — against news
+ * that can be a day late. For this app it is the right way round, and anything with a deadline
+ * carries an `until` so that news which has gone stale is dropped rather than shown late.
+ *
+ * Every notice shown here has had its signature checked first (see
+ * {@link com.hoohoomath.app.data.NoticeSeal}); an unsigned one never reaches this class.
  */
 public final class Announcements {
 
@@ -62,40 +63,13 @@ public final class Announcements {
             new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST);
     }
 
-    // ── the push SDK, if this build has one ──────────────────────────────────
-    //
-    // ir.metrix.notification is in the APK only when push was configured at build time, so it
-    // cannot be named directly — a build without it would not compile. Everything below goes
-    // through reflection against the one class, and does nothing at all when it is absent.
-    // The names are taken from the published AAR, not from memory:
-    //   public static void enableNotifications() / disableNotifications() / isNotificationEnable()
-    private static final String METRIX = "ir.metrix.notification.MetrixNotification";
-
-    /** Whether this build was given a push service at all. */
-    public static boolean pushBuiltIn() {
+    private static void deliver(Context context, Notices.Notice notice,
+                                NotificationCompat.Builder built) {
         try {
-            Class.forName(METRIX);
-            return true;
-        } catch (ClassNotFoundException notThisBuild) {
-            return false;
-        }
-    }
-
-    /**
-     * Points the push service at the parent's switch.
-     *
-     * «خبرها خاموش» has to mean every kind of news, or the switch is a lie: the card on the map,
-     * the tray entry this app posts itself, and anything the push service would deliver.
-     */
-    public static void applyPushPreference(Context context) {
-        boolean on = Notices.allowed(context);
-        try {
-            Class<?> metrix = Class.forName(METRIX);
-            metrix.getMethod(on ? "enableNotifications" : "disableNotifications").invoke(null);
-        } catch (ClassNotFoundException notThisBuild) {
-            // a build without push; the file-based notices are all there is
-        } catch (Exception changed) {
-            // the SDK is there but not as expected — better a missed switch than a crash
+            NotificationManagerCompat.from(context)
+                .notify(Math.abs(notice.id.hashCode()), built.build());
+        } catch (SecurityException refused) {
+            // permission was taken away between the check and here
         }
     }
 
@@ -135,12 +109,24 @@ public final class Announcements {
                 .setContentIntent(tap)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
-            try {
-                NotificationManagerCompat.from(context)
-                    .notify(Math.abs(notice.id.hashCode()), built.build());
-            } catch (SecurityException refused) {
-                return;     // permission was taken away between the check and here
+            // A notice with a picture gets it here too — but only once it is on the device and
+            // has matched the hash in the signed text. Waiting for a download before posting
+            // would mean no notification at all on a phone that drops its connection, so the
+            // words go out now and the picture only joins them when it is already in hand.
+            if (notice.hasImage() && NoticeArt.have(context, notice)) {
+                NoticeArt.load(context, notice, bitmap -> {
+                    if (bitmap != null) {
+                        built.setLargeIcon(bitmap)
+                            .setStyle(new NotificationCompat.BigPictureStyle()
+                                .bigPicture(bitmap)
+                                .bigLargeIcon((android.graphics.Bitmap) null)
+                                .setSummaryText(notice.body));
+                    }
+                    deliver(context, notice, built);
+                });
+                continue;
             }
+            deliver(context, notice, built);
         }
     }
 }

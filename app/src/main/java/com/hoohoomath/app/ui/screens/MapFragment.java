@@ -21,6 +21,7 @@ import com.hoohoomath.app.data.Lessons;
 import com.hoohoomath.app.data.PageLessons;
 import com.hoohoomath.app.data.Notices;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.NoticeDialog;
 import com.hoohoomath.app.ui.PathMapView;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -30,6 +31,9 @@ import java.util.List;
 import static com.hoohoomath.app.data.PersianDigits.fa;
 
 public class MapFragment extends BaseFragment {
+
+    /** Today's notice, while it is on screen. */
+    private android.app.Dialog notice;
 
     /** {top%, left%} stops along the trail — five sections then the chapter exam. */
     private static final float[][] NODE_POSITIONS = {
@@ -52,6 +56,34 @@ public class MapFragment extends BaseFragment {
 
         renderNotices(view);
         render(view, state().mapChapter());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // The map is the first screen a child lands on, so today's notice goes up here — in the
+        // next frame, so it does not fight the screen's own setting-up, and only ever one a day.
+        View root = getView();
+        if (root != null) {
+            root.post(() -> {
+                if (!isAdded()) return;
+                if (notice != null) return;            // one already up, from a rotation
+                notice = NoticeDialog.showIfDue(requireActivity(), () -> {
+                    notice = null;
+                    View now = getView();
+                    if (now != null) renderNotices(now);   // the card list reflects what was read
+                });
+            });
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (notice != null) {
+            notice.dismiss();      // the window must not outlive the screen that opened it
+            notice = null;
+        }
+        super.onDestroyView();
     }
 
     /**

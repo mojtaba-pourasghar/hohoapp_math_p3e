@@ -2,47 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-// ── اعلانِ فوری: Metrix ──────────────────────────────────────────────────────────
-//
-// Metrix's notification module is a wrapper over Firebase Cloud Messaging, so turning push on
-// needs three things that are not code: a Firebase project, its app/google-services.json, and
-// the two ids from the Metrix panel.
-//
-// All three are switched on by the presence of that one file. Without it the google-services
-// plugin fails the build outright («File google-services.json is missing»), which would mean
-// nobody could build the app at all until the file existed — so the plugin, the SDK and the
-// manifest entries all come in together, only when it is there.
-//
-// So: drop app/google-services.json in, put the two Metrix ids in local.properties (or pass
-// METRIX_APP_ID / METRIX_SIGNATURE in the environment), and the next build has push. Leave it
-// out and the app builds exactly as before, with the in-app notices and nothing else.
-def metrixConfig = new Properties()
-def localProps = rootProject.file('local.properties')
-if (localProps.exists()) localProps.withInputStream { metrixConfig.load(it) }
-
-def metrixAppId = System.getenv('METRIX_APP_ID') ?: metrixConfig.getProperty('metrix.appId', '')
-def metrixSignature = System.getenv('METRIX_SIGNATURE') ?: metrixConfig.getProperty('metrix.signature', '')
-def firebaseConfig = file('google-services.json')
-def pushReady = firebaseConfig.exists() && metrixAppId && metrixSignature
-
-if (pushReady) {
-    apply plugin: 'com.google.gms.google-services'
-} else {
-    logger.lifecycle("")
-    logger.lifecycle("  ℹ  اعلانِ فوری خاموش است — " + (firebaseConfig.exists()
-        ? "app/google-services.json هست ولی metrix.appId/metrix.signature داده نشده."
-        : "app/google-services.json نیست."))
-    logger.lifecycle("     خبرها همچنان از notices.json می‌آیند، ولی وقتی اپ باز شود، نه همان لحظه.")
-    logger.lifecycle("")
-}
-
-// Single source of truth for the version: the VERSION file at the repo root.
-// versionCode is derived from it so it always climbs with the name.
-def appVersionName = rootProject.file('VERSION').exists()
-    ? rootProject.file('VERSION').text.trim()
-    : '0.0.1'
-def (vMajor, vMinor, vPatch) = (appVersionName.tokenize('.') + ['0', '0', '0'])[0..2]*.toInteger()
-
 android {
     namespace 'com.hoohoomath.app'
     compileSdk 34
@@ -98,13 +57,6 @@ android {
         targetSdk 34
         versionCode vMajor * 10000 + vMinor * 100 + vPatch
         versionName appVersionName
-
-        // Read by the <meta-data> entries in the manifest. Empty when push is off, which is
-        // harmless: the SDK is not in the APK either, so nothing reads them.
-        manifestPlaceholders = [
-            metrixAppId    : metrixAppId ?: '',
-            metrixSignature: metrixSignature ?: '',
-        ]
     }
 
     // What is locked, and when.
@@ -145,12 +97,4 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.fragment:fragment:1.8.2'
     implementation 'androidx.core:core:1.13.1'
-
-    // Push, only in a build that has somewhere to send it. The notification module pulls
-    // ir.metrix:core and ir.metrix:lifecycle itself, so attribution and analytics — which exist
-    // to profile installs, and have no business in a child's maths app — stay out.
-    if (pushReady) {
-        implementation 'ir.metrix.notification:metrix:2.9.0'
-        implementation platform('com.google.firebase:firebase-bom:33.5.1')
-    }
 }

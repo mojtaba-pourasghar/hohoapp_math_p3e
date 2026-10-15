@@ -73,8 +73,11 @@ export default function App() {
   });
   const [notifForm, setNotifForm] = useState({
     title: "", body: "", imageUrl: "", actionUrl: "hohoapp://exam",
-    shamsiDate: "1405/08/15", time: "18:00", template: ""
+    shamsiDate: "1405/08/15", time: "18:00", template: "",
+    // what the app actually reads
+    link: "", screen: "", until: "", imageName: "", imageBase64: ""
   });
+  const [noticeKey, setNoticeKey] = useState({ hasPrivate: false, assetExists: false });
   const [notifData, setNotifData] = useState({ items: [], queue: [], history: [], templates: [] });
   const [examForm, setExamForm] = useState({
     active: false, title: "", description: "", shamsiDate: "1405/08/15",
@@ -271,7 +274,11 @@ export default function App() {
         <button className={tab === "diag" ? "chip sel" : "chip"} onClick={() => setTab("diag")}>
           تستِ وب‌سرویس
         </button>
-        <button className={tab === "notifications" ? "chip sel" : "chip"} onClick={() => { setTab("notifications"); api("/notifications").then(setNotifData).catch(() => {}); }}>
+        <button className={tab === "notifications" ? "chip sel" : "chip"} onClick={() => {
+          setTab("notifications");
+          api("/notifications").then(setNotifData).catch(() => {});
+          api("/notices/key").then(setNoticeKey).catch(() => {});
+        }}>
           📢 اعلان‌ها
         </button>
         <button className={tab === "exam" ? "chip sel" : "chip"} onClick={() => { setTab("exam"); api("/exam").then(d => { setExamData(d); setExamForm({ ...d, questionsJson: JSON.stringify(d.questions || [], null, 2), sendNotification: true }); }).catch(() => {}); }}>
@@ -1025,6 +1032,52 @@ export default function App() {
             </div>
           </div>
 
+          {/* these four are what the app reads; everything above is the panel's own bookkeeping */}
+          <div className="grid2" style={{ marginTop: 12 }}>
+            <div>
+              <label>🖼 عکسِ خبر (از روی همین سیستم)</label>
+              <input type="file" accept="image/*" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return setNotifForm({ ...notifForm, imageName: "", imageBase64: "" });
+                const reader = new FileReader();
+                reader.onload = () => setNotifForm({
+                  ...notifForm, imageName: file.name, imageBase64: String(reader.result),
+                });
+                reader.readAsDataURL(file);
+              }} />
+              <span className="muted" style={{ fontSize: 11 }}>
+                {notifForm.imageName ? `انتخاب شد: ${notifForm.imageName}` : "اختیاری — کنارِ خبر آپلود می‌شود"}
+              </span>
+            </div>
+            <div>
+              <label>🔗 لینک (اختیاری)</label>
+              <input type="text" placeholder="https://…" value={notifForm.link}
+                     onChange={(e) => setNotifForm({ ...notifForm, link: e.target.value })} />
+            </div>
+            <div>
+              <label>📍 کجای برنامه باز شود</label>
+              <select value={notifForm.screen}
+                      onChange={(e) => setNotifForm({ ...notifForm, screen: e.target.value })}>
+                <option value="">هیچ‌جا — فقط متن</option>
+                <option value="ONLINE_EXAM">آزمون آنلاین</option>
+                <option value="WORKSHEET_DOWNLOAD">دانلود کاربرگ</option>
+                <option value="EXAM_INDEX">آزمون‌ها</option>
+                <option value="SECTIONS">تمرین بخش‌ها</option>
+                <option value="PAYWALL">نسخه‌ی کامل</option>
+                <option value="MAP">نقشه</option>
+              </select>
+            </div>
+            <div>
+              <label>⏳ تا کِی معتبر است (اختیاری)</label>
+              <input type="datetime-local" value={notifForm.until}
+                     onChange={(e) => setNotifForm({ ...notifForm, until: e.target.value })} />
+              <span className="muted" style={{ fontSize: 11 }}>
+                بعد از این لحظه خبر نمایش داده نمی‌شود. برای آزمون، لحظه‌ی شروعِ آزمون را بگذار:
+                گوشی‌ای که دیر وصل شود اصلاً خبرِ ازدست‌رفته را نشان نمی‌دهد.
+              </span>
+            </div>
+          </div>
+
           <div style={{ marginTop: 14, padding: 12, background: "rgba(0,0,0,0.03)", borderRadius: 8 }}>
             <label style={{ fontWeight: "bold", display: "block", marginBottom: 6 }}>📅 انتخاب تاریخ و زمان ارسال (شمسی):</label>
             <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
@@ -1086,6 +1139,34 @@ export default function App() {
             </div>
           </div>
 
+          <div className="card" style={{ borderColor: noticeKey.hasPrivate ? "#3e9e7a" : "#c0392b" }}>
+            <b>🔑 مُهرِ خبرها {noticeKey.hasPrivate ? "— ساخته شده" : "— هنوز ساخته نشده"}</b>
+            <p style={{ margin: "8px 0", lineHeight: 1.9 }}>
+              خبرها روی هاستِ اشتراکی و روی http ساده می‌نشینند. هرکس آن هاست را بگیرد
+              می‌تواند <code>notices.json</code> را عوض کند — و بدونِ امضا، یعنی مستقیم روی
+              صفحه‌ی هر کودکی که اپ را دارد می‌نویسد. پس فایل همین‌جا امضا می‌شود و اپ هرچه را
+              نتواند تأیید کند <b>اصلاً نشان نمی‌دهد</b>.
+              <br />
+              نیمه‌ی خصوصیِ کلید فقط روی همین سیستم می‌ماند (در
+              <code>voice-studio.config.json</code> که در گیت نیست). نیمه‌ی عمومی در
+              <code>app/src/main/assets/notice-key.pub</code> نوشته می‌شود — آن را کامیت کن و
+              یک بیلدِ تازه بده.
+            </p>
+            {!noticeKey.hasPrivate && (
+              <button className="go" onClick={async () => {
+                setNoticeKey(await api("/notices/key", { method: "POST", body: "{}" }));
+                alert("کلید ساخته شد.\n\nحالا app/src/main/assets/notice-key.pub را کامیت کن "
+                  + "و یک بیلدِ تازه بده — تا آن نسخه روی گوشی نرود، خبرها نمایش داده نمی‌شوند.");
+              }}>🔑 ساختِ کلید امضا</button>
+            )}
+            {noticeKey.hasPrivate && !noticeKey.assetExists && (
+              <p style={{ color: "#c0392b" }}>
+                ⚠ کلید هست ولی <code>assets/notice-key.pub</code> سرِ جایش نیست. کلید را دوباره
+                بساز، یا فایل را برگردان — بدونِ آن اپ هیچ خبری را قبول نمی‌کند.
+              </p>
+            )}
+          </div>
+
           <div className="card" style={{ marginTop: 14, borderColor: "#e0a33e" }}>
             <b>دو جور خبر داریم، و این دکمه‌ها فقط یکی‌اش را می‌فرستند.</b>
             <ul style={{ margin: "8px 0 0", paddingInlineStart: 18, lineHeight: 1.9 }}>
@@ -1099,7 +1180,7 @@ export default function App() {
 
           <div className="row" style={{ marginTop: 14, gap: 12 }}>
             <button className="go" disabled={!notifForm.title || !notifForm.body} onClick={async () => {
-              const out = await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, sendNow: true }) });
+              const out = await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, until: notifForm.until ? Date.parse(notifForm.until) : 0, sendNow: true }) });
               setNotifData(await api("/notifications"));
               // «ثبت شد» و «به گوشی‌ها رسید» دو چیزند؛ قبلاً هر دو یک پیغام می‌گرفتند
               alert(out.delivered
@@ -1110,7 +1191,7 @@ export default function App() {
             }}>🚀 ارسال فوری پیام</button>
 
             <button className="go ghost" disabled={!notifForm.title || !notifForm.body} onClick={async () => {
-              await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, sendNow: false }) });
+              await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, until: notifForm.until ? Date.parse(notifForm.until) : 0, sendNow: false }) });
               setNotifData(await api("/notifications"));
               alert("نوتیفیکیشن در صف زمان‌بندی قرار گرفت.");
             }}>📅 ثبت زمان‌بندی ارسال ({notifForm.shamsiDate} - {notifForm.time})</button>
