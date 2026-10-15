@@ -55,8 +55,6 @@ const DEFAULTS = {
 
   // where the finished files are sent. The paths are the real ones on the server, under
   // /public_html — the same folders the app's URLs point at.
-  pusheAppId: "",
-  pusheToken: "",
   noticeKeyPrivate: "",     // never leaves this machine, never in an API response
   noticeKeyPublic: "",
   ftp: {
@@ -425,13 +423,6 @@ app.post("/api/config", (req, res) => {
   if (typeof body.oggBitrate === "string" && body.oggBitrate.trim()) {
     config.oggBitrate = body.oggBitrate.trim();
   }
-  // The notification panel has boxes for these and they were never read here, so whatever was
-  // typed went nowhere, config.pusheToken stayed empty, and every «ارسال فوری» quietly took
-  // the «no token» branch and sent nothing while the log said «ارسال شد».
-  for (const key of ["pusheAppId", "pusheToken"]) {
-    if (typeof body[key] === "string") config[key] = body[key].trim();
-  }
-
   if (typeof body.token === "string" && body.token.trim()) {
     config.token = body.token.trim();
     say("info", "توکن ذخیره شد");
@@ -1042,276 +1033,227 @@ app.post("/api/publish/karbarg", (_req, res) => {
   }
 });
 
-// ── Notifications & Online Exam Persistence ──────────────────────────────────
-const NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
+// ── خبرها و آزمون آنلاین ─────────────────────────────────────────────────────
+//
+// There is no push service and nothing to sign up for. The app reads two files from the
+// teacher's own host — the same folder the clips and the worksheets already come from — and
+// everything in this section exists to write those two files and put them there:
+//
+//   notices.json      the news, signed
+//   notices.json.sig  the signature over it, byte for byte
+//   notices/…         any pictures the news carries
+//   exam.json         the online exam
+//
+// Nothing here talks to any third party. An earlier version posted to Pushe's API and kept a
+// token for it; that is gone, along with the send queue and the «ارسال فوری» button, because
+// they described a thing that never happened — the app had no SDK to receive any of it.
+
+const NOTICES_FILE = path.join(ROOT, "notices.json");     // the studio's own list
 const EXAM_FILE = path.join(ROOT, "exam.json");
+const NOTICE_STAGING = path.join(ROOT, "publish-out");    // what gets uploaded
 
 function readJsonFile(filePath, defaultValue) {
   try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, "utf8"));
-    }
+    if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch (err) {
-    console.error(`Error reading ${filePath}:`, err.message);
+    say("error", `${path.basename(filePath)} خوانده نشد: ${err.message}`);
   }
   return defaultValue;
 }
 
 function writeJsonFile(filePath, data) {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
-  } catch (err) {
-    console.error(`Error writing ${filePath}:`, err.message);
-  }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
 }
 
-// Default Notifications templates
-const DEFAULT_NOTIFICATION_TEMPLATES = [
-  { id: "tmpl_exam", title: "🏆 آزمون آنلاین هوهو", body: "ثبت‌نام آزمون آنلاین ریاضی شروع شد! همین حالا وارد برنامه شو و ثبت‌نام کن.", imageUrl: "", actionUrl: "hohoapp://exam" },
-  { id: "tmpl_ad", title: "⭐ تخفیف ویژه اشتراک کامل", body: "با فعال‌سازی دسترسی کامل، به تمام فصل‌ها و انیمیشن‌های تعاملی دسترسی داشته باشید.", imageUrl: "", actionUrl: "hohoapp://paywall" },
-  { id: "tmpl_practice", title: "✏️ تمرین امروز هوهو", body: "با ۱۰ دقیقه تمرین روزانه، مدال‌های افتخار هوهو را آزاد کن!", imageUrl: "", actionUrl: "hohoapp://map" },
-];
-
-function getNotificationsData() {
-  const data = readJsonFile(NOTIFICATIONS_FILE, { items: [] });
-  if (!Array.isArray(data.items)) data.items = [];
+function getNotices() {
+  const data = readJsonFile(NOTICES_FILE, { notices: [] });
+  if (!Array.isArray(data.notices)) data.notices = [];
   return data;
 }
 
 function getExamData() {
   return readJsonFile(EXAM_FILE, {
     active: false,
+    id: "",
     title: "آزمون آنلاین ریاضی سوم ابتدایی",
-    description: "آزمون کشوری ریاضی سوم ابتدایی شامل ۱۵ سوال تعاملی و انیمیشنی با زمان‌بندی مشخص.",
-    shamsiDate: "1405/08/15",
-    time: "16:00",
+    description: "آزمون کشوری ریاضی سوم ابتدایی، همزمان برای همه.",
+    date: "",
+    time: "",
+    startsAt: 0,
+    registerFrom: 0,
     durationMinutes: 45,
-    questions: [
-      {
-        id: "q1",
-        title: "سوال ۱: الگوهای عددی",
-        text: "الگوی مقابل را ادامه دهید: ۵، ۱۰، ۱۵، ۲۰، ؟",
-        options: ["۲۲", "۲۴", "۲۵", "۳۰"],
-        correctIndex: 2,
-        explanation: "الگو ۵ تا ۵ تا اضافه می‌شود. ۲۰ + ۵ = ۲۵ است.",
-        stageSpec: { kind: "NUMBER_STAIRS", params: { start: 5, step: 5, count: 5 } },
-        points: 10
-      },
-      {
-        id: "q2",
-        title: "سوال ۲: ارزش مکانی",
-        text: "عدد ۳ هزار و ۴ صد و ۲ دهتایی و ۵ یکی کدام است؟",
-        options: ["۳۴۲۵", "۳۲۴۵", "۴۳۲۵", "۵۲۴۳"],
-        correctIndex: 0,
-        explanation: "۳ هزار + ۴ صد + ۲ ده + ۵ یک = ۳۴۲۵",
-        stageSpec: { kind: "PLACE_VALUE", params: { value: 3425 } },
-        points: 10
-      }
-    ],
-    registrations: [],
-    submissions: []
+    questions: [],
   });
 }
 
-// Background scheduler for notifications
-let queuePaused = false;
+// ── مُهرِ خبرها ────────────────────────────────────────────────────────────────
+//
+// The notices sit on shared hosting, over plain http. Anyone who takes that host can replace
+// notices.json — and without a signature they would be writing straight onto the screen of
+// every child with the app, in هوهو's voice, with a link to anywhere.
+//
+// So the file is signed here, on this machine, and the app refuses anything it cannot verify.
+// The private half never leaves voice-studio.config.json (which is gitignored); only the public
+// half goes into the APK, as app/src/main/assets/notice-key.pub, and the public half can check
+// a signature but cannot make one. Taking the host therefore gets an attacker a file the app
+// throws away.
+//
+// A shared password baked into the APK would not do: it is in everyone's hands the moment
+// someone decompiles the app, and then forging a notice is as easy as writing one.
 
-/**
- * Hands one message to the push service. Returns what really happened, because «ثبت شد» and
- * «به گوشی‌ها رسید» are not the same thing and the panel must not blur them.
- */
-async function sendPusheNotification(item) {
-  if (!config.pusheToken || !config.pusheAppId) {
-    say("error", "ارسال نشد: شناسه و توکنِ سرویسِ پوش در تنظیمات خالی است. "
-      + "پیام فقط در فهرستِ همین‌جا ثبت شد.");
-    return { delivered: false, reason: "سرویسِ پوش تنظیم نشده" };
-  }
-  try {
-    const res = await fetch("https://api.pushe.co/v2/messaging/notifications/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Token ${config.pusheToken}`
-      },
-      body: JSON.stringify({
-        app_ids: [config.pusheAppId],
-        data: {
-          title: item.title,
-          content: item.body,
-          image: item.imageUrl || undefined,
-          custom_content: { actionUrl: item.actionUrl || "hohoapp://map" }
-        }
-      })
-    });
-    if (res.ok) {
-      say("ok", `نوتیفیکیشن به سرویس پوش تحویل داده شد: ${item.title}`);
-      return { delivered: true };
-    }
-    const txt = await res.text();
-    say("error", `خطای سرویسِ پوش (${res.status}): ${txt}`);
-    return { delivered: false, reason: `سرویس ${res.status} داد` };
-  } catch (err) {
-    say("error", `خطای شبکه‌ایِ سرویسِ پوش: ${err.message}`);
-    return { delivered: false, reason: err.message };
-  }
+const NOTICE_KEY_ASSET = path.resolve(ROOT, "../../app/src/main/assets/notice-key.pub");
+
+function noticeKeyState() {
+  return {
+    hasPrivate: Boolean(config.noticeKeyPrivate),
+    assetPath: NOTICE_KEY_ASSET,
+    assetExists: fs.existsSync(NOTICE_KEY_ASSET),
+  };
 }
 
-setInterval(() => {
-  try {
-    if (queuePaused) return;
-    const data = getNotificationsData();
-    const now = new Date().toISOString();
-    let updated = false;
+function signNotices(json) {
+  if (!config.noticeKeyPrivate) return null;
+  const signer = crypto.createSign("SHA256");
+  signer.update(Buffer.from(json, "utf8"));
+  return signer.sign(config.noticeKeyPrivate, "base64");
+}
 
-    data.items.forEach(item => {
-      if (item.status === "scheduled" && item.scheduledAt && item.scheduledAt <= now) {
-        item.status = "sent";
-        item.sentAt = now;
-        item.recipientCount = item.recipientCount || Math.floor(Math.random() * 150) + 50;
-        updated = true;
-        say("ok", `نوتیفیکیشن ارسال شد: ${item.title}`);
-        sendPusheNotification(item);
-      }
+app.get("/api/notices/key", (_req, res) => res.json(noticeKeyState()));
+
+/**
+ * Makes the signing key, once. Refuses to make a second one unless asked outright, because a
+ * new key means every installed copy stops believing the notices until it is updated.
+ */
+app.post("/api/notices/key", (req, res) => {
+  if (config.noticeKeyPrivate && req.body?.replace !== true) {
+    return res.status(409).json({
+      error: "کلید امضا از قبل ساخته شده. کلیدِ تازه یعنی اپ‌هایی که الان نصب‌اند تا وقتی "
+        + "نسخه‌ی جدید را نگیرند هیچ خبری را قبول نمی‌کنند. اگر واقعاً می‌خواهی، replace:true بفرست.",
+      ...noticeKeyState(),
     });
-
-    if (updated) {
-      writeJsonFile(NOTIFICATIONS_FILE, data);
-    }
-  } catch (err) {
-    // quiet catch
   }
-}, 15000);
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+  config.noticeKeyPrivate = privateKey;
+  config.noticeKeyPublic = publicKey;
+  saveConfig();
 
-// Notification API endpoints
-app.get("/api/notifications", (_req, res) => {
-  const data = getNotificationsData();
-  const queue = data.items.filter(i => i.status === "scheduled");
-  const history = data.items.filter(i => i.status === "sent");
-  res.json({ items: data.items, queue, history, queuePaused, templates: DEFAULT_NOTIFICATION_TEMPLATES });
+  fs.mkdirSync(path.dirname(NOTICE_KEY_ASSET), { recursive: true });
+  fs.writeFileSync(NOTICE_KEY_ASSET, publicKey, "utf8");
+
+  say("ok", "کلید امضا ساخته شد. نیمه‌ی عمومی در assets/notice-key.pub نوشته شد — "
+    + "آن را کامیت کن و یک بیلدِ تازه بده، وگرنه اپ خبرها را قبول نمی‌کند.");
+  say("warn", "نیمه‌ی خصوصی فقط در voice-studio.config.json روی همین سیستم است. "
+    + "گمش کنی، دیگر نمی‌توانی خبر امضا کنی.");
+  res.json(noticeKeyState());
 });
 
-app.post("/api/notifications/toggle-queue", (_req, res) => {
-  queuePaused = !queuePaused;
-  say("warn", queuePaused ? "صف ارسال نوتیفیکیشن‌ها متوقف شد" : "صف ارسال نوتیفیکیشن‌ها فعال شد");
-  res.json({ queuePaused });
+// ── the list ─────────────────────────────────────────────────────────────────
+
+app.get("/api/notices", (_req, res) => {
+  res.json({ ...getNotices(), key: noticeKeyState() });
 });
 
-app.delete("/api/notifications/history", (_req, res) => {
-  const data = getNotificationsData();
-  data.items = data.items.filter(i => i.status !== "sent");
-  writeJsonFile(NOTIFICATIONS_FILE, data);
-  say("warn", "تاریخچه ارسال نوتیفیکیشن‌ها پاک‌سازی شد");
-  res.json({ ok: true });
-});
-
-
-/** Puts a notice's picture in the staging folder and hands back its path, as the app will see it. */
+/** Puts a notice's picture in the staging folder and hands back the path the app will see. */
 function saveNoticeImage(name, base64) {
   if (!name || !base64) return "";
   const safe = String(name).toLowerCase().replace(/[^a-z0-9._-]/g, "-").replace(/^-+|-+$/g, "");
   const file = safe || `notice-${Date.now()}.jpg`;
   const dir = path.join(NOTICE_STAGING, "notices");
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, file),
-                   Buffer.from(String(base64).split(",").pop(), "base64"));
+  fs.writeFileSync(path.join(dir, file), Buffer.from(String(base64).split(",").pop(), "base64"));
   return `notices/${file}`;
 }
 
-const NOTICE_STAGING = path.join(ROOT, "publish-out");
-
-app.post("/api/notifications", async (req, res) => {
-  try {
-    const { title, body, imageUrl, actionUrl, scheduledAt, shamsiDate, time, sendNow,
-            link, screen, from, until, imageName, imageBase64 } = req.body || {};
-    if (!title || !body) return res.status(400).json({ error: "عنوان و متن الزامی است." });
-
-    const data = getNotificationsData();
-    const isSendNow = sendNow === true || !scheduledAt;
-
-    const newItem = {
-      id: "notif_" + Date.now(),
-      title,
-      body,
-      imageUrl: imageUrl || "",
-      actionUrl: actionUrl || "hohoapp://map",
-      // what the app actually reads
-      image: saveNoticeImage(imageName, imageBase64),
-      link: (link || "").trim(),
-      screen: (screen || "").trim(),
-      from: Number(from) || 0,
-      until: Number(until) || 0,
-      shamsiDate: shamsiDate || "",
-      time: time || "",
-      scheduledAt: isSendNow ? new Date().toISOString() : scheduledAt,
-      status: isSendNow ? "sent" : "scheduled",
-      sentAt: isSendNow ? new Date().toISOString() : null,
-      createdAt: new Date().toISOString(),
-      // nobody counts the phones: there is no registry, and «۱۰۰ گیرنده» was a made-up number
-      // that made a message which never left look like one that had arrived
-      recipientCount: null
-    };
-
-    data.items.unshift(newItem);
-    writeJsonFile(NOTIFICATIONS_FILE, data);
-
-    let outcome = { delivered: false, reason: "زمان‌بندی شد" };
-    if (isSendNow) outcome = await sendPusheNotification(newItem);
-
-    newItem.delivered = outcome.delivered === true;
-    writeJsonFile(NOTIFICATIONS_FILE, data);
-
-    say(isSendNow && !newItem.delivered ? "error" : "ok",
-        !isSendNow ? `نوتیفیکیشن زمان‌بندی شد: ${title}`
-          : newItem.delivered ? `به سرویسِ پوش رفت: ${title}`
-          : `فقط ثبت شد، ارسال نشد: ${title}`);
-    res.json({ ...newItem, ...outcome });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.delete("/api/notifications/:id", (req, res) => {
-  const data = getNotificationsData();
-  const initialLen = data.items.length;
-  data.items = data.items.filter(i => i.id !== req.params.id);
-  if (data.items.length < initialLen) {
-    writeJsonFile(NOTIFICATIONS_FILE, data);
-    say("warn", `نوتیفیکیشن لغو شد: ${req.params.id}`);
-  }
-  res.json({ ok: true });
-});
-
-
 /**
- * «انتشار خبرها» — puts the news and the online exam where the app looks for them.
- *
- *   notices.json  ← the sent notifications, trimmed to what the app reads
- *   exam.json     ← the online exam, as written in the exam card
- *
- * Both land in the math folder itself (the parent of audio/ and karbarg/), which is the address
- * baked into data/Notices.java and data/OnlineExam.java. The app reads them at launch, so a
- * notice published here reaches every installed copy without an APK and without a push service.
+ * Writes one notice, new or edited. Nothing is sent: a notice exists in this list until the
+ * publish button puts the whole list on the host, which is the only moment anything changes
+ * for anybody.
  */
-app.post("/api/ftp/upload/news", async (req, res) => {
+app.post("/api/notices", (req, res) => {
+  const body = req.body || {};
+  const title = String(body.title || "").trim();
+  const text = String(body.body || "").trim();
+  if (!title) return res.status(400).json({ error: "عنوان لازم است." });
+  if (!text && !body.imageBase64 && !body.image) {
+    return res.status(400).json({ error: "یک خبر باید دستِ‌کم متن یا عکس داشته باشد." });
+  }
+
+  const data = getNotices();
+  const id = String(body.id || "").trim() || `n${Date.now().toString(36)}`;
+  const existing = data.notices.find(n => n.id === id);
+
+  const notice = {
+    id,
+    title,
+    body: text,
+    // a new picture replaces the old one; no picture at all keeps whatever was there
+    image: body.imageBase64 ? saveNoticeImage(body.imageName, body.imageBase64)
+         : (existing ? existing.image : ""),
+    link: String(body.link || "").trim(),
+    screen: String(body.screen || "").trim(),
+    from: Number(body.from) || 0,
+    until: Number(body.until) || 0,
+    writtenAt: existing ? existing.writtenAt : Date.now(),
+  };
+
+  if (existing) Object.assign(existing, notice);
+  else data.notices.unshift(notice);
+  writeJsonFile(NOTICES_FILE, data);
+
+  say("ok", `${existing ? "ویرایش شد" : "نوشته شد"}: ${title}`);
+  res.json({ ...notice, published: false });
+});
+
+app.delete("/api/notices/:id", (req, res) => {
+  const data = getNotices();
+  const before = data.notices.length;
+  data.notices = data.notices.filter(n => n.id !== req.params.id);
+  writeJsonFile(NOTICES_FILE, data);
+  say("warn", before === data.notices.length ? "خبری با این شناسه نبود" : "خبر پاک شد");
+  res.json({ ok: true, notices: data.notices });
+});
+
+// ── the exam ─────────────────────────────────────────────────────────────────
+
+app.get("/api/exam", (_req, res) => res.json(getExamData()));
+
+app.post("/api/exam", (req, res) => {
+  const body = req.body || {};
+  const exam = { ...getExamData(), ...body };
+  if (Array.isArray(body.questions)) exam.questions = body.questions;
+  exam.startsAt = Number(exam.startsAt) || 0;
+  exam.registerFrom = Number(exam.registerFrom) || 0;
+  exam.durationMinutes = Number(exam.durationMinutes) || 45;
+  writeJsonFile(EXAM_FILE, exam);
+  say("ok", `آزمون ذخیره شد: ${exam.title}`);
+  res.json(exam);
+});
+
+// ── publishing: the only thing that changes anything for a child ─────────────
+
+app.post("/api/notices/publish", async (_req, res) => {
   if (!requireFtp(res)) return;
   if (upload.running) return res.status(409).json({ error: "یک آپلود در حال اجراست" });
   if (!config.noticeKeyPrivate) {
     return res.status(400).json({
       error: "کلید امضا ساخته نشده. بدونِ امضا اپ هیچ خبری را نمایش نمی‌دهد — "
-        + "اول دکمه‌ی «ساختِ کلید امضا» را بزن.",
+        + "اول «ساختِ کلید امضا» را بزن.",
     });
   }
 
   const newsDir = path.dirname(config.ftp.audioDir);     // …/grade-3/math
   fs.mkdirSync(NOTICE_STAGING, { recursive: true });
 
-  // Only what the app reads goes up. The studio's own bookkeeping — when it was queued, what
-  // the panel showed — stays here; a notice is a title, some words, maybe a picture and one
-  // place to go.
-  const sent = getNotificationsData().items.filter(i => i.status === "sent");
-  const notices = [];
+  // Only what the app reads goes up: a title, some words, maybe a picture, one place to go,
+  // and the window it is valid for. When it was written and whether it has been edited is the
+  // studio's business.
   const pictures = [];
-  for (const item of sent) {
+  const notices = getNotices().notices.map(item => {
     const notice = {
       id: item.id,
       title: item.title,
@@ -1335,8 +1277,8 @@ app.post("/api/ftp/upload/news", async (req, res) => {
         notice.image = "";
       }
     }
-    notices.push(notice);
-  }
+    return notice;
+  });
 
   const noticesJson = JSON.stringify({ notices }, null, 2);
   const noticesPath = path.join(NOTICE_STAGING, "notices.json");
@@ -1364,7 +1306,7 @@ app.post("/api/ftp/upload/news", async (req, res) => {
   };
 
   try {
-    // the pictures first: a notice whose image is not there yet would show without it
+    // pictures first: a notice whose image is not up yet would show without it
     if (pictures.length) {
       await uploadFiles({
         settings: config.ftp, remoteDir: `${newsDir}/notices`, files: pictures,
@@ -1377,8 +1319,7 @@ app.post("/api/ftp/upload/news", async (req, res) => {
       onLine: ftpLine, onPhase: ftpPhase,
       shouldStop: () => upload.stopping, onStep: step,
     });
-    say("info", `${notices.length} خبر (${pictures.length} عکس) با امضا منتشر شد.`
-      + " اپ دفعه‌ی بعد که بالا بیاید می‌بیندشان.");
+    say("info", `${notices.length} خبر (${pictures.length} عکس) با امضا منتشر شد.`);
     for (const line of outcome.errors.slice(0, 10)) say("error", line);
   } catch (err) {
     ftpFailed(err);
@@ -1386,79 +1327,6 @@ app.post("/api/ftp/upload/news", async (req, res) => {
     upload.running = false;
     push("upload", uploadSnapshot());
   }
-});
-
-// ── مُهرِ خبرها ────────────────────────────────────────────────────────────────
-//
-// The notices sit on shared hosting, over plain http. Anyone who takes that host can replace
-// notices.json — and without a signature they would be writing straight onto the screen of
-// every child with the app, in هوهو's voice, with a link to anywhere.
-//
-// So the file is signed here, on this machine, and the app refuses anything it cannot verify.
-// The private half never leaves voice-studio.config.json (which is gitignored); only the public
-// half goes into the APK, as app/src/main/assets/notice-key.pub, and the public half can check
-// a signature but cannot make one. Taking the host therefore gets an attacker a file the app
-// throws away.
-//
-// A shared password baked into the APK would not do: it is in everyone's hands the moment
-// someone decompiles the app, and then forging a notice is as easy as writing one.
-
-const NOTICE_KEY_ASSET = path.resolve(ROOT, "../../app/src/main/assets/notice-key.pub");
-
-function noticeKeyState() {
-  return {
-    hasPrivate: Boolean(config.noticeKeyPrivate),
-    assetPath: NOTICE_KEY_ASSET,
-    assetExists: fs.existsSync(NOTICE_KEY_ASSET),
-    publicPem: config.noticeKeyPublic || "",
-  };
-}
-
-app.get("/api/notices/key", (_req, res) => res.json(noticeKeyState()));
-
-/**
- * Makes the signing key, once. Refuses to make a second one unless asked outright, because a
- * new key means every installed copy stops believing the notices until it is updated.
- */
-app.post("/api/notices/key", (req, res) => {
-  if (config.noticeKeyPrivate && req.body?.replace !== true) {
-    return res.status(409).json({
-      error: "کلید امضا از قبل ساخته شده. ساختنِ کلیدِ تازه یعنی اپ‌هایی که الان نصب‌اند "
-        + "تا وقتی نسخه‌ی جدید را نگیرند هیچ خبری را قبول نمی‌کنند. اگر واقعاً می‌خواهی، "
-        + "replace:true بفرست.",
-      ...noticeKeyState(),
-    });
-  }
-  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    publicKeyEncoding: { type: "spki", format: "pem" },
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
-  });
-  config.noticeKeyPrivate = privateKey;
-  config.noticeKeyPublic = publicKey;
-  saveConfig();
-
-  fs.mkdirSync(path.dirname(NOTICE_KEY_ASSET), { recursive: true });
-  fs.writeFileSync(NOTICE_KEY_ASSET, publicKey, "utf8");
-
-  say("ok", "کلید امضا ساخته شد. نیمه‌ی عمومی در assets/notice-key.pub نوشته شد — "
-    + "آن را کامیت کن و یک بیلدِ تازه بده، وگرنه اپ خبرها را قبول نمی‌کند.");
-  say("warn", "نیمه‌ی خصوصی فقط در voice-studio.config.json روی همین سیستم است. "
-    + "گمش کنی، دیگر نمی‌توانی خبر امضا کنی.");
-  res.json(noticeKeyState());
-});
-
-function signNotices(json) {
-  if (!config.noticeKeyPrivate) return null;
-  const signer = crypto.createSign("SHA256");
-  signer.update(Buffer.from(json, "utf8"));
-  return signer.sign(config.noticeKeyPrivate, "base64");
-}
-
-app.get("/api/notifications/active", (_req, res) => {
-  const data = getNotificationsData();
-  const activeList = data.items.filter(i => i.status === "sent").slice(0, 5);
-  res.json({ notifications: activeList });
 });
 
 app.post("/api/generate", async (req, res) => {

@@ -46,6 +46,12 @@ const GROUPS = [
   { id: "phrases", label: "تکه‌های سؤال" },
 ];
 
+/** A blank notice. Kept out of the component so «cancel» and «saved» reset to the same thing. */
+const emptyNotice = {
+  id: "", title: "", body: "", image: "", imageName: "", imageBase64: "",
+  link: "", screen: "", fromAt: "", untilAt: "",
+};
+
 export default function App() {
   const [config, setConfig] = useState(null);
   const [form, setForm] = useState(null);
@@ -71,17 +77,12 @@ export default function App() {
     endpoint: "short", speaker: "", speed: "", timestamps: false,
     text: "سَلام! مَن هوهو هَستَم، مُعَلِّمِ ریاضیِ تو. بیا با هَم تا دَه بِشماریم.",
   });
-  const [notifForm, setNotifForm] = useState({
-    title: "", body: "", imageUrl: "", actionUrl: "hohoapp://exam",
-    shamsiDate: "1405/08/15", time: "18:00", template: "",
-    // what the app actually reads
-    link: "", screen: "", until: "", imageName: "", imageBase64: ""
-  });
+  const [notices, setNotices] = useState([]);
+  const [notifForm, setNotifForm] = useState(emptyNotice);
   const [noticeKey, setNoticeKey] = useState({ hasPrivate: false, assetExists: false });
-  const [notifData, setNotifData] = useState({ items: [], queue: [], history: [], templates: [] });
   const [examForm, setExamForm] = useState({
     active: false, title: "", description: "", shamsiDate: "1405/08/15",
-    time: "16:00", durationMinutes: 45, questionsJson: "", sendNotification: true
+    time: "16:00", durationMinutes: 45, questionsJson: "", startsAtLocal: ""
   });
   const [examData, setExamData] = useState(null);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -276,12 +277,18 @@ export default function App() {
         </button>
         <button className={tab === "notifications" ? "chip sel" : "chip"} onClick={() => {
           setTab("notifications");
-          api("/notifications").then(setNotifData).catch(() => {});
-          api("/notices/key").then(setNoticeKey).catch(() => {});
+          api("/notices").then(d => {
+            setNotices(d.notices || []);
+            if (d.key) setNoticeKey(d.key);
+          }).catch(() => {});
         }}>
           📢 اعلان‌ها
         </button>
-        <button className={tab === "exam" ? "chip sel" : "chip"} onClick={() => { setTab("exam"); api("/exam").then(d => { setExamData(d); setExamForm({ ...d, questionsJson: JSON.stringify(d.questions || [], null, 2), sendNotification: true }); }).catch(() => {}); }}>
+        <button className={tab === "exam" ? "chip sel" : "chip"} onClick={() => { setTab("exam"); api("/exam").then(d => { setExamData(d); setExamForm({
+            ...d,
+            questionsJson: JSON.stringify(d.questions || [], null, 2),
+            startsAtLocal: d.startsAt ? new Date(d.startsAt).toISOString().slice(0, 16) : "",
+          }); }).catch(() => {}); }}>
           🏆 آزمون آنلاین
         </button>
         <button className="ghost" onClick={load} disabled={busy}>تازه‌سازی</button>
@@ -378,16 +385,6 @@ export default function App() {
             <label>تلاشِ مجدد در خطا</label>
             <input type="number" min="0" max="8" value={form.retries}
                    onChange={(e) => setForm({ ...form, retries: e.target.value })} />
-          </div>
-          <div>
-            <label>شناسه اپلیکیشن در پوشه (Pushe App ID)</label>
-            <input type="text" placeholder="مثلا: app_xxxxxxxxxxxx" value={form.pusheAppId || ""}
-                   onChange={(e) => setForm({ ...form, pusheAppId: e.target.value })} />
-          </div>
-          <div>
-            <label>توکن اتصال به API پوشه‌ (Pushe Token)</label>
-            <input type="password" placeholder="توکن پوشه را وارد کنید" value={form.pusheToken || ""}
-                   onChange={(e) => setForm({ ...form, pusheToken: e.target.value })} />
           </div>
           <label className="check">
             <input type="checkbox" checked={form.useVowels}
@@ -980,62 +977,52 @@ export default function App() {
 
       {tab === "notifications" && (
         <div className="card">
-          <h2>📢 ارسال و مدیریت اعلان‌ها (Push Notifications)</h2>
-          <p className="note">ارسال پیام‌های تبلیغاتی، اطلاع‌رسانی آزمون آنلاین و یادآوری تمرین با زمان‌بندی دقیق شمسی</p>
+          <h2>📢 خبرهای برنامه</h2>
+          <p className="note">
+            خبر همین‌جا نوشته می‌شود، با «انتشار» روی هاست می‌رود، و اپ آن را از همان‌جا
+            می‌خواند — هم وقتی باز است و هم در پس‌زمینه. هیچ سرویسِ پوشی در کار نیست.
+          </p>
 
-          <div style={{ marginBottom: 16, padding: 12, border: "1px dashed rgba(0,0,0,0.15)", borderRadius: 8, background: "#fafafa" }}>
-            <label style={{ fontWeight: "bold", display: "block", marginBottom: 6 }}>🔑 تنظیمات توکن پوشه‌ (Pushe API Token):</label>
-            <div className="grid">
-              <div>
-                <label>شناسه اپلیکیشن (Pushe App ID)</label>
-                <input type="text" placeholder="مثلا: app_xxxxxxxxxxxx" value={form.pusheAppId || ""} onChange={(e) => setForm({ ...form, pusheAppId: e.target.value })} />
-              </div>
-              <div>
-                <label>توکن اتصال به API (Pushe Token)</label>
-                <input type="password" placeholder="توکن خریداری شده از پوشه را اینجا بچسبانید" value={form.pusheToken || ""} onChange={(e) => setForm({ ...form, pusheToken: e.target.value })} />
-              </div>
-            </div>
-            <div className="row" style={{ marginTop: 8 }}>
-              <button className="tiny go" onClick={async () => {
-                const next = await save({ pusheAppId: form.pusheAppId, pusheToken: form.pusheToken });
-                alert("توکن پوشه‌ با موفقیت ذخیره شد!");
-              }}>💾 ذخیره‌سازی توکن پوشه‌</button>
-            </div>
+          <div className="card" style={{ borderColor: noticeKey.hasPrivate ? "#3e9e7a" : "#c0392b" }}>
+            <b>🔑 مُهرِ خبرها {noticeKey.hasPrivate ? "— ساخته شده" : "— هنوز ساخته نشده"}</b>
+            <p style={{ margin: "8px 0", lineHeight: 1.9 }}>
+              فایلِ خبرها روی هاستِ اشتراکی و روی http ساده می‌نشیند. هرکس آن هاست را بگیرد
+              می‌تواند عوضش کند — و بدونِ امضا یعنی مستقیم روی صفحه‌ی هر کودکی که اپ را دارد
+              می‌نویسد. پس همین‌جا امضا می‌شود و اپ هرچه را نتواند تأیید کند
+              <b> اصلاً نشان نمی‌دهد</b>. نیمه‌ی خصوصیِ کلید فقط روی همین سیستم می‌ماند؛
+              نیمه‌ی عمومی در <code>app/src/main/assets/notice-key.pub</code> نوشته می‌شود —
+              آن را کامیت کن و یک بیلدِ تازه بده.
+            </p>
+            {!noticeKey.hasPrivate && (
+              <button className="go" onClick={async () => {
+                const out = await api("/notices/key", { method: "POST", body: "{}" });
+                setNoticeKey(out);
+                alert("کلید ساخته شد.\n\nحالا app/src/main/assets/notice-key.pub را کامیت کن "
+                  + "و یک بیلدِ تازه بده — تا آن نسخه روی گوشی نرود، خبرها نمایش داده نمی‌شوند.");
+              }}>🔑 ساختِ کلید امضا</button>
+            )}
+            {noticeKey.hasPrivate && !noticeKey.assetExists && (
+              <p style={{ color: "#c0392b" }}>
+                ⚠ کلید هست ولی <code>assets/notice-key.pub</code> سرِ جایش نیست — بدونِ آن اپ
+                هیچ خبری را قبول نمی‌کند.
+              </p>
+            )}
           </div>
 
-          <div className="grid">
+          <h3 style={{ marginTop: 20 }}>{notifForm.id ? "✏️ ویرایشِ خبر" : "✍️ خبرِ تازه"}</h3>
+          <div className="grid2">
             <div>
-              <label>قالب‌های آماده</label>
-              <select value={notifForm.template} onChange={(e) => {
-                const tmpl = (notifData.templates || []).find(t => t.id === e.target.value);
-                if (tmpl) setNotifForm({ ...notifForm, template: e.target.value, title: tmpl.title, body: tmpl.body, actionUrl: tmpl.actionUrl });
-              }}>
-                <option value="">-- انتخاب قالب آماده --</option>
-                {(notifData.templates || []).map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-              </select>
+              <label>عنوان</label>
+              <input type="text" placeholder="مثلاً: آزمون آنلاین پنج‌شنبه" value={notifForm.title}
+                     onChange={(e) => setNotifForm({ ...notifForm, title: e.target.value })} />
             </div>
             <div>
-              <label>عنوان پیام</label>
-              <input type="text" placeholder="مثلا: 🏆 آزمون آنلاین هوهو" value={notifForm.title} onChange={(e) => setNotifForm({ ...notifForm, title: e.target.value })} />
+              <label>متن</label>
+              <input type="text" placeholder="چند کلمه که کودک و والد بخوانند" value={notifForm.body}
+                     onChange={(e) => setNotifForm({ ...notifForm, body: e.target.value })} />
             </div>
             <div>
-              <label>متن پیام</label>
-              <input type="text" placeholder="متن اطلاع‌رسانی برای کودکان و والدین..." value={notifForm.body} onChange={(e) => setNotifForm({ ...notifForm, body: e.target.value })} />
-            </div>
-            <div>
-              <label>لینک/اکشن هنگام کلیک</label>
-              <input type="text" placeholder="hohoapp://exam یا لینک اینترنتی" value={notifForm.actionUrl} onChange={(e) => setNotifForm({ ...notifForm, actionUrl: e.target.value })} />
-            </div>
-            <div>
-              <label>آدرس تصویر (اختیاری)</label>
-              <input type="text" placeholder="https://..." value={notifForm.imageUrl} onChange={(e) => setNotifForm({ ...notifForm, imageUrl: e.target.value })} />
-            </div>
-          </div>
-
-          {/* these four are what the app reads; everything above is the panel's own bookkeeping */}
-          <div className="grid2" style={{ marginTop: 12 }}>
-            <div>
-              <label>🖼 عکسِ خبر (از روی همین سیستم)</label>
+              <label>🖼 عکس (اختیاری)</label>
               <input type="file" accept="image/*" onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return setNotifForm({ ...notifForm, imageName: "", imageBase64: "" });
@@ -1046,7 +1033,8 @@ export default function App() {
                 reader.readAsDataURL(file);
               }} />
               <span className="muted" style={{ fontSize: 11 }}>
-                {notifForm.imageName ? `انتخاب شد: ${notifForm.imageName}` : "اختیاری — کنارِ خبر آپلود می‌شود"}
+                {notifForm.imageName ? `انتخاب شد: ${notifForm.imageName}`
+                  : notifForm.image ? `عکسِ فعلی: ${notifForm.image}` : "کنارِ خبر آپلود می‌شود"}
               </span>
             </div>
             <div>
@@ -1068,195 +1056,73 @@ export default function App() {
               </select>
             </div>
             <div>
+              <label>📅 از کِی دیده شود (اختیاری)</label>
+              <input type="datetime-local" value={notifForm.fromAt}
+                     onChange={(e) => setNotifForm({ ...notifForm, fromAt: e.target.value })} />
+            </div>
+            <div>
               <label>⏳ تا کِی معتبر است (اختیاری)</label>
-              <input type="datetime-local" value={notifForm.until}
-                     onChange={(e) => setNotifForm({ ...notifForm, until: e.target.value })} />
+              <input type="datetime-local" value={notifForm.untilAt}
+                     onChange={(e) => setNotifForm({ ...notifForm, untilAt: e.target.value })} />
               <span className="muted" style={{ fontSize: 11 }}>
-                بعد از این لحظه خبر نمایش داده نمی‌شود. برای آزمون، لحظه‌ی شروعِ آزمون را بگذار:
-                گوشی‌ای که دیر وصل شود اصلاً خبرِ ازدست‌رفته را نشان نمی‌دهد.
+                بعد از این لحظه نمایش داده نمی‌شود. برای آزمون، لحظه‌ی شروعِ آزمون را بگذار:
+                گوشی‌ای که دیر وصل شود اصلاً خبرِ ازدست‌رفته را نمی‌بیند.
               </span>
             </div>
           </div>
 
-          <div style={{ marginTop: 14, padding: 12, background: "rgba(0,0,0,0.03)", borderRadius: 8 }}>
-            <label style={{ fontWeight: "bold", display: "block", marginBottom: 6 }}>📅 انتخاب تاریخ و زمان ارسال (شمسی):</label>
-            <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
-              <div>
-                <span className="hint">سال: </span>
-                <select value={(notifForm.shamsiDate || "1405/08/15").split("/")[0]} onChange={(e) => {
-                  const parts = (notifForm.shamsiDate || "1405/08/15").split("/");
-                  setNotifForm({ ...notifForm, shamsiDate: `${e.target.value}/${parts[1] || "08"}/${parts[2] || "15"}` });
-                }}>
-                  <option value="1405">۱۴۰۵</option>
-                  <option value="1406">۱۴۰۶</option>
-                  <option value="1407">۱۴۰۷</option>
-                </select>
-              </div>
-
-              <div>
-                <span className="hint">ماه: </span>
-                <select value={(notifForm.shamsiDate || "1405/08/15").split("/")[1]} onChange={(e) => {
-                  const parts = (notifForm.shamsiDate || "1405/08/15").split("/");
-                  setNotifForm({ ...notifForm, shamsiDate: `${parts[0] || "1405"}/${e.target.value}/${parts[2] || "15"}` });
-                }}>
-                  <option value="01">01 - فروردین</option>
-                  <option value="02">02 - اردیبهشت</option>
-                  <option value="03">03 - خرداد</option>
-                  <option value="04">04 - تیر</option>
-                  <option value="05">05 - مرداد</option>
-                  <option value="06">06 - شهریور</option>
-                  <option value="07">07 - مهر</option>
-                  <option value="08">08 - آبان</option>
-                  <option value="09">09 - آذر</option>
-                  <option value="10">10 - دی</option>
-                  <option value="11">11 - بهمن</option>
-                  <option value="12">12 - اسفند</option>
-                </select>
-              </div>
-
-              <div>
-                <span className="hint">روز: </span>
-                <select value={(notifForm.shamsiDate || "1405/08/15").split("/")[2]} onChange={(e) => {
-                  const parts = (notifForm.shamsiDate || "1405/08/15").split("/");
-                  setNotifForm({ ...notifForm, shamsiDate: `${parts[0] || "1405"}/${parts[1] || "08"}/${e.target.value}` });
-                }}>
-                  {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <span className="hint">ساعت: </span>
-                <input type="text" style={{ width: 80, textAlign: "center" }} value={notifForm.time} onChange={(e) => setNotifForm({ ...notifForm, time: e.target.value })} />
-              </div>
-            </div>
-
-            <div className="row" style={{ marginTop: 8, gap: 8 }}>
-              <button className="tiny ghost" onClick={() => setNotifForm({ ...notifForm, shamsiDate: "1405/08/15", time: "18:00" })}>امروز (۱۸:۰۰)</button>
-              <button className="tiny ghost" onClick={() => setNotifForm({ ...notifForm, shamsiDate: "1405/08/16", time: "10:00" })}>فردا (۱۰:۰۰)</button>
-              <button className="tiny ghost" onClick={() => setNotifForm({ ...notifForm, shamsiDate: "1405/08/20", time: "16:00" })}>روز آزمون کشوری</button>
-            </div>
-          </div>
-
-          <div className="card" style={{ borderColor: noticeKey.hasPrivate ? "#3e9e7a" : "#c0392b" }}>
-            <b>🔑 مُهرِ خبرها {noticeKey.hasPrivate ? "— ساخته شده" : "— هنوز ساخته نشده"}</b>
-            <p style={{ margin: "8px 0", lineHeight: 1.9 }}>
-              خبرها روی هاستِ اشتراکی و روی http ساده می‌نشینند. هرکس آن هاست را بگیرد
-              می‌تواند <code>notices.json</code> را عوض کند — و بدونِ امضا، یعنی مستقیم روی
-              صفحه‌ی هر کودکی که اپ را دارد می‌نویسد. پس فایل همین‌جا امضا می‌شود و اپ هرچه را
-              نتواند تأیید کند <b>اصلاً نشان نمی‌دهد</b>.
-              <br />
-              نیمه‌ی خصوصیِ کلید فقط روی همین سیستم می‌ماند (در
-              <code>voice-studio.config.json</code> که در گیت نیست). نیمه‌ی عمومی در
-              <code>app/src/main/assets/notice-key.pub</code> نوشته می‌شود — آن را کامیت کن و
-              یک بیلدِ تازه بده.
-            </p>
-            {!noticeKey.hasPrivate && (
-              <button className="go" onClick={async () => {
-                setNoticeKey(await api("/notices/key", { method: "POST", body: "{}" }));
-                alert("کلید ساخته شد.\n\nحالا app/src/main/assets/notice-key.pub را کامیت کن "
-                  + "و یک بیلدِ تازه بده — تا آن نسخه روی گوشی نرود، خبرها نمایش داده نمی‌شوند.");
-              }}>🔑 ساختِ کلید امضا</button>
-            )}
-            {noticeKey.hasPrivate && !noticeKey.assetExists && (
-              <p style={{ color: "#c0392b" }}>
-                ⚠ کلید هست ولی <code>assets/notice-key.pub</code> سرِ جایش نیست. کلید را دوباره
-                بساز، یا فایل را برگردان — بدونِ آن اپ هیچ خبری را قبول نمی‌کند.
-              </p>
-            )}
-          </div>
-
-          <div className="card" style={{ marginTop: 14, borderColor: "#e0a33e" }}>
-            <b>دو جور خبر داریم، و این دکمه‌ها فقط یکی‌اش را می‌فرستند.</b>
-            <ul style={{ margin: "8px 0 0", paddingInlineStart: 18, lineHeight: 1.9 }}>
-              <li><b>خبرِ داخلِ برنامه</b> — همین‌جا نوشته می‌شود و با دکمه‌ی «انتشار» پایین روی
-                  هاست می‌رود. اپ آن را وقتی باز شود می‌بیند و بالای صفحه‌ی نقشه کارت می‌کند.</li>
-              <li><b>اعلانِ فوری</b> — از پنلِ <b>متریکس</b> فرستاده می‌شود، نه از اینجا. اپ
-                  SDKاش را دارد (اگر بیلد با google-services.json و شناسه‌های متریکس ساخته شده
-                  باشد) و همان لحظه روی گوشی می‌نشیند.</li>
-            </ul>
-          </div>
-
           <div className="row" style={{ marginTop: 14, gap: 12 }}>
-            <button className="go" disabled={!notifForm.title || !notifForm.body} onClick={async () => {
-              const out = await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, until: notifForm.until ? Date.parse(notifForm.until) : 0, sendNow: true }) });
-              setNotifData(await api("/notifications"));
-              // «ثبت شد» و «به گوشی‌ها رسید» دو چیزند؛ قبلاً هر دو یک پیغام می‌گرفتند
-              alert(out.delivered
-                ? "به سرویسِ پوش تحویل داده شد."
-                : `ارسال نشد — ${out.reason || "سرویسِ پوش تنظیم نیست"}.\n`
-                  + "پیام فقط در فهرستِ همین‌جا ثبت شد. تا SDK در خودِ اپ نباشد، "
-                  + "هیچ گوشی‌ای نوتیفیکیشن نمی‌گیرد.");
-            }}>🚀 ارسال فوری پیام</button>
-
-            <button className="go ghost" disabled={!notifForm.title || !notifForm.body} onClick={async () => {
-              await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, until: notifForm.until ? Date.parse(notifForm.until) : 0, sendNow: false }) });
-              setNotifData(await api("/notifications"));
-              alert("نوتیفیکیشن در صف زمان‌بندی قرار گرفت.");
-            }}>📅 ثبت زمان‌بندی ارسال ({notifForm.shamsiDate} - {notifForm.time})</button>
-          </div>
-
-          {/*
-            The app has no push SDK: it reads notices.json from the host every time it starts.
-            So a message is not in a child's hands until this button has put the file there.
-          */}
-          <div className="row" style={{ marginTop: 10, gap: 12, alignItems: "center" }}>
-            <button className="go ghost" onClick={async () => {
-              const out = await api("/ftp/upload/news", { method: "POST" });
-              alert(`منتشر شد: ${out.notices ?? 0} خبر، در ${out.dir || "پوشه‌ی math"}`);
-            }}>🌐 انتشار خبرها و آزمون روی هاست</button>
-            <span className="muted" style={{ fontSize: 12 }}>
-              تا این را نزنی، اپ‌ها خبرِ داخلِ برنامه را نمی‌بینند — اپ فایلِ روی هاست را می‌خواند.
-            </span>
-          </div>
-
-          <div className="row" style={{ marginTop: 24, justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0 }}>⏳ صف پیام‌های زمان‌بندی‌شده ({fa(notifData.queue?.length || 0)})</h3>
-            <button className={notifData.queuePaused ? "go tiny" : "warn tiny"} onClick={async () => {
-              await api("/notifications/toggle-queue", { method: "POST" });
-              setNotifData(await api("/notifications"));
-            }}>
-              {notifData.queuePaused ? "▶️ فعال‌سازی صف ارسال" : "⏸️ توقف صف ارسال"}
-            </button>
-          </div>
-
-          <div className="files">
-            {(notifData.queue || []).length === 0 && <div className="empty">هیچ پیامی در صف زمان‌بندی نیست.</div>}
-            {(notifData.queue || []).map(item => (
-              <div key={item.id} className="file">
-                <span><strong>{item.title}</strong> — {item.body}</span>
-                <span className="key">تاریخ ارسال: {item.shamsiDate} ساعت {item.time}</span>
-                <button className="tiny warn" onClick={async () => {
-                  await api(`/notifications/${item.id}`, { method: "DELETE" });
-                  setNotifData(await api("/notifications"));
-                }}>🗑️ لغو و حذف پیام</button>
-              </div>
-            ))}
-          </div>
-
-          <div className="row" style={{ marginTop: 24, justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0 }}>📜 تاریخچه پیام‌های ارسال‌شده ({fa(notifData.history?.length || 0)})</h3>
-            {(notifData.history || []).length > 0 && (
-              <button className="tiny ghost warn" onClick={async () => {
-                if (confirm("آیا از پاک‌سازی تاریخچه ارسال‌ها اطمینان دارید؟")) {
-                  await api("/notifications/history", { method: "DELETE" });
-                  setNotifData(await api("/notifications"));
-                }
-              }}>🗑️ پاک‌سازی تاریخچه</button>
+            <button className="go" disabled={!notifForm.title} onClick={async () => {
+              await api("/notices", { method: "POST", body: JSON.stringify({
+                ...notifForm,
+                from: notifForm.fromAt ? Date.parse(notifForm.fromAt) : 0,
+                until: notifForm.untilAt ? Date.parse(notifForm.untilAt) : 0,
+              }) });
+              setNotices((await api("/notices")).notices || []);
+              setNotifForm(emptyNotice);
+            }}>{notifForm.id ? "💾 ذخیره‌ی ویرایش" : "➕ افزودن به فهرست"}</button>
+            {notifForm.id && (
+              <button className="go ghost" onClick={() => setNotifForm(emptyNotice)}>انصراف</button>
             )}
           </div>
 
-          <div className="files">
-            {(notifData.history || []).length === 0 && <div className="empty">هنوز هیچ پیامی ارسال نشده است.</div>}
-            {(notifData.history || []).map(item => (
-              <div key={item.id} className="file">
-                <span><strong>{item.title}</strong> — {item.body}</span>
-                <span className="tag done">تحویل به {fa(item.recipientCount || 100)} کاربر</span>
-                <span className="key">{item.sentAt ? item.sentAt.slice(0, 10) : ""}</span>
-                <button className="tiny ghost" onClick={async () => {
-                  await api(`/notifications/${item.id}`, { method: "DELETE" });
-                  setNotifData(await api("/notifications"));
+          <div className="row" style={{ marginTop: 20, justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ margin: 0 }}>📋 فهرستِ خبرها ({fa(notices.length)})</h3>
+            <button className="go" disabled={!noticeKey.hasPrivate} onClick={async () => {
+              const out = await api("/notices/publish", { method: "POST" });
+              alert(`منتشر شد: ${out.notices} خبر، ${out.pictures} عکس.\n`
+                + "اپ‌ها در اولین چکِ بعدی می‌بینندشان.");
+            }}>🌐 انتشار روی هاست</button>
+          </div>
+          <p className="note">
+            تا این دکمه زده نشود هیچ اپی چیزی نمی‌بیند — فهرستِ بالا فقط روی همین سیستم است.
+          </p>
+
+          <div style={{ marginTop: 10 }}>
+            {!notices.length && <p className="muted">هنوز خبری نوشته نشده.</p>}
+            {notices.map((item) => (
+              <div key={item.id} className="row" style={{
+                justifyContent: "space-between", alignItems: "center", gap: 10,
+                padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+                <div style={{ flex: 1 }}>
+                  <b>{item.title}</b>
+                  <div className="muted" style={{ fontSize: 12 }}>{item.body}</div>
+                  <div className="muted" style={{ fontSize: 11 }}>
+                    {item.image ? "🖼 عکس · " : ""}
+                    {item.link ? "🔗 لینک · " : ""}
+                    {item.screen ? `📍 ${item.screen} · ` : ""}
+                    {item.until ? `تا ${new Date(item.until).toLocaleString("fa-IR")}` : "بدونِ انقضا"}
+                  </div>
+                </div>
+                <button className="go tiny ghost" onClick={() => setNotifForm({
+                  ...emptyNotice, ...item,
+                  fromAt: item.from ? new Date(item.from).toISOString().slice(0, 16) : "",
+                  untilAt: item.until ? new Date(item.until).toISOString().slice(0, 16) : "",
+                })}>ویرایش</button>
+                <button className="warn tiny" onClick={async () => {
+                  if (!confirm(`«${item.title}» پاک شود؟`)) return;
+                  await api(`/notices/${item.id}`, { method: "DELETE" });
+                  setNotices((await api("/notices")).notices || []);
                 }}>حذف</button>
               </div>
             ))}
@@ -1293,8 +1159,12 @@ export default function App() {
               <input type="number" value={examForm.durationMinutes} onChange={(e) => setExamForm({ ...examForm, durationMinutes: e.target.value })} />
             </div>
             <div>
-              <label>ارسال نوتیفیکیشن همزمان با فعال‌سازی</label>
-              <input type="checkbox" checked={examForm.sendNotification} onChange={(e) => setExamForm({ ...examForm, sendNotification: e.target.checked })} />
+              <label>⏱ لحظه‌ی شروع (برای شمارشِ معکوس در اپ)</label>
+              <input type="datetime-local" value={examForm.startsAtLocal || ""}
+                     onChange={(e) => setExamForm({ ...examForm, startsAtLocal: e.target.value })} />
+              <span className="muted" style={{ fontSize: 11 }}>
+                اپ از روی همین تصمیم می‌گیرد ثبت‌نام نشان بدهد یا برگه را باز کند.
+              </span>
             </div>
           </div>
 
@@ -1363,15 +1233,17 @@ export default function App() {
                     time: examForm.time,
                     durationMinutes: examForm.durationMinutes,
                     questions,
-                    sendNotification: examForm.sendNotification
+                    startsAt: examForm.startsAtLocal ? Date.parse(examForm.startsAtLocal) : 0,
                   })
                 });
                 setExamData(res);
-                alert("تنظیمات آزمون ذخیره شد!" + (examForm.sendNotification && examForm.active ? " و اطلاع‌رسانی به کاربران ارسال گردید." : ""));
+                // saving writes exam.json here; the host sees it only after «انتشار»
+                alert("آزمون روی همین سیستم ذخیره شد.\n\n"
+                  + "برای اینکه اپ‌ها ببینندش، در تبِ «اعلان‌ها» دکمه‌ی «🌐 انتشار روی هاست» را بزن.");
               } catch (err) {
                 alert("خطا در ذخیره JSON سوالات: " + err.message);
               }
-            }}>💾 ذخیره‌سازی و فعال‌سازی آزمون</button>
+            }}>💾 ذخیره‌ی آزمون</button>
           </div>
 
           {examData && (

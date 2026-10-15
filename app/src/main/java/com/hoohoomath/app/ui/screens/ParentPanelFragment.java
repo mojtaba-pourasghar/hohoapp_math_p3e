@@ -256,7 +256,13 @@ public class ParentPanelFragment extends BaseFragment {
         row.addView(mark);
         row.setOnClickListener(v -> {
             Notices.allow(requireContext(), !on);
-            if (!on) Announcements.askIfUseful(requireActivity());
+            // «خاموش» has to reach the background check too, or the phone keeps fetching and
+            // ringing for a parent who switched it off
+            if (on) com.hoohoomath.app.work.NoticeWork.cancel(requireContext());
+            else {
+                com.hoohoomath.app.work.NoticeWork.schedule(requireContext());
+                Announcements.askIfUseful(requireActivity());
+            }
             View root = getView();
             if (root != null) render(root);
         });

@@ -27,7 +27,9 @@ import com.hoohoomath.app.billing.Receipt;
 import com.hoohoomath.app.data.AppState;
 import com.hoohoomath.app.tts.NarrationText;
 import com.hoohoomath.app.tts.SoundManager;
+import com.hoohoomath.app.data.NoticeWatcher;
 import com.hoohoomath.app.data.Notices;
+import com.hoohoomath.app.work.NoticeWork;
 import com.hoohoomath.app.tts.VoiceStore;
 import com.hoohoomath.app.ui.Announcements;
 import com.hoohoomath.app.ui.BaseFragment;
@@ -147,15 +149,12 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         bindNavItem(navExam, R.drawable.ic_target, "آزمون", () -> go(Screen.EXAM_INDEX));
         bindNavItem(navParent, R.drawable.ic_shield, "والدین", this::goParent);
 
-        // The news. Whatever is already on the device is shown at once; the host is asked for
-        // more in the background, and anything new that arrives goes to the phone's tray so it
-        // can bring the child back tomorrow rather than only when they happen to open the app.
+        // The news. There is no push service, so the app looks rather than being told: a few
+        // minutes apart while it is open, and through the system's scheduler while it is not.
+        // Whatever is already on the device is shown at once.
         Announcements.post(this);
-        Notices.refresh(this, () -> {
-            Announcements.post(this);
-            Announcements.askIfUseful(this);
-        });
         Announcements.askIfUseful(this);
+        if (Notices.allowed(this)) NoticeWork.schedule(this);
 
         if (savedInstanceState == null) {
             Screen opened = screenFromNotice(getIntent());
@@ -222,12 +221,17 @@ public class MainActivity extends AppCompatActivity implements Navigator {
     @Override
     protected void onResume() {
         super.onResume();
+        NoticeWatcher.start(this, () -> {
+            Announcements.post(this);
+            Announcements.askIfUseful(this);
+        });
         SoundManager sound = SoundManager.get();
         if (sound != null) sound.startMusic();
     }
 
     @Override
     protected void onPause() {
+        NoticeWatcher.stop();      // nothing to look for while nobody is looking at the screen
         SoundManager sound = SoundManager.get();
         if (sound != null) sound.pauseMusic();
         super.onPause();

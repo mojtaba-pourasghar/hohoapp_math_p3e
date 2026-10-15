@@ -211,22 +211,34 @@ public final class Notices {
         Context app = context.getApplicationContext();
         if (!Net.online(app)) return;
         IO.execute(() -> {
-            String fresh = Net.text(URL);
-            if (fresh == null) return;
-
-            // The signature decides, and it decides before anything is read out of the file.
-            // A host that has been taken over can serve any notices.json it likes; what it
-            // cannot do is sign one, because the key that signs is on the teacher's machine.
-            String signature = Net.text(SIGNATURE_URL);
-            if (!NoticeSeal.verify(app, fresh, signature)) return;
-
-            if (parse(fresh).isEmpty() && !fresh.contains("notices")) return;   // not our file
-            String before = readCache(app);
-            if (fresh.equals(before)) return;
-            writeCache(app, fresh);
-            burySomethingMissed(app, fresh);
-            if (whenChanged != null) MAIN.post(whenChanged);
+            if (fetchAndStore(app) && whenChanged != null) MAIN.post(whenChanged);
         });
+    }
+
+    /**
+     * The same, on the calling thread — for the background worker, which has its own thread and
+     * nothing to do but wait. Returns whether anything actually changed.
+     */
+    public static boolean refreshNow(Context context) {
+        Context app = context.getApplicationContext();
+        return Net.online(app) && fetchAndStore(app);
+    }
+
+    private static boolean fetchAndStore(Context app) {
+        String fresh = Net.text(URL);
+        if (fresh == null) return false;
+
+        // The signature decides, and it decides before anything is read out of the file. A host
+        // that has been taken over can serve any notices.json it likes; what it cannot do is
+        // sign one, because the key that signs is on the teacher's machine.
+        String signature = Net.text(SIGNATURE_URL);
+        if (!NoticeSeal.verify(app, fresh, signature)) return false;
+
+        if (parse(fresh).isEmpty() && !fresh.contains("notices")) return false;   // not our file
+        if (fresh.equals(readCache(app))) return false;                           // nothing new
+        writeCache(app, fresh);
+        burySomethingMissed(app, fresh);
+        return true;
     }
 
     /** Quietly retires every notice whose moment passed while the phone was away. */
