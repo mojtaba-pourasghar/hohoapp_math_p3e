@@ -1088,9 +1088,14 @@ export default function App() {
 
           <div className="row" style={{ marginTop: 14, gap: 12 }}>
             <button className="go" disabled={!notifForm.title || !notifForm.body} onClick={async () => {
-              await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, sendNow: true }) });
+              const out = await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, sendNow: true }) });
               setNotifData(await api("/notifications"));
-              alert("نوتیفیکیشن فوراً ارسال شد!");
+              // «ثبت شد» و «به گوشی‌ها رسید» دو چیزند؛ قبلاً هر دو یک پیغام می‌گرفتند
+              alert(out.delivered
+                ? "به سرویسِ پوش تحویل داده شد."
+                : `ارسال نشد — ${out.reason || "سرویسِ پوش تنظیم نیست"}.\n`
+                  + "پیام فقط در فهرستِ همین‌جا ثبت شد. تا SDK در خودِ اپ نباشد، "
+                  + "هیچ گوشی‌ای نوتیفیکیشن نمی‌گیرد.");
             }}>🚀 ارسال فوری پیام</button>
 
             <button className="go ghost" disabled={!notifForm.title || !notifForm.body} onClick={async () => {

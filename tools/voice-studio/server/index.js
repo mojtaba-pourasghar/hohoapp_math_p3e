@@ -421,6 +421,13 @@ app.post("/api/config", (req, res) => {
   if (typeof body.oggBitrate === "string" && body.oggBitrate.trim()) {
     config.oggBitrate = body.oggBitrate.trim();
   }
+  // The notification panel has boxes for these and they were never read here, so whatever was
+  // typed went nowhere, config.pusheToken stayed empty, and every «ارسال فوری» quietly took
+  // the «no token» branch and sent nothing while the log said «ارسال شد».
+  for (const key of ["pusheAppId", "pusheToken"]) {
+    if (typeof body[key] === "string") config[key] = body[key].trim();
+  }
+
   if (typeof body.token === "string" && body.token.trim()) {
     config.token = body.token.trim();
     say("info", "توکن ذخیره شد");
@@ -1105,10 +1112,15 @@ function getExamData() {
 // Background scheduler for notifications
 let queuePaused = false;
 
+/**
+ * Hands one message to the push service. Returns what really happened, because «ثبت شد» and
+ * «به گوشی‌ها رسید» are not the same thing and the panel must not blur them.
+ */
 async function sendPusheNotification(item) {
   if (!config.pusheToken || !config.pusheAppId) {
-    say("info", "توکن پوشه تنظیم نشده است (ثبت در دیتابیس داخلی انجام شد).");
-    return;
+    say("error", "ارسال نشد: شناسه و توکنِ سرویسِ پوش در تنظیمات خالی است. "
+      + "پیام فقط در فهرستِ همین‌جا ثبت شد.");
+    return { delivered: false, reason: "سرویسِ پوش تنظیم نشده" };
   }
   try {
     const res = await fetch("https://api.pushe.co/v2/messaging/notifications/", {
@@ -1128,13 +1140,15 @@ async function sendPusheNotification(item) {
       })
     });
     if (res.ok) {
-      say("ok", `نوتیفیکیشن به سرویس پوشه تحویل داده شد: ${item.title}`);
-    } else {
-      const txt = await res.text();
-      say("error", `خطای سرویس پوشه (${res.status}): ${txt}`);
+      say("ok", `نوتیفیکیشن به سرویس پوش تحویل داده شد: ${item.title}`);
+      return { delivered: true };
     }
+    const txt = await res.text();
+    say("error", `خطای سرویسِ پوش (${res.status}): ${txt}`);
+    return { delivered: false, reason: `سرویس ${res.status} داد` };
   } catch (err) {
-    say("error", `خطای شبکه‌ای پوشه: ${err.message}`);
+    say("error", `خطای شبکه‌ایِ سرویسِ پوش: ${err.message}`);
+    return { delivered: false, reason: err.message };
   }
 }
 
@@ -1186,7 +1200,7 @@ app.delete("/api/notifications/history", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/notifications", (req, res) => {
+app.post("/api/notifications", async (req, res) => {
   try {
     const { title, body, imageUrl, actionUrl, scheduledAt, shamsiDate, time, sendNow } = req.body || {};
     if (!title || !body) return res.status(400).json({ error: "عنوان و متن الزامی است." });
@@ -1206,18 +1220,25 @@ app.post("/api/notifications", (req, res) => {
       status: isSendNow ? "sent" : "scheduled",
       sentAt: isSendNow ? new Date().toISOString() : null,
       createdAt: new Date().toISOString(),
-      recipientCount: isSendNow ? 100 : 0
+      // nobody counts the phones: there is no registry, and «۱۰۰ گیرنده» was a made-up number
+      // that made a message which never left look like one that had arrived
+      recipientCount: null
     };
 
     data.items.unshift(newItem);
     writeJsonFile(NOTIFICATIONS_FILE, data);
 
-    if (isSendNow) {
-      sendPusheNotification(newItem);
-    }
+    let outcome = { delivered: false, reason: "زمان‌بندی شد" };
+    if (isSendNow) outcome = await sendPusheNotification(newItem);
 
-    say("ok", isSendNow ? `نوتیفیکیشن ارسال شد: ${title}` : `نوتیفیکیشن زمان‌بندی شد: ${title}`);
-    res.json(newItem);
+    newItem.delivered = outcome.delivered === true;
+    writeJsonFile(NOTIFICATIONS_FILE, data);
+
+    say(isSendNow && !newItem.delivered ? "error" : "ok",
+        !isSendNow ? `نوتیفیکیشن زمان‌بندی شد: ${title}`
+          : newItem.delivered ? `به سرویسِ پوش رفت: ${title}`
+          : `فقط ثبت شد، ارسال نشد: ${title}`);
+    res.json({ ...newItem, ...outcome });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
