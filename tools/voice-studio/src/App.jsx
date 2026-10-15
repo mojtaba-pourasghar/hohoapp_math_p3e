@@ -1,4 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  toJalali, fromJalali, daysInJalaliMonth, columnOf, spell, todayJalali,
+  MONTHS, WEEKDAYS, pad2, fa as faDigits,
+} from "./shamsi.js";
 
 const fa = (n) => Number(n || 0).toLocaleString("fa-IR");
 const api = async (path, options) => {
@@ -46,10 +50,116 @@ const GROUPS = [
   { id: "phrases", label: "تکه‌های سؤال" },
 ];
 
+
+/**
+ * A Persian calendar, because every date in this panel is a Persian date.
+ *
+ * The browser's own <input type="datetime-local"> shows mm/dd/yyyy and a Gregorian calendar,
+ * which is the wrong calendar for the person using this and for everything it describes.
+ *
+ * Shows the month a day at a time, Saturday first, and keeps the hour and minute beside it —
+ * «۲۳ مهر ۱۴۰۵ — ساعت ۱۶:۰۰» is one thing to pick, not two.
+ */
+function ShamsiPicker({ value, onChange, placeholder = "انتخاب نشده" }) {
+  const [open, setOpen] = useState(false);
+  const start = value ? new Date(value) : new Date();
+  const shown = toJalali(new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())));
+  const [at, setAt] = useState({ jy: shown.jy, jm: shown.jm });
+
+  const hours = value ? new Date(value).getHours() : 9;
+  const minutes = value ? new Date(value).getMinutes() : 0;
+
+  const days = daysInJalaliMonth(at.jy, at.jm);
+  const firstDay = fromJalali(at.jy, at.jm, 1);
+  const blanks = firstDay ? columnOf(firstDay) : 0;
+  const chosen = value ? toJalali(new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()))) : null;
+  const today = todayJalali();
+
+  const pick = (jd, hh = hours, mi = minutes) => {
+    const when = fromJalali(at.jy, at.jm, jd, hh, mi);
+    if (when) onChange(when.getTime());
+  };
+
+  const move = (by) => {
+    let jm = at.jm + by, jy = at.jy;
+    if (jm < 1) { jm = 12; jy -= 1; }
+    if (jm > 12) { jm = 1; jy += 1; }
+    setAt({ jy, jm });
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button type="button" className="go ghost" style={{ width: "100%", textAlign: "start" }}
+              onClick={() => setOpen(!open)}>
+        📅 {value ? spell(value) : placeholder}
+      </button>
+
+      {open && (
+        <div className="card" style={{
+          position: "absolute", zIndex: 30, insetInlineStart: 0, marginTop: 6,
+          width: 290, padding: 12, boxShadow: "0 10px 30px rgba(0,0,0,.18)" }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <button type="button" className="tiny ghost" onClick={() => move(-1)}>‹</button>
+            <b>{MONTHS[at.jm - 1]} {faDigits(at.jy)}</b>
+            <button type="button" className="tiny ghost" onClick={() => move(1)}>›</button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginTop: 10 }}>
+            {WEEKDAYS.map(w => (
+              <div key={w} style={{ textAlign: "center", fontSize: 11, color: "var(--muted)" }}>{w}</div>
+            ))}
+            {Array.from({ length: blanks }).map((_, i) => <div key={`b${i}`} />)}
+            {Array.from({ length: days }).map((_, i) => {
+              const jd = i + 1;
+              const isChosen = chosen && chosen.jy === at.jy && chosen.jm === at.jm && chosen.jd === jd;
+              const isToday = today.jy === at.jy && today.jm === at.jm && today.jd === jd;
+              return (
+                <button key={jd} type="button" onClick={() => pick(jd)} style={{
+                  padding: "6px 0", fontSize: 12.5, borderRadius: 8,
+                  background: isChosen ? "var(--teal)" : isToday ? "var(--orange-soft)" : "transparent",
+                  color: isChosen ? "#fff" : "var(--ink)",
+                  border: isToday && !isChosen ? "1px solid var(--orange)" : "1px solid transparent",
+                }}>{faDigits(jd)}</button>
+              );
+            })}
+          </div>
+
+          <div className="row" style={{ marginTop: 12, gap: 6, alignItems: "center" }}>
+            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>ساعت</span>
+            <select value={hours} style={{ width: 70 }} onChange={(e) =>
+              pick(chosen && chosen.jm === at.jm ? chosen.jd : 1, Number(e.target.value), minutes)}>
+              {Array.from({ length: 24 }).map((_, h) => <option key={h} value={h}>{faDigits(pad2(h))}</option>)}
+            </select>
+            <span>:</span>
+            <select value={minutes} style={{ width: 70 }} onChange={(e) =>
+              pick(chosen && chosen.jm === at.jm ? chosen.jd : 1, hours, Number(e.target.value))}>
+              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m =>
+                <option key={m} value={m}>{faDigits(pad2(m))}</option>)}
+            </select>
+          </div>
+
+          <div className="row" style={{ marginTop: 10, gap: 6 }}>
+            <button type="button" className="tiny ghost" onClick={() => {
+              setAt({ jy: today.jy, jm: today.jm });
+              const when = fromJalali(today.jy, today.jm, today.jd, hours, minutes);
+              if (when) onChange(when.getTime());
+            }}>امروز</button>
+            <button type="button" className="warn tiny" onClick={() => { onChange(0); setOpen(false); }}>
+              پاک کردن
+            </button>
+            <button type="button" className="go tiny" style={{ marginInlineStart: "auto" }}
+                    onClick={() => setOpen(false)}>تأیید</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** A blank notice. Kept out of the component so «cancel» and «saved» reset to the same thing. */
 const emptyNotice = {
   id: "", title: "", body: "", image: "", imageName: "", imageBase64: "",
-  link: "", screen: "", fromAt: "", untilAt: "",
+  link: "", screen: "", from: 0, until: 0,
 };
 
 export default function App() {
@@ -82,7 +192,7 @@ export default function App() {
   const [noticeKey, setNoticeKey] = useState({ hasPrivate: false, assetExists: false });
   const [examForm, setExamForm] = useState({
     active: false, title: "", description: "", shamsiDate: "1405/08/15",
-    time: "16:00", durationMinutes: 45, questionsJson: "", startsAtLocal: ""
+    time: "16:00", durationMinutes: 45, questionsJson: "", startsAt: 0
   });
   const [examData, setExamData] = useState(null);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -287,7 +397,6 @@ export default function App() {
         <button className={tab === "exam" ? "chip sel" : "chip"} onClick={() => { setTab("exam"); api("/exam").then(d => { setExamData(d); setExamForm({
             ...d,
             questionsJson: JSON.stringify(d.questions || [], null, 2),
-            startsAtLocal: d.startsAt ? new Date(d.startsAt).toISOString().slice(0, 16) : "",
           }); }).catch(() => {}); }}>
           🏆 آزمون آنلاین
         </button>
@@ -1057,13 +1166,15 @@ export default function App() {
             </div>
             <div>
               <label>📅 از کِی دیده شود (اختیاری)</label>
-              <input type="datetime-local" value={notifForm.fromAt}
-                     onChange={(e) => setNotifForm({ ...notifForm, fromAt: e.target.value })} />
+              <ShamsiPicker value={notifForm.from}
+                            onChange={(ms) => setNotifForm({ ...notifForm, from: ms })}
+                            placeholder="از همین حالا" />
             </div>
             <div>
               <label>⏳ تا کِی معتبر است (اختیاری)</label>
-              <input type="datetime-local" value={notifForm.untilAt}
-                     onChange={(e) => setNotifForm({ ...notifForm, untilAt: e.target.value })} />
+              <ShamsiPicker value={notifForm.until}
+                            onChange={(ms) => setNotifForm({ ...notifForm, until: ms })}
+                            placeholder="بدونِ انقضا" />
               <span className="muted" style={{ fontSize: 11 }}>
                 بعد از این لحظه نمایش داده نمی‌شود. برای آزمون، لحظه‌ی شروعِ آزمون را بگذار:
                 گوشی‌ای که دیر وصل شود اصلاً خبرِ ازدست‌رفته را نمی‌بیند.
@@ -1073,11 +1184,7 @@ export default function App() {
 
           <div className="row" style={{ marginTop: 14, gap: 12 }}>
             <button className="go" disabled={!notifForm.title} onClick={async () => {
-              await api("/notices", { method: "POST", body: JSON.stringify({
-                ...notifForm,
-                from: notifForm.fromAt ? Date.parse(notifForm.fromAt) : 0,
-                until: notifForm.untilAt ? Date.parse(notifForm.untilAt) : 0,
-              }) });
+              await api("/notices", { method: "POST", body: JSON.stringify(notifForm) });
               setNotices((await api("/notices")).notices || []);
               setNotifForm(emptyNotice);
             }}>{notifForm.id ? "💾 ذخیره‌ی ویرایش" : "➕ افزودن به فهرست"}</button>
@@ -1111,14 +1218,11 @@ export default function App() {
                     {item.image ? "🖼 عکس · " : ""}
                     {item.link ? "🔗 لینک · " : ""}
                     {item.screen ? `📍 ${item.screen} · ` : ""}
-                    {item.until ? `تا ${new Date(item.until).toLocaleString("fa-IR")}` : "بدونِ انقضا"}
+                    {item.until ? `تا ${spell(item.until)}` : "بدونِ انقضا"}
                   </div>
                 </div>
-                <button className="go tiny ghost" onClick={() => setNotifForm({
-                  ...emptyNotice, ...item,
-                  fromAt: item.from ? new Date(item.from).toISOString().slice(0, 16) : "",
-                  untilAt: item.until ? new Date(item.until).toISOString().slice(0, 16) : "",
-                })}>ویرایش</button>
+                <button className="go tiny ghost"
+                        onClick={() => setNotifForm({ ...emptyNotice, ...item })}>ویرایش</button>
                 <button className="warn tiny" onClick={async () => {
                   if (!confirm(`«${item.title}» پاک شود؟`)) return;
                   await api(`/notices/${item.id}`, { method: "DELETE" });
@@ -1160,8 +1264,9 @@ export default function App() {
             </div>
             <div>
               <label>⏱ لحظه‌ی شروع (برای شمارشِ معکوس در اپ)</label>
-              <input type="datetime-local" value={examForm.startsAtLocal || ""}
-                     onChange={(e) => setExamForm({ ...examForm, startsAtLocal: e.target.value })} />
+              <ShamsiPicker value={examForm.startsAt}
+                            onChange={(ms) => setExamForm({ ...examForm, startsAt: ms })}
+                            placeholder="تعیین نشده" />
               <span className="muted" style={{ fontSize: 11 }}>
                 اپ از روی همین تصمیم می‌گیرد ثبت‌نام نشان بدهد یا برگه را باز کند.
               </span>
@@ -1233,7 +1338,7 @@ export default function App() {
                     time: examForm.time,
                     durationMinutes: examForm.durationMinutes,
                     questions,
-                    startsAt: examForm.startsAtLocal ? Date.parse(examForm.startsAtLocal) : 0,
+                    startsAt: examForm.startsAt || 0,
                   })
                 });
                 setExamData(res);
