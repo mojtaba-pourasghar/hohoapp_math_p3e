@@ -63,6 +63,32 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          اعلانِ فوری (Metrix). These are read by the SDK at startup — it brings up its own
+          ContentProvider, so there is no init call anywhere in the code.
+
+          The two ids come from the Metrix panel and are filled in by app/build.gradle from
+          local.properties or the environment. When push is off they resolve to empty strings
+          and nothing reads them, because the SDK is not in the APK either.
+        -->
+        <meta-data
+            android:name="ir.metrix.APPLICATION_ID"
+            android:value="${metrixAppId}" />
+        <meta-data
+            android:name="ir.metrix.SIGNATURE"
+            android:value="${metrixSignature}" />
+        <meta-data
+            android:name="metrix_developer_mode"
+            android:value="false" />
+
+        <!-- what a pushed notification looks like when the message carries no icon of its own -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_owl_face" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/teal" />
     </application>
 
 </manifest>

@@ -1086,6 +1086,17 @@ export default function App() {
             </div>
           </div>
 
+          <div className="card" style={{ marginTop: 14, borderColor: "#e0a33e" }}>
+            <b>دو جور خبر داریم، و این دکمه‌ها فقط یکی‌اش را می‌فرستند.</b>
+            <ul style={{ margin: "8px 0 0", paddingInlineStart: 18, lineHeight: 1.9 }}>
+              <li><b>خبرِ داخلِ برنامه</b> — همین‌جا نوشته می‌شود و با دکمه‌ی «انتشار» پایین روی
+                  هاست می‌رود. اپ آن را وقتی باز شود می‌بیند و بالای صفحه‌ی نقشه کارت می‌کند.</li>
+              <li><b>اعلانِ فوری</b> — از پنلِ <b>متریکس</b> فرستاده می‌شود، نه از اینجا. اپ
+                  SDKاش را دارد (اگر بیلد با google-services.json و شناسه‌های متریکس ساخته شده
+                  باشد) و همان لحظه روی گوشی می‌نشیند.</li>
+            </ul>
+          </div>
+
           <div className="row" style={{ marginTop: 14, gap: 12 }}>
             <button className="go" disabled={!notifForm.title || !notifForm.body} onClick={async () => {
               const out = await api("/notifications", { method: "POST", body: JSON.stringify({ ...notifForm, sendNow: true }) });
@@ -1115,7 +1126,7 @@ export default function App() {
               alert(`منتشر شد: ${out.notices ?? 0} خبر، در ${out.dir || "پوشه‌ی math"}`);
             }}>🌐 انتشار خبرها و آزمون روی هاست</button>
             <span className="muted" style={{ fontSize: 12 }}>
-              تا این را نزنی، اپ‌ها خبر را نمی‌بینند — اپ فایلِ روی هاست را می‌خواند.
+              تا این را نزنی، اپ‌ها خبرِ داخلِ برنامه را نمی‌بینند — اپ فایلِ روی هاست را می‌خواند.
             </span>
           </div>
 

@@ -30,8 +30,11 @@ import java.util.List;
  * it next time they open the app; the tray entry is the part that brings them back.
  *
  * Which means a notice can arrive late, when the app is next started, and never while the phone
- * is asleep. Worth saying plainly: if announcements ever have to land the moment they are sent,
- * that needs a push service (Pushe and the like) and an SDK with it.
+ * is asleep. For news that has to land the moment it is sent — «the exam starts in half an
+ * hour» — there is Metrix, which the build pulls in only when there is a Firebase config and a
+ * pair of Metrix ids to go with it (see app/build.gradle). That SDK does its own work: it
+ * registers itself, builds its own notifications and opens the app on a tap, so there is no code
+ * here for it beyond honouring the parent's switch.
  */
 public final class Announcements {
 
@@ -57,6 +60,43 @@ public final class Announcements {
         if (Notices.unseen(activity).isEmpty()) return;
         ActivityCompat.requestPermissions(activity,
             new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST);
+    }
+
+    // ── the push SDK, if this build has one ──────────────────────────────────
+    //
+    // ir.metrix.notification is in the APK only when push was configured at build time, so it
+    // cannot be named directly — a build without it would not compile. Everything below goes
+    // through reflection against the one class, and does nothing at all when it is absent.
+    // The names are taken from the published AAR, not from memory:
+    //   public static void enableNotifications() / disableNotifications() / isNotificationEnable()
+    private static final String METRIX = "ir.metrix.notification.MetrixNotification";
+
+    /** Whether this build was given a push service at all. */
+    public static boolean pushBuiltIn() {
+        try {
+            Class.forName(METRIX);
+            return true;
+        } catch (ClassNotFoundException notThisBuild) {
+            return false;
+        }
+    }
+
+    /**
+     * Points the push service at the parent's switch.
+     *
+     * «خبرها خاموش» has to mean every kind of news, or the switch is a lie: the card on the map,
+     * the tray entry this app posts itself, and anything the push service would deliver.
+     */
+    public static void applyPushPreference(Context context) {
+        boolean on = Notices.allowed(context);
+        try {
+            Class<?> metrix = Class.forName(METRIX);
+            metrix.getMethod(on ? "enableNotifications" : "disableNotifications").invoke(null);
+        } catch (ClassNotFoundException notThisBuild) {
+            // a build without push; the file-based notices are all there is
+        } catch (Exception changed) {
+            // the SDK is there but not as expected — better a missed switch than a crash
+        }
     }
 
     private static void ensureChannel(Context context) {

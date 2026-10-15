@@ -1,3 +1,7 @@
 plugins {
     id 'com.android.application' version '8.7.0' apply false
+    // Metrix's push module rides on Firebase Cloud Messaging, and FCM needs this plugin to turn
+    // app/google-services.json into resources. Declared here, applied in app/build.gradle only
+    // when that file is actually present — see the note there.
+    id 'com.google.gms.google-services' version '4.4.2' apply false
 }

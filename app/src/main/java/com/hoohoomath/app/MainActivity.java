@@ -151,6 +151,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         // more in the background, and anything new that arrives goes to the phone's tray so it
         // can bring the child back tomorrow rather than only when they happen to open the app.
         Announcements.post(this);
+        Announcements.applyPushPreference(this);   // a switch turned off last time stays off
         Notices.refresh(this, () -> {
             Announcements.post(this);
             Announcements.askIfUseful(this);
