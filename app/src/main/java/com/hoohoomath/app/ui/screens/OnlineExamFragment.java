@@ -20,6 +20,7 @@ import com.hoohoomath.app.data.OnlineExam;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
+import com.hoohoomath.app.work.ExamReminders;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -177,6 +178,7 @@ public class OnlineExamFragment extends BaseFragment {
             }
             list.addView(button("🚀 ورود و شروع آزمون", R.color.orange, () -> {
                 state().setBoolean(exam.key() + "_registered", true);
+                ExamReminders.refresh(requireContext());
                 sitting = true;
                 at = firstUnanswered();
                 render();
@@ -195,7 +197,12 @@ public class OnlineExamFragment extends BaseFragment {
         } else if (exam.registrationOpen(now)) {
             list.addView(button("✏️ ثبت‌نام در آزمون", R.color.teal, () -> {
                 state().setBoolean(exam.key() + "_registered", true);
-                Toast.makeText(requireContext(), "ثبت‌نامت انجام شد!", Toast.LENGTH_SHORT).show();
+                // set the countdown now rather than waiting for the next background check: a
+                // child who signs up an hour before the exam must still get «نیم ساعت مانده»
+                ExamReminders.refresh(requireContext());
+                Toast.makeText(requireContext(),
+                    "ثبت‌نامت انجام شد! نزدیکِ آزمون روی گوشی یادت می‌اندازیم.",
+                    Toast.LENGTH_LONG).show();
                 render();
             }));
         } else {
@@ -323,6 +330,7 @@ public class OnlineExamFragment extends BaseFragment {
         }
         state().setInt(exam.key() + "_score", score);
         state().setBoolean(exam.key() + "_done", true);
+        ExamReminders.clear(requireContext(), exam.key());   // handed in; nothing left to remind
         sitting = false;
         render();
     }

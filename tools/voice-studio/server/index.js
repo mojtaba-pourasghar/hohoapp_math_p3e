@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { readManifest, existingKeys, GROUP_LABELS } from "./manifest.js";
 import { speak, SPEAKERS, VOICES, RateLimited } from "./avasho.js";
 import {
-  AUDIO_BASE, KARBARG_BASE, writeAudioIndex, addWorksheet, listWorksheets,
+  AUDIO_BASE, KARBARG_BASE, writeAudioIndex, addWorksheet, editWorksheet, listWorksheets,
   removeWorksheet, writeWorksheetIndex,
 } from "./publish.js";
 import { probe, uploadFiles, uploadTree, audioFilesIn, ftpHint } from "./ftp.js";
@@ -1002,14 +1002,33 @@ app.get("/api/karbarg", (_req, res) => {
 
 app.post("/api/karbarg", (req, res) => {
   try {
-    const { title, note, chapter, fileName, dataBase64 } = req.body || {};
+    const { title, note, chapter, order, fileName, dataBase64 } = req.body || {};
     const data = Buffer.from(String(dataBase64 || "").split(",").pop(), "base64");
-    const sheet = addWorksheet({ dir: config.karbargDir, title, note, chapter, fileName, data });
+    const sheet = addWorksheet({ dir: config.karbargDir, title, note, chapter, order, fileName, data });
     writeWorksheetIndex({ dir: config.karbargDir, baseUrl: config.karbargBase });
     say("ok", `کاربرگ اضافه شد: ${sheet.title} → ${sheet.slug}/${sheet.file}`);
     res.json(sheet);
   } catch (err) {
     say("error", `کاربرگ اضافه نشد: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/** Changes a sheet already added: its words, its place in the list, or the PDF itself. */
+app.put("/api/karbarg/:slug", (req, res) => {
+  try {
+    const { title, note, chapter, order, free, fileName, dataBase64 } = req.body || {};
+    const data = dataBase64
+      ? Buffer.from(String(dataBase64).split(",").pop(), "base64") : null;
+    const sheet = editWorksheet({
+      dir: config.karbargDir, slug: req.params.slug,
+      title, note, chapter, order, free, fileName, data,
+    });
+    writeWorksheetIndex({ dir: config.karbargDir, baseUrl: config.karbargBase });
+    say("ok", `کاربرگ ویرایش شد: ${sheet.title}${data ? " (فایل هم عوض شد)" : ""}`);
+    res.json(sheet);
+  } catch (err) {
+    say("error", `ویرایش نشد: ${err.message}`);
     res.status(400).json({ error: err.message });
   }
 });
@@ -1067,10 +1086,29 @@ function writeJsonFile(filePath, data) {
 }
 
 function getNotices() {
-  const data = readJsonFile(NOTICES_FILE, { notices: [] });
+  const data = readJsonFile(NOTICES_FILE, { notices: [], app: null });
   if (!Array.isArray(data.notices)) data.notices = [];
   return data;
 }
+
+/** «نسخه‌ی تازه آمده» — what the app compares itself against. */
+app.post("/api/notices/app-version", (req, res) => {
+  const body = req.body || {};
+  const data = getNotices();
+  const version = String(body.version || "").trim();
+  if (!version) {
+    data.app = null;                       // empty means «say nothing about versions»
+  } else {
+    data.app = {
+      version,
+      url: String(body.url || "").trim(),
+      note: String(body.note || "").trim(),
+    };
+  }
+  writeJsonFile(NOTICES_FILE, data);
+  say("ok", version ? `نسخه‌ی اعلامی: ${version}` : "اعلانِ نسخه برداشته شد");
+  res.json({ app: data.app });
+});
 
 function getExamData() {
   return readJsonFile(EXAM_FILE, {
@@ -1280,7 +1318,13 @@ app.post("/api/notices/publish", async (_req, res) => {
     return notice;
   });
 
-  const noticesJson = JSON.stringify({ notices }, null, 2);
+  // The version block travels inside the signed file on purpose: a download link is the most
+  // dangerous thing the app can be told, and this way it carries the same signature as the rest.
+  const published = { notices };
+  const announced = getNotices().app;
+  if (announced && announced.version && announced.url) published.app = announced;
+
+  const noticesJson = JSON.stringify(published, null, 2);
   const noticesPath = path.join(NOTICE_STAGING, "notices.json");
   const signaturePath = path.join(NOTICE_STAGING, "notices.json.sig");
   fs.writeFileSync(noticesPath, noticesJson, "utf8");

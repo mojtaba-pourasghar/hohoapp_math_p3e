@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.hoohoomath.app.BuildConfig;
 import com.hoohoomath.app.net.Net;
 
 import org.json.JSONArray;
@@ -77,6 +78,9 @@ public final class Notices {
     private static final String TOLD = "told";          // has been to the notification tray
     private static final String SHOWN_DAY = "day";      // the day its dialog was last put up
     private static final String LAST_DIALOG = "lastDialogDay";
+    private static final String LAST_CHECK = "lastCheck";
+    private static final String LAST_RESULT = "lastResult";
+    private static final String LAST_UPDATE_ASK = "lastUpdateAsk";
 
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -140,6 +144,80 @@ public final class Notices {
         public String destination() {
             return anywhere() ? "" : screen;
         }
+    }
+
+    /** What the host says the newest build is. */
+    public static final class Update {
+        public final String version;
+        public final String url;
+        public final String note;
+
+        Update(String version, String url, String note) {
+            this.version = version;
+            this.url = url;
+            this.note = note;
+        }
+    }
+
+    /**
+     * A newer version than this one, or null.
+     *
+     * **It rides inside the signed file on purpose.** A download link is the most dangerous
+     * thing this app could be told: «there is a new version, here it is» pointing at someone
+     * else's APK is how a compromised host would get onto a child's phone. Putting it in
+     * notices.json means it is covered by the same signature as everything else and needs no
+     * second file, no second signature and no second thing to get wrong.
+     */
+    public static Update updateWaiting(Context context) {
+        if (!NoticeSeal.ready(context)) return null;
+        try {
+            String json = readCache(context.getApplicationContext());
+            if (json == null) return null;
+            JSONObject app = new JSONObject(json).optJSONObject("app");
+            if (app == null) return null;
+            String version = app.optString("version", "").trim();
+            String url = app.optString("url", "").trim();
+            if (version.isEmpty() || url.isEmpty()) return null;
+            if (!url.startsWith("https://") && !url.startsWith("http://")) return null;
+            if (!newer(version, BuildConfig.VERSION_NAME)) return null;
+            return new Update(version, url, app.optString("note", "").trim());
+        } catch (Exception broken) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether `theirs` is a later version than `ours`, comparing numbers rather than text —
+     * «1.30.0» is after «1.9.0», which a string comparison gets backwards.
+     */
+    static boolean newer(String theirs, String ours) {
+        String[] a = theirs.split("\\."), b = ours.split("\\.");
+        for (int i = 0; i < Math.max(a.length, b.length); i++) {
+            int x = i < a.length ? digits(a[i]) : 0;
+            int y = i < b.length ? digits(b[i]) : 0;
+            if (x != y) return x > y;
+        }
+        return false;
+    }
+
+    private static int digits(String part) {
+        int value = 0;
+        for (int i = 0; i < part.length(); i++) {
+            char c = part.charAt(i);
+            if (c < '0' || c > '9') break;        // «1.2.0-beta» compares as 1.2.0
+            value = value * 10 + (c - '0');
+        }
+        return value;
+    }
+
+    /** At most one «there is a new version» a day, like everything else here. */
+    public static boolean updateDue(Context context) {
+        return updateWaiting(context) != null
+            && prefs(context).getLong(LAST_UPDATE_ASK, 0) != today();
+    }
+
+    public static void askedAboutUpdate(Context context) {
+        prefs(context).edit().putLong(LAST_UPDATE_ASK, today()).apply();
     }
 
     private static SharedPreferences prefs(Context context) {
@@ -247,20 +325,85 @@ public final class Notices {
     }
 
     private static boolean fetchAndStore(Context app) {
+        if (!NoticeSeal.ready(app)) {
+            note(app, "این نسخه کلیدِ امضا ندارد — هیچ خبری نمایش داده نمی‌شود");
+            return false;
+        }
+
         String fresh = Net.text(URL);
-        if (fresh == null) return false;
+        if (fresh == null) {
+            note(app, "فایلِ خبرها از هاست نیامد (notices.json)");
+            return false;
+        }
 
         // The signature decides, and it decides before anything is read out of the file. A host
         // that has been taken over can serve any notices.json it likes; what it cannot do is
         // sign one, because the key that signs is on the teacher's machine.
         String signature = Net.text(SIGNATURE_URL);
-        if (!NoticeSeal.verify(app, fresh, signature)) return false;
+        if (signature == null) {
+            note(app, "امضا روی هاست نیست (notices.json.sig)");
+            return false;
+        }
+        if (!NoticeSeal.verify(app, fresh, signature)) {
+            note(app, "امضا با فایل نمی‌خواند — یا فایل دستی عوض شده، یا با کلیدِ دیگری امضا شده");
+            return false;
+        }
 
-        if (parse(fresh).isEmpty() && !fresh.contains("notices")) return false;   // not our file
-        if (fresh.equals(readCache(app))) return false;                           // nothing new
+        if (parse(fresh).isEmpty() && !fresh.contains("notices")) {
+            note(app, "آنچه آمد فایلِ خبرها نبود");
+            return false;
+        }
+        if (fresh.equals(readCache(app))) {
+            note(app, "چیزِ تازه‌ای نبود (" + parse(fresh).size() + " خبر، همان‌ها)");
+            return false;
+        }
         writeCache(app, fresh);
         burySomethingMissed(app, fresh);
+        note(app, parse(fresh).size() + " خبر گرفته شد");
         return true;
+    }
+
+    /**
+     * What happened on the last look, in one sentence a parent can read.
+     *
+     * Every way this can fail is silent by design — an unverifiable file is thrown away without
+     * a word to the child, which is right — and that makes «I published a notice and nothing
+     * happened» impossible to answer from the outside. So the reason is written down, and the
+     * parent panel shows it.
+     */
+    private static void note(Context context, String what) {
+        prefs(context).edit()
+            .putLong(LAST_CHECK, System.currentTimeMillis())
+            .putString(LAST_RESULT, what)
+            .apply();
+    }
+
+    /** «۳ دقیقه پیش: ۱ خبر گرفته شد», or empty before the first look. */
+    public static String lastCheck(Context context) {
+        long at = prefs(context).getLong(LAST_CHECK, 0);
+        String what = prefs(context).getString(LAST_RESULT, "");
+        if (at == 0 || what.isEmpty()) return "";
+        long ago = Math.max(0, System.currentTimeMillis() - at) / 60000;
+        String when = ago < 1 ? "همین الان" : ago < 60 ? PersianDigits.fa(ago) + " دقیقه پیش"
+                    : PersianDigits.fa(ago / 60) + " ساعت پیش";
+        return when + " — " + what;
+    }
+
+    /**
+     * Drops the cached copy so the next look treats whatever is on the host as new.
+     *
+     * Only for «بررسی کن» in the parent panel: the ordinary check compares bytes and does
+     * nothing when they match, which is right for a quarter-hourly poll and useless to someone
+     * standing there asking why their notice has not arrived.
+     */
+    public static void forget(Context context) {
+        File file = cacheFile(context.getApplicationContext());
+        if (file.exists()) file.delete();
+    }
+
+    /** How many are on the device and still worth showing, whatever the child has seen. */
+    public static int countHere(Context context) {
+        return current(context).size();
     }
 
     /** Quietly retires every notice whose moment passed while the phone was away. */

@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat;
 import com.hoohoomath.app.MainActivity;
 import com.hoohoomath.app.R;
 import com.hoohoomath.app.data.Notices;
+import com.hoohoomath.app.data.OnlineExam;
+import com.hoohoomath.app.work.ExamReminders;
 
 import java.util.List;
 
@@ -40,6 +42,14 @@ import java.util.List;
 public final class Announcements {
 
     public static final String CHANNEL = "hoohoo_news";
+
+    /**
+     * The exam countdown gets its own channel.
+     *
+     * «یک ربع تا آزمون» and «کاربرگ تازه آمد» are not the same kind of message, and Android lets
+     * a parent silence one without the other only if they arrive on separate channels.
+     */
+    public static final String CHANNEL_EXAM = "hoohoo_exam";
     public static final int PERMISSION_REQUEST = 7301;
 
     private Announcements() {}
@@ -80,6 +90,50 @@ public final class Announcements {
         channel.setDescription("درس‌ها و کاربرگ‌های تازه، و خبرِ آزمون‌های آنلاین");
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager != null) manager.createNotificationChannel(channel);
+    }
+
+    private static void ensureExamChannel(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        NotificationChannel channel = new NotificationChannel(CHANNEL_EXAM, "یادآورِ آزمون آنلاین",
+            NotificationManager.IMPORTANCE_HIGH);     // it is about to start; it may interrupt
+        channel.setDescription("نیم ساعت، یک ربع، ده، پنج و یک دقیقه مانده به آزمون");
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager != null) manager.createNotificationChannel(channel);
+    }
+
+    /**
+     * «آزمون نیم ساعت دیگر شروع می‌شود» — one of the five moments before an exam a child has
+     * signed up for. Tapping it opens the exam screen itself, which is where they need to be.
+     */
+    public static void examCountdown(Context context, OnlineExam exam, int minutes) {
+        if (!permitted(context)) return;
+        ensureExamChannel(context);
+
+        Intent open = new Intent(context, MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        open.putExtra("notice_screen", "ONLINE_EXAM");
+        PendingIntent tap = PendingIntent.getActivity(context, 9100 + minutes, open,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        String line = "🏆 " + exam.title;
+        String body = "آزمون " + ExamReminders.wording(minutes);
+
+        NotificationCompat.Builder built = new NotificationCompat.Builder(context, CHANNEL_EXAM)
+            .setSmallIcon(R.drawable.ic_owl_face)
+            .setContentTitle(line)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .setContentIntent(tap)
+            .setPriority(NotificationCompat.PRIORITY_HIGH);
+
+        try {
+            // one id for the whole countdown, so «۵ دقیقه» replaces «۱۵ دقیقه» instead of
+            // leaving a column of stale reminders in the tray
+            NotificationManagerCompat.from(context).notify(9100, built.build());
+        } catch (SecurityException refused) {
+            // permission went away between the check and here
+        }
     }
 
     /** Puts every notice that has not been to the tray yet into it. */

@@ -137,7 +137,34 @@ public final class OnlineExam {
         });
     }
 
+    /**
+     * The copy on the device, without asking the host. Never null — an exam nobody has announced
+     * is simply one with `active` false, which every caller already knows how to read.
+     */
+    public static OnlineExam cached(Context context) {
+        OnlineExam fromDisk = parse(readCache(context.getApplicationContext()));
+        return fromDisk == null ? new OnlineExam() : fromDisk;
+    }
+
+    /**
+     * Fetches and stores it on the calling thread — for the background check, which has its own
+     * thread and nothing to do but wait. Hands back whatever is current afterwards.
+     */
+    public static OnlineExam loadNow(Context context) {
+        Context app = context.getApplicationContext();
+        if (Net.online(app)) {
+            String fresh = Net.text(URL);
+            OnlineExam parsed = fresh == null ? null : parse(fresh);
+            if (parsed != null) {
+                writeCache(app, fresh);
+                return parsed;
+            }
+        }
+        return cached(app);
+    }
+
     static OnlineExam parse(String json) {
+        if (json == null) return null;
         try {
             JSONObject o = new JSONObject(json);
             OnlineExam exam = new OnlineExam();

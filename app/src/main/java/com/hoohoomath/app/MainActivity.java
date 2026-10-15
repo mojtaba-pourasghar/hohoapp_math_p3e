@@ -34,6 +34,7 @@ import com.hoohoomath.app.tts.VoiceStore;
 import com.hoohoomath.app.ui.Announcements;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.NoticeDialog;
+import com.hoohoomath.app.ui.UpdateDialog;
 import com.hoohoomath.app.ui.Navigator;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -250,6 +251,13 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         if (noticeDialog != null) return;
         if (currentScreen == null || currentScreen == Screen.SPLASH
             || currentScreen == Screen.PARENT_GATE) return;
+
+        // the new-version card comes first and only on the map: it is for the parent, and a
+        // child mid-lesson has no business being sent to a browser
+        if (currentScreen == Screen.MAP) {
+            noticeDialog = UpdateDialog.showIfDue(this);
+            if (noticeDialog != null) return;
+        }
 
         Notices.Notice due = Notices.dueNow(this);
         if (due == null) return;

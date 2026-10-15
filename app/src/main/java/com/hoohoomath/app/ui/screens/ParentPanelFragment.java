@@ -21,6 +21,7 @@ import com.hoohoomath.app.data.Book;
 import com.hoohoomath.app.data.QuizResult;
 import com.hoohoomath.app.data.QuizSession;
 import com.hoohoomath.app.data.Notices;
+import com.hoohoomath.app.data.PersianDigits;
 import com.hoohoomath.app.ui.Announcements;
 import com.hoohoomath.app.ui.BaseFragment;
 import com.hoohoomath.app.ui.Screen;
@@ -120,6 +121,7 @@ public class ParentPanelFragment extends BaseFragment {
             settings.addView(buildSettingRow(SETTING_LABELS[i], i, s));
         }
         settings.addView(buildNoticesRow());
+        settings.addView(buildNoticeStatusRow());
         settings.addView(buildVoiceRow());
         settings.addView(buildSubscriptionRow());
 
@@ -265,6 +267,50 @@ public class ParentPanelFragment extends BaseFragment {
             }
             View root = getView();
             if (root != null) render(root);
+        });
+        UiKit.tapSound(row);
+        return row;
+    }
+
+    /**
+     * «آخرین بررسیِ خبرها» — the one place that says what happened.
+     *
+     * Everything about the notices fails quietly on purpose: a file whose signature does not
+     * verify is thrown away without telling the child, which is right, and leaves «I published
+     * something and nothing appeared» with no way to answer it. This row answers it, and tapping
+     * it looks again right now instead of waiting for the next quarter of an hour.
+     */
+    private View buildNoticeStatusRow() {
+        String status = Notices.lastCheck(requireContext());
+
+        LinearLayout row = UiKit.row(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int pad = UiKit.dp(requireContext(), 12);
+        row.setPadding(pad, pad, pad, pad);
+        UiKit.applyCardBg(row, requireContext(), R.color.bg_card, R.color.border_card);
+        row.setLayoutParams(UiKit.marginParams(requireContext(), 10, 0));
+
+        LinearLayout labels = UiKit.column(requireContext());
+        labels.addView(UiKit.text(requireContext(), "آخرین بررسیِ خبرها", 13.5f,
+            R.color.text_primary, true));
+        TextView note = UiKit.text(requireContext(),
+            status.isEmpty() ? "هنوز بررسی نشده" : status, 11.5f, R.color.text_muted, false);
+        note.setLineSpacing(UiKit.dp(requireContext(), 3), 1f);
+        labels.addView(note);
+        labels.addView(UiKit.text(requireContext(),
+            PersianDigits.fa(Notices.countHere(requireContext())) + " خبر روی دستگاه",
+            11.5f, R.color.text_muted, false));
+        row.addView(labels, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(UiKit.text(requireContext(), "بررسی کن ↻", 13f, R.color.teal_dark, true));
+
+        row.setOnClickListener(v -> {
+            note.setText("در حال بررسی…");
+            Notices.forget(requireContext());      // ask for the file again, not «همان‌هاست»
+            Notices.refresh(requireContext(), () -> {});
+            View root = getView();
+            if (root != null) root.postDelayed(() -> {
+                if (isAdded() && getView() != null) render(getView());
+            }, 2500);
         });
         UiKit.tapSound(row);
         return row;

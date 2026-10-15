@@ -76,7 +76,7 @@ export function slugify(title) {
  * One worksheet: its own folder holding the PDF and an info.json describing it. The same shape
  * is uploaded to the host, so the app can show the title and the note without opening the PDF.
  */
-export function addWorksheet({ dir, title, note = "", chapter = -1, fileName, data }) {
+export function addWorksheet({ dir, title, note = "", chapter = -1, order = null, fileName, data }) {
   if (!title || !String(title).trim()) throw new Error("عنوان لازم است");
   if (!data || !data.length) throw new Error("فایل خالی است");
 
@@ -92,6 +92,8 @@ export function addWorksheet({ dir, title, note = "", chapter = -1, fileName, da
     title: String(title).trim(),
     note: String(note || "").trim(),
     chapter: Number.isFinite(Number(chapter)) ? Number(chapter) : -1,
+    // where the teacher wants it in the list; null means «after the numbered ones»
+    order: Number.isFinite(Number(order)) ? Number(order) : null,
     file: pdfName,
     bytes: data.length,
     addedAt: new Date().toISOString(),
@@ -116,6 +118,44 @@ export function listWorksheets(dir) {
   return out;
 }
 
+/**
+ * Changes a sheet that has already been added — its title, its note, its chapter, its place in
+ * the list, and the PDF itself.
+ *
+ * The folder keeps its name even when the title changes. The folder name is part of the URL that
+ * every installed copy has already cached, and renaming it would turn every sheet a child has
+ * downloaded into a broken link to fix a word in a title.
+ */
+export function editWorksheet({ dir, slug, title, note, chapter, order, free, fileName, data }) {
+  const folder = path.join(dir, slug);
+  const infoPath = path.join(folder, "info.json");
+  if (!fs.existsSync(infoPath)) throw new Error("چنین کاربرگی نیست");
+
+  const info = JSON.parse(fs.readFileSync(infoPath, "utf8"));
+  if (typeof title === "string" && title.trim()) info.title = title.trim();
+  if (typeof note === "string") info.note = note.trim();
+  if (chapter !== undefined && Number.isFinite(Number(chapter))) info.chapter = Number(chapter);
+  if (order !== undefined) info.order = Number.isFinite(Number(order)) ? Number(order) : null;
+  if (free !== undefined) info.free = free === true;
+
+  if (data && data.length) {
+    // a replacement PDF takes the old one's place, name and all, so the URL does not move
+    const keep = info.file;
+    const safeName = path.basename(String(fileName || keep)).replace(/[^\w.\-]+/g, "_");
+    const pdfName = safeName.toLowerCase().endsWith(".pdf") ? safeName : safeName + ".pdf";
+    if (pdfName !== keep && fs.existsSync(path.join(folder, keep))) {
+      fs.unlinkSync(path.join(folder, keep));
+    }
+    fs.writeFileSync(path.join(folder, pdfName), data);
+    info.file = pdfName;
+    info.bytes = data.length;
+    info.changedAt = new Date().toISOString();
+  }
+
+  fs.writeFileSync(infoPath, JSON.stringify(info, null, 2), "utf8");
+  return { slug, ...info };
+}
+
 export function removeWorksheet(dir, slug) {
   const folder = path.join(dir, path.basename(slug));
   if (!fs.existsSync(folder)) return false;
@@ -127,10 +167,21 @@ export function removeWorksheet(dir, slug) {
 export function writeWorksheetIndex({ dir, baseUrl = KARBARG_BASE }) {
   fs.mkdirSync(dir, { recursive: true });
   const base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-  const sheets = listWorksheets(dir).map((sheet) => ({
+
+  // written in the order the teacher asked for, so the file reads the way the app will show it
+  const ordered = listWorksheets(dir).sort((a, b) => {
+    const ao = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER;
+    const bo = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER;
+    return ao !== bo ? ao - bo : String(a.slug).localeCompare(String(b.slug));
+  });
+
+  const sheets = ordered.map((sheet, i) => ({
     title: sheet.title,
     note: sheet.note,
     chapter: sheet.chapter,
+    // numbered from where they sit, so the app needs no tie-break of its own to agree
+    order: i + 1,
+    free: sheet.free === true,
     file: `${sheet.slug}/${sheet.file}`,
     bytes: sheet.bytes,
   }));

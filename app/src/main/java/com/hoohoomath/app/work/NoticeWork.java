@@ -110,6 +110,12 @@ public class NoticeWork extends Worker {
         // to a pool and waited on
         Notices.refreshNow(context);
         Announcements.post(context);
+
+        // The exam comes down in the same pass. Its date is what the five countdown reminders
+        // are set from, so a date the teacher moved reaches the phone without the app being
+        // opened — and the alarms move with it.
+        com.hoohoomath.app.data.OnlineExam.loadNow(context);
+        ExamReminders.refresh(context);
         return Result.success();
     }
 }

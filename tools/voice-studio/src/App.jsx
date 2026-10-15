@@ -175,7 +175,8 @@ export default function App() {
   const [showLog, setShowLog] = useState(true);
   const [published, setPublished] = useState(null);
   const [sheets, setSheets] = useState([]);
-  const [sheetForm, setSheetForm] = useState({ title: "", note: "", chapter: -1, file: null });
+  const emptySheet = { slug: "", title: "", note: "", chapter: -1, order: "", free: false, file: null };
+  const [sheetForm, setSheetForm] = useState(emptySheet);
   const [ftpPass, setFtpPass] = useState("");
   const [uploading, setUploading] = useState({ running: false, done: 0, total: 0, sent: 0, skipped: 0, failed: 0, what: "" });
   const [editing, setEditing] = useState(null);      // { key, spoken }
@@ -190,6 +191,7 @@ export default function App() {
   const [notices, setNotices] = useState([]);
   const [notifForm, setNotifForm] = useState(emptyNotice);
   const [noticeKey, setNoticeKey] = useState({ hasPrivate: false, assetExists: false });
+  const [appVersion, setAppVersion] = useState({ version: "", url: "", note: "" });
   const [examForm, setExamForm] = useState({
     active: false, title: "", description: "", shamsiDate: "1405/08/15",
     time: "16:00", durationMinutes: 45, questionsJson: "", startsAt: 0
@@ -390,6 +392,7 @@ export default function App() {
           api("/notices").then(d => {
             setNotices(d.notices || []);
             if (d.key) setNoticeKey(d.key);
+            setAppVersion(d.app || { version: "", url: "", note: "" });
           }).catch(() => {});
         }}>
           📢 اعلان‌ها
@@ -809,34 +812,57 @@ export default function App() {
             </select>
           </div>
           <div>
-            <label>فایلِ PDF</label>
+            <label>ترتیب در فهرست</label>
+            <input type="number" placeholder="خالی = آخر از همه" value={sheetForm.order}
+                   onChange={(e) => setSheetForm({ ...sheetForm, order: e.target.value })} />
+            <span className="muted" style={{ fontSize: 11 }}>
+              کوچک‌تر بالاتر. اپ دقیقاً به همین ترتیب نشان می‌دهد.
+            </span>
+          </div>
+          <div>
+            <label>فایلِ PDF {sheetForm.slug ? "(خالی بگذار تا همان فایلِ قبلی بماند)" : ""}</label>
             <input type="file" accept="application/pdf"
                    onChange={(e) => setSheetForm({ ...sheetForm, file: e.target.files?.[0] || null })} />
           </div>
+          <label className="check">
+            <input type="checkbox" checked={sheetForm.free}
+                   onChange={(e) => setSheetForm({ ...sheetForm, free: e.target.checked })} />
+            رایگان (بدونِ نسخه‌ی کامل هم باز است)
+          </label>
         </div>
         <div className="row" style={{ marginTop: 12 }}>
-          <button className="go" disabled={busy || !sheetForm.title || !sheetForm.file}
+          <button className="go"
+                  disabled={busy || !sheetForm.title || (!sheetForm.slug && !sheetForm.file)}
                   onClick={async () => {
                     setBusy(true);
                     try {
-                      const data = await new Promise((resolve, reject) => {
+                      // on an edit the PDF is optional: no file means «keep the one that is there»
+                      const data = sheetForm.file ? await new Promise((resolve, reject) => {
                         const reader = new FileReader();
                         reader.onload = () => resolve(reader.result);
                         reader.onerror = reject;
                         reader.readAsDataURL(sheetForm.file);
-                      });
-                      await api("/karbarg", { method: "POST", body: JSON.stringify({
+                      }) : null;
+                      const body = JSON.stringify({
                         title: sheetForm.title, note: sheetForm.note,
-                        chapter: sheetForm.chapter, fileName: sheetForm.file.name, dataBase64: data,
-                      }) });
-                      setSheetForm({ title: "", note: "", chapter: -1, file: null });
+                        chapter: sheetForm.chapter, free: sheetForm.free,
+                        order: sheetForm.order === "" ? null : Number(sheetForm.order),
+                        fileName: sheetForm.file ? sheetForm.file.name : undefined,
+                        dataBase64: data || undefined,
+                      });
+                      if (sheetForm.slug) await api(`/karbarg/${sheetForm.slug}`, { method: "PUT", body });
+                      else await api("/karbarg", { method: "POST", body });
+                      setSheetForm(emptySheet);
                       load();
                       setError("");
                     } catch (err) { setError(err.message); }
                     setBusy(false);
                   }}>
-            افزودنِ کاربرگ
+            {sheetForm.slug ? "💾 ذخیره‌ی ویرایش" : "افزودنِ کاربرگ"}
           </button>
+          {sheetForm.slug && (
+            <button className="ghost" onClick={() => setSheetForm(emptySheet)}>انصراف</button>
+          )}
           <button className="ghost" disabled={busy} onClick={async () => {
             try { await api("/publish/karbarg", { method: "POST" }); setError(""); }
             catch (err) { setError(err.message); }
@@ -851,13 +877,22 @@ export default function App() {
               <div className="file" key={sheet.slug}>
                 <span className="key">{sheet.slug}</span>
                 <span className="say">
+                  {Number.isFinite(sheet.order) ? `${fa(sheet.order)}. ` : "— "}
                   {sheet.title}
                   {sheet.note ? ` — ${sheet.note}` : ""}
                   {sheet.chapter >= 0 ? ` · فصل ${fa(sheet.chapter + 1)}` : " · متفرقه"}
+                  {sheet.free ? " · رایگان" : ""}
                 </span>
                 <span className="row">
                   <span className="tag done">{fa(Math.round(sheet.bytes / 1024))}KB</span>
+                  <button className="tiny ghost" onClick={() => setSheetForm({
+                    slug: sheet.slug, title: sheet.title, note: sheet.note || "",
+                    chapter: sheet.chapter, free: sheet.free === true,
+                    order: Number.isFinite(sheet.order) ? String(sheet.order) : "",
+                    file: null,
+                  })}>ویرایش</button>
                   <button className="tiny ghost" onClick={async () => {
+                    if (!confirm(`«${sheet.title}» پاک شود؟`)) return;
                     await api(`/karbarg/${sheet.slug}`, { method: "DELETE" });
                     load();
                   }}>پاک</button>
@@ -867,6 +902,10 @@ export default function App() {
           </div>
         )}
         <p className="note">
+          ویرایش، نامِ پوشه را عوض نمی‌کند — آن نام بخشی از آدرسی است که هر گوشی‌ای قبلاً
+          کش کرده، و عوض کردنش یعنی هر کاربرگِ دانلودشده یک لینکِ شکسته شود، آن هم برای
+          اصلاحِ یک کلمه در عنوان.
+          <br />
           هر کاربرگ یک پوشه با نامِ خودش می‌گیرد که PDF و <code>info.json</code> در آن است.
           همین ساختار را در <code>{config.karbargBase}</code> آپلود کن؛ اپ فهرست را با
           عنوان و توضیح می‌خواند و لینکِ دانلود می‌سازد.
@@ -1116,6 +1155,37 @@ export default function App() {
                 هیچ خبری را قبول نمی‌کند.
               </p>
             )}
+          </div>
+
+          <div className="card" style={{ marginTop: 14 }}>
+            <b>✨ نسخه‌ی برنامه</b>
+            <p className="note" style={{ marginTop: 6 }}>
+              اپ خودش را با این مقایسه می‌کند و اگر عقب بود، روی صفحه‌ی نقشه یک بار در روز
+              پیشنهادِ دانلود می‌دهد. <b>داخلِ همان فایلِ امضاشده می‌رود</b> — لینکِ دانلود
+              خطرناک‌ترین چیزی است که می‌شود به اپ گفت، پس امضای خبرها آن را هم می‌پوشاند.
+              خالی بگذار تا چیزی درباره‌ی نسخه گفته نشود.
+            </p>
+            <div className="grid2">
+              <div>
+                <label>نسخه</label>
+                <input type="text" placeholder="مثلاً ۱.۳۰.۰ → 1.30.0" value={appVersion.version}
+                       onChange={(e) => setAppVersion({ ...appVersion, version: e.target.value })} />
+              </div>
+              <div>
+                <label>لینکِ دانلود</label>
+                <input type="text" placeholder="https://…/hoohoo-math.apk" value={appVersion.url}
+                       onChange={(e) => setAppVersion({ ...appVersion, url: e.target.value })} />
+              </div>
+              <div>
+                <label>چه چیزی تازه شده (اختیاری)</label>
+                <input type="text" value={appVersion.note}
+                       onChange={(e) => setAppVersion({ ...appVersion, note: e.target.value })} />
+              </div>
+            </div>
+            <button className="go ghost" style={{ marginTop: 10 }} onClick={async () => {
+              await api("/notices/app-version", { method: "POST", body: JSON.stringify(appVersion) });
+              alert("ذخیره شد. با «انتشار روی هاست» به اپ‌ها می‌رسد.");
+            }}>💾 ذخیره‌ی نسخه</button>
           </div>
 
           <h3 style={{ marginTop: 20 }}>{notifForm.id ? "✏️ ویرایشِ خبر" : "✍️ خبرِ تازه"}</h3>
