@@ -35,7 +35,7 @@ import java.util.concurrent.Executors;
  *         "body": "پنج‌شنبه ساعت ۱۶، با بچه‌های سراسر کشور.",
  *         "image": "notices/aban.jpg",  // optional, relative to this folder or a full URL
  *         "link": "https://…",          // optional, opens in the browser
- *         "screen": "ONLINE_EXAM",      // optional, a screen inside the app
+ *         "screen": "ONLINE_EXAM",      // optional, a screen inside the app — or ANYWHERE
  *         "from": 1761000000000,        // optional epoch ms; before this it is not shown
  *         "until": 1763000000000 } ] }  // optional epoch ms; after this it is dropped, unshown
  *
@@ -67,6 +67,9 @@ public final class Notices {
 
     /** The teacher's signature over notices.json, written beside it. See {@link NoticeSeal}. */
     public static final String SIGNATURE_URL = BASE_URL + "notices.json.sig";
+
+    /** The `screen` value that means «wherever they are» rather than a screen to open. */
+    public static final String ANYWHERE = "ANYWHERE";
 
     private static final String CACHED = "notices-cache.json";
     private static final String PREFS = "notices";
@@ -117,6 +120,25 @@ public final class Notices {
 
         public boolean hasImage() {
             return !image.isEmpty();
+        }
+
+        /**
+         * «هر جای برنامه بود، همان‌جا نشانش بده».
+         *
+         * The ordinary notice waits for the child to come back to the map, which is where news
+         * belongs: a lesson should not be interrupted to advertise at a seven-year-old. A notice
+         * marked this way does not wait — «the exam starts in ten minutes» is no use to someone
+         * who is three pages into chapter four and will not look up for an hour.
+         *
+         * It is a marker, not a destination, so it never goes into Screen.valueOf.
+         */
+        public boolean anywhere() {
+            return ANYWHERE.equals(screen);
+        }
+
+        /** Where tapping it goes, or empty when it only marks the notice as «show at once». */
+        public String destination() {
+            return anywhere() ? "" : screen;
         }
     }
 

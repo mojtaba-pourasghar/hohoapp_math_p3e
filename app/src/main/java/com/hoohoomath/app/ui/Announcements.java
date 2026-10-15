@@ -94,7 +94,7 @@ public final class Announcements {
 
             Intent open = new Intent(context, MainActivity.class);
             open.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            if (!notice.screen.isEmpty()) open.putExtra("notice_screen", notice.screen);
+            if (!notice.destination().isEmpty()) open.putExtra("notice_screen", notice.destination());
             open.putExtra("notice_id", notice.id);
 
             PendingIntent tap = PendingIntent.getActivity(context, notice.id.hashCode(), open,

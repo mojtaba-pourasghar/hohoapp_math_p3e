@@ -30,19 +30,12 @@ import com.hoohoomath.app.data.Notices;
  * outside it or presses back has said «not now» — which is an answer, and is taken as one: the
  * notice stays unseen and comes round again tomorrow, not in five minutes.
  *
- * One a day, whatever has piled up behind it — see {@link Notices#dueNow}.
+ * One a day, whatever has piled up behind it — see {@link Notices#dueNow}. Which screen it is
+ * allowed to appear over is {@link com.hoohoomath.app.MainActivity}'s decision, not this class's.
  */
 public final class NoticeDialog {
 
     private NoticeDialog() {}
-
-    /** Puts up today's notice if there is one. Returns the dialog, or null if there was nothing. */
-    public static Dialog showIfDue(FragmentActivity activity, Runnable afterwards) {
-        Notices.Notice notice = Notices.dueNow(activity);
-        if (notice == null) return null;
-        Notices.shownToday(activity, notice.id);
-        return show(activity, notice, afterwards);
-    }
 
     public static Dialog show(FragmentActivity activity, Notices.Notice notice, Runnable afterwards) {
         Context context = activity;
@@ -133,7 +126,7 @@ public final class NoticeDialog {
 
     /** What the button should say, or nothing when the notice is only words. */
     private static String destination(Notices.Notice notice) {
-        if (!notice.screen.isEmpty()) return "بریم ببینیم";
+        if (!notice.destination().isEmpty()) return "بریم ببینیم";
         if (!notice.link.isEmpty()) return "باز کردن لینک";
         return "";
     }
@@ -143,9 +136,9 @@ public final class NoticeDialog {
      * take a child anywhere unexpected.
      */
     private static void follow(FragmentActivity activity, Notices.Notice notice) {
-        if (!notice.screen.isEmpty()) {
+        if (!notice.destination().isEmpty()) {
             try {
-                ((Navigator) activity).go(Screen.valueOf(notice.screen), null);
+                ((Navigator) activity).go(Screen.valueOf(notice.destination()), null);
                 return;
             } catch (IllegalArgumentException unknown) {
                 // news written for a newer version of the app; fall through to the link

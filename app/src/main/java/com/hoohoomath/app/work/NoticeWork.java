@@ -3,8 +3,11 @@ package com.hoohoomath.app.work;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
+import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -24,18 +27,24 @@ import java.util.concurrent.TimeUnit;
  * system wakes the app now and then, it fetches the same small signed file, and anything new
  * goes to the notification tray.
  *
- * Android will not run this more often than every fifteen minutes however it is asked, and
- * batches it with whatever else the phone is doing anyway. Half an hour is the ask here: news
- * about an exam this evening is in good time, and a child's phone is not kept awake for it.
+ * **Fifteen minutes is the floor, and it is Android's floor, not a number picked here.**
+ * `PeriodicWorkRequest` refuses anything shorter whatever it is asked for, and in Doze — a phone
+ * face down on a table overnight — even that is batched into the maintenance windows the system
+ * chooses, so the real gap can be longer. There is no setting that changes this: delivering the
+ * instant something is published is exactly what a push service does, and what a phone cannot do
+ * for itself. This gets as close as the platform allows.
  *
- * It only runs with a connection — there is nothing to do without one — and the same «one a
- * day» and «late news is no news» rules apply, because they live in {@link Notices} rather than
- * in whoever happens to be asking.
+ * It only runs with a connection — there is nothing to do without one — and the same «one a day»
+ * and «late news is no news» rules apply, because they live in {@link Notices} rather than in
+ * whoever happens to be asking.
+ *
+ * It survives a reboot without a BOOT_COMPLETED receiver of its own: WorkManager keeps the queue
+ * in its own database and reschedules everything in it when the phone comes back up.
  */
 public class NoticeWork extends Worker {
 
     private static final String NAME = "hoohoo-notices";
-    private static final long EVERY_MINUTES = 30;
+    private static final long EVERY_MINUTES = 15;        // the shortest Android will accept
 
     public NoticeWork(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -49,9 +58,12 @@ public class NoticeWork extends Worker {
                 .setConstraints(new Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build())
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 5, TimeUnit.MINUTES)
                 .build();
+            // UPDATE, not KEEP: a copy of the app installed when the period was half an hour
+            // would otherwise keep that schedule for as long as it stayed installed.
             WorkManager.getInstance(context.getApplicationContext())
-                .enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, work);
+                .enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.UPDATE, work);
         } catch (Exception notAvailable) {
             // WorkManager could not start; the in-app checks still run
         }
@@ -63,6 +75,29 @@ public class NoticeWork extends Worker {
             WorkManager.getInstance(context.getApplicationContext()).cancelUniqueWork(NAME);
         } catch (Exception ignored) {
             // nothing was scheduled
+        }
+    }
+
+    /**
+     * Looks once, now.
+     *
+     * Used when the app is closing: a child who has just put the phone down is the most likely
+     * person to still be near it, so one last check costs little and can turn a fifteen-minute
+     * wait into none at all.
+     */
+    public static void once(Context context) {
+        try {
+            // unique and replacing: onPause fires on every rotation and every time another
+            // screen covers the app, and a queue of identical checks helps nobody
+            WorkManager.getInstance(context.getApplicationContext()).enqueueUniqueWork(
+                NAME + "-now", ExistingWorkPolicy.REPLACE,
+                new OneTimeWorkRequest.Builder(NoticeWork.class)
+                    .setConstraints(new Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build())
+                    .build());
+        } catch (Exception notAvailable) {
+            // nothing to fall back to; the periodic check still runs
         }
     }
 

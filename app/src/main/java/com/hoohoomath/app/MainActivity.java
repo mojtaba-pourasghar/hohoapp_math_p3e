@@ -33,6 +33,7 @@ import com.hoohoomath.app.work.NoticeWork;
 import com.hoohoomath.app.tts.VoiceStore;
 import com.hoohoomath.app.ui.Announcements;
 import com.hoohoomath.app.ui.BaseFragment;
+import com.hoohoomath.app.ui.NoticeDialog;
 import com.hoohoomath.app.ui.Navigator;
 import com.hoohoomath.app.ui.Screen;
 import com.hoohoomath.app.ui.UiKit;
@@ -86,6 +87,9 @@ public class MainActivity extends AppCompatActivity implements Navigator {
 
     private final Stack<Step> backStack = new Stack<>();
     private Bundle currentArgs;
+
+    /** Today's notice while it is on screen, so two can never stack. */
+    private android.app.Dialog noticeDialog;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -224,14 +228,50 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         NoticeWatcher.start(this, () -> {
             Announcements.post(this);
             Announcements.askIfUseful(this);
+            showNoticeIfDue();          // something just arrived; it may not want to wait
         });
+        showNoticeIfDue();
         SoundManager sound = SoundManager.get();
         if (sound != null) sound.startMusic();
     }
 
+    /**
+     * Puts today's notice up, if this is a screen it is allowed on.
+     *
+     * The ordinary notice waits for the map. News is not worth interrupting a lesson for, and a
+     * child halfway through a page should not have an announcement land on top of it.
+     *
+     * A notice the teacher marked «هر جای برنامه» does not wait: «the exam starts in ten
+     * minutes» is no use to someone who will not come back to the map for an hour. Those two
+     * places are still off limits — the splash has nothing behind it yet, and the parent gate is
+     * a PIN being typed.
+     */
+    private void showNoticeIfDue() {
+        if (noticeDialog != null) return;
+        if (currentScreen == null || currentScreen == Screen.SPLASH
+            || currentScreen == Screen.PARENT_GATE) return;
+
+        Notices.Notice due = Notices.dueNow(this);
+        if (due == null) return;
+        if (currentScreen != Screen.MAP && !due.anywhere()) return;
+
+        Notices.shownToday(this, due.id);
+        noticeDialog = NoticeDialog.show(this, due, () -> {
+            noticeDialog = null;
+            Fragment showing = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+            if (showing instanceof MapFragment) ((MapFragment) showing).refreshNotices();
+        });
+    }
+
     @Override
     protected void onPause() {
-        NoticeWatcher.stop();      // nothing to look for while nobody is looking at the screen
+        if (noticeDialog != null) {
+            noticeDialog.dismiss();     // the window must not outlive the screen behind it
+            noticeDialog = null;
+        }
+        NoticeWatcher.stop();
+        // one last look on the way out, while the phone is still awake and in a hand
+        if (Notices.allowed(this)) NoticeWork.once(this);      // nothing to look for while nobody is looking at the screen
         SoundManager sound = SoundManager.get();
         if (sound != null) sound.pauseMusic();
         super.onPause();
@@ -411,6 +451,7 @@ public class MainActivity extends AppCompatActivity implements Navigator {
         }
         currentScreen = screen;
         updateNavHighlight(screen);
+        if (navBar != null) navBar.post(this::showNoticeIfDue);
     }
 
     @Override

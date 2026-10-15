@@ -1155,7 +1155,8 @@ export default function App() {
               <label>📍 کجای برنامه باز شود</label>
               <select value={notifForm.screen}
                       onChange={(e) => setNotifForm({ ...notifForm, screen: e.target.value })}>
-                <option value="">هیچ‌جا — فقط متن</option>
+                <option value="">هیچ‌جا — فقط متن، روی صفحه‌ی نقشه</option>
+                <option value="ANYWHERE">⚡ هر جای برنامه بود — همان‌جا نشانش بده</option>
                 <option value="ONLINE_EXAM">آزمون آنلاین</option>
                 <option value="WORKSHEET_DOWNLOAD">دانلود کاربرگ</option>
                 <option value="EXAM_INDEX">آزمون‌ها</option>
@@ -1163,6 +1164,11 @@ export default function App() {
                 <option value="PAYWALL">نسخه‌ی کامل</option>
                 <option value="MAP">نقشه</option>
               </select>
+              <span className="muted" style={{ fontSize: 11 }}>
+                خبرِ معمولی تا وقتی کودک به صفحه‌ی نقشه برگردد صبر می‌کند — وسطِ درس مزاحمش
+                نمی‌شود. «⚡ هر جای برنامه» صبر نمی‌کند؛ برای چیزی مثل «آزمون ده دقیقه‌ی دیگر
+                شروع می‌شود» که به‌دردِ کسی که یک ساعت دیگر سر بلند می‌کند نمی‌خورد.
+              </span>
             </div>
             <div>
               <label>📅 از کِی دیده شود (اختیاری)</label>

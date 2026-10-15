@@ -32,9 +32,6 @@ import static com.hoohoomath.app.data.PersianDigits.fa;
 
 public class MapFragment extends BaseFragment {
 
-    /** Today's notice, while it is on screen. */
-    private android.app.Dialog notice;
-
     /** {top%, left%} stops along the trail — five sections then the chapter exam. */
     private static final float[][] NODE_POSITIONS = {
         {80, 72}, {69, 44}, {57, 66}, {45, 38}, {33, 62}, {16, 44}
@@ -58,32 +55,10 @@ public class MapFragment extends BaseFragment {
         render(view, state().mapChapter());
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        // The map is the first screen a child lands on, so today's notice goes up here — in the
-        // next frame, so it does not fight the screen's own setting-up, and only ever one a day.
+    /** The activity shows the dialog; this keeps the card list beside it honest. */
+    public void refreshNotices() {
         View root = getView();
-        if (root != null) {
-            root.post(() -> {
-                if (!isAdded()) return;
-                if (notice != null) return;            // one already up, from a rotation
-                notice = NoticeDialog.showIfDue(requireActivity(), () -> {
-                    notice = null;
-                    View now = getView();
-                    if (now != null) renderNotices(now);   // the card list reflects what was read
-                });
-            });
-        }
-    }
-
-    @Override
-    public void onDestroyView() {
-        if (notice != null) {
-            notice.dismiss();      // the window must not outlive the screen that opened it
-            notice = null;
-        }
-        super.onDestroyView();
+        if (root != null) renderNotices(root);
     }
 
     /**
@@ -128,10 +103,10 @@ public class MapFragment extends BaseFragment {
             UiKit.tapSound(ok);
             card.addView(ok, UiKit.marginParams(requireContext(), 10, 0));
 
-            if (!notice.screen.isEmpty()) {
+            if (!notice.destination().isEmpty()) {
                 card.setOnClickListener(v -> {
                     try {
-                        Screen target = Screen.valueOf(notice.screen);
+                        Screen target = Screen.valueOf(notice.destination());
                         Notices.markSeen(requireContext(), notice.id);
                         nav().go(target);
                     } catch (IllegalArgumentException unknown) {
